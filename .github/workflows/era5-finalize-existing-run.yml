@@ -7,9 +7,6 @@ on:
         description: "Existing full-reconstruction workflow run ID"
         required: true
         default: "34361612066"
-  push:
-    paths:
-      - "research/phase2/ERA5_FINALIZE_EXISTING_TRIGGER.txt"
 
 permissions:
   contents: read
