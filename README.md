@@ -8,7 +8,7 @@ Explainable real-time risk monitoring and research system for linear precipitati
 
 **Phase 1C — Scientific Feature Engine**
 
-Phase 0 data-source audit, Phase 0.5 live acquisition proof, Phase 1A canonical adapters, and the initial Phase 1B Scientific Evidence Engine are complete. Phase 1C is now reproducing paper-derived scientific quantities from live weather data under explicit exactness/proxy guardrails.
+Phase 0 data-source audit, Phase 0.5 live acquisition proof, Phase 1A canonical adapters, and the initial Phase 1B Scientific Evidence Engine are complete. Phase 1C is now reproducing paper-derived scientific quantities and defensible live radar features under explicit exactness/proxy guardrails.
 
 ### Phase 0.5 mandatory payload gate
 
@@ -21,7 +21,7 @@ Supplementary sources:
 - JMA Himawari — metadata proof complete; scientific image/channel validation pending
 - JMA WINDAS — stable machine acquisition route pending
 
-The scheduled proof remains conservative at 30-minute cadence while scientific-decode and failure-behavior evidence accumulates.
+The scheduled proof remains conservative at 30-minute cadence while scientific-decode and failure-behavior evidence accumulates. Multi-tile live radar proofs run only on explicit manual / `[radar-live]` execution.
 
 ## Current scientific gates
 
@@ -40,13 +40,18 @@ Tahara 1000–900-hPa q/u/v raw stack        PASS
 Tahara IWVF formula                         PENDING
 Kato exact 500-m FLWV                       BLOCKED
 Kato SREH / LFC / EL / W700                 PENDING
-radar pixel scientific decode               PENDING
-rainband object extraction                  PENDING
+radar public-PNG scientific class decode    PASS
+live precipitation-object morphology        PASS
+radar vs local 600-hPa orientation          PASS
+multi-frame radar object tracking           IN PROGRESS
+stationarity / persistence                  PENDING
+back-building diagnostics                   PENDING
+Hirockawa exact 3-h HRA                     BLOCKED
 historical feature reconstruction           NOT STARTED
 risk engine allowed                         NO
 ```
 
-No LPZ prediction score will be introduced until scientific decoding, historical reconstruction, and frozen validation gates are closed.
+No LPZ prediction score will be introduced until scientific decoding, temporal reconstruction, historical reconstruction, and frozen validation gates are closed.
 
 ## Scientific Evidence Engine policy
 
@@ -70,6 +75,9 @@ Critical guardrails enforced by tests and CI include:
 3. GFS precomputed helicity is **not** assumed to be the same SREH construction used by Kato.
 4. GFS pressure vertical velocity is **not** compared directly with Kato's geometric upward-velocity threshold before conversion and sign validation.
 5. Tahara's IWVF input stack can be decoded, but the pressure-integral formula remains closed until its numerical sign/integration convention is explicitly verified.
+6. Public radar PNG colours remain intensity intervals; continuous rainfall values are never invented from class midpoints.
+7. Only exact public-palette boundaries (30 / 50 / 80 mm/h) are used for live threshold-object masks.
+8. Instantaneous aspect ratio, orientation, or wind alignment is **not** labeled as an LPZ without temporal and historical evidence.
 
 See:
 - `research/evidence/scientific_evidence_registry.json`
@@ -78,9 +86,9 @@ See:
 
 ## Phase 1C live scientific proof
 
-GitHub Actions has successfully downloaded and decoded a live evidence-driven GFS subset using ECMWF ecCodes.
+GitHub Actions has successfully downloaded and decoded a live evidence-driven GFS subset using ECMWF ecCodes and has separately validated the JMA public radar PNG scientific path.
 
-Initial low-ambiguity proof fields:
+Initial low-ambiguity GFS proof fields:
 - RH at 500 and 700 hPa
 - U/V wind at 600 hPa
 - U/V wind at 850 hPa
@@ -88,9 +96,21 @@ Initial low-ambiguity proof fields:
 
 The proof contained all 21 expected fields on a common 14,641-point Japan-domain grid, with finite values in every required field. The first Kato RH500/RH700 threshold calculation and the raw Tahara low-level moisture stack were executed successfully.
 
+Radar Phase 1C has also proven:
+- official 8-class public PNG decoding with unknown-colour rejection
+- JMA even-zoom tile-pyramid handling (real precipitation data on z4/z6/z8/z10; odd-zoom placeholders are not treated as no-rain)
+- z8 fixed-mosaic precipitation-object segmentation at exact 30/50/80 mm/h class boundaries
+- latitude-adjusted object area, centroid, PCA major/minor axes, aspect ratio, orientation, and boundary truncation
+- local, time-aligned 600-hPa GFS wind sampling at object centroids
+- acute rain-axis versus wind-axis mismatch with 180-degree axial symmetry
+
 These are scientific feature/decode proofs, **not probabilities of LPZ occurrence**.
 
-See `research/phase1/PHASE1C_GFS_SCIENTIFIC_DECODE_BASELINE_20260909.md`.
+Baseline records:
+- `research/phase1/PHASE1C_GFS_SCIENTIFIC_DECODE_BASELINE_20260909.md`
+- `research/phase1/PHASE1C_RADAR_SCIENTIFIC_DECODE_BASELINE_20260909.md`
+- `research/phase1/PHASE1C_RADAR_MORPHOLOGY_BASELINE_20260909.md`
+- `research/phase1/PHASE1C_RADAR_WIND_ORIENTATION_BASELINE_20260909.md`
 
 ## v0.1 source policy
 
@@ -154,6 +174,11 @@ Canonical adapters <-------------------+
         v
 Scientific Feature Engine
         |
+        +--> environmental diagnostics
+        +--> radar morphology
+        +--> multi-frame radar tracking
+        +--> wind/orientation relations
+        |
         v
 Frozen validation / holdout
         |
@@ -174,11 +199,16 @@ GFS transport proof includes automatic fallback to a previous completed model cy
 
 The Phase 1B registry drives GFS requirements from reproducible literature needs rather than collecting variables merely because they are available. Phase 1C then attempts live reproduction while keeping blocked transformations blocked.
 
+The live temporal radar layer is now being added conservatively: only overlapping objects are association candidates in the initial tracker. Complete non-overlap is recorded as death plus birth rather than forcing a potentially false lineage. Split/merge candidate edges are retained separately from the primary one-to-one lineage.
+
 See:
 - `docs/PHASE0_DATA_SOURCE_AUDIT.md`
 - `research/phase0/PHASE0_5_BASELINE_20260909.md`
 - `research/phase1/PHASE1B_SCIENTIFIC_EVIDENCE_BASELINE_20260909.md`
 - `research/phase1/PHASE1C_GFS_SCIENTIFIC_DECODE_BASELINE_20260909.md`
+- `research/phase1/PHASE1C_RADAR_SCIENTIFIC_DECODE_BASELINE_20260909.md`
+- `research/phase1/PHASE1C_RADAR_MORPHOLOGY_BASELINE_20260909.md`
+- `research/phase1/PHASE1C_RADAR_WIND_ORIENTATION_BASELINE_20260909.md`
 
 ## Run locally
 
@@ -197,6 +227,17 @@ python scripts/build_canonical_snapshot.py \
 
 python scripts/gfs_scientific_decode_probe.py \
   --output reports/scientific/gfs_scientific_decode.json
+
+# Heavy live-radar proofs are intentionally explicit rather than routine.
+python scripts/radar_scientific_decode_probe.py \
+  --output reports/scientific/radar_scientific_decode.json
+python scripts/radar_morphology_probe.py \
+  --output reports/scientific/radar_morphology.json
+python scripts/radar_wind_orientation_probe.py \
+  --morphology reports/scientific/radar_morphology.json \
+  --output reports/scientific/radar_wind_orientation.json
+python scripts/radar_tracking_probe.py \
+  --output reports/scientific/radar_tracking.json
 ```
 
 No paid API or LLM API is required for the current phase.
