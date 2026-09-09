@@ -2,6 +2,10 @@ name: LPZ Free Precipitation Auth Proof
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/FREE_PRECIP_AUTH_TRIGGER.txt"
 
 permissions:
   contents: read
