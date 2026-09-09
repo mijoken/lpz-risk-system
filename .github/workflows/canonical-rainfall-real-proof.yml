@@ -1,0 +1,61 @@
+name: LPZ Canonical Rainfall Real Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/CANONICAL_RAINFALL_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GSMAP_FTP_USERNAME: ${{ secrets.GSMAP_FTP_USERNAME }}
+      GSMAP_FTP_PASSWORD: ${{ secrets.GSMAP_FTP_PASSWORD }}
+      EARTHDATA_USERNAME: ${{ secrets.EARTHDATA_USERNAME }}
+      EARTHDATA_PASSWORD: ${{ secrets.EARTHDATA_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Verify secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GSMAP_FTP_USERNAME:-}"
+          test -n "${GSMAP_FTP_PASSWORD:-}"
+          test -n "${EARTHDATA_USERNAME:-}"
+          test -n "${EARTHDATA_PASSWORD:-}"
+      - name: Run real canonical adapter proof
+        run: python scripts/canonical_rainfall_real_proof.py --output reports/historical/canonical_rainfall_real_proof.json
+      - name: Assert scientific gates
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/canonical_rainfall_real_proof.json',encoding='utf-8'))
+          assert p['zero_cost_required'] is True
+          assert p['gates']['gsmap']=='PASS_REAL_GSMAP_CANONICAL_DECODE', p
+          assert p['gates']['imerg']=='PASS_REAL_IMERG_CANONICAL_DECODE', p
+          assert p['gates']['cross_source_averaging_performed'] is False
+          assert p['gates']['raw_payloads_persisted'] is False
+          assert p['hard_negative_label'] is None
+          assert p['risk_score'] is None
+          assert p['risk_engine_allowed'] is False
+          assert p['providers'][0]['accumulation_seconds']==3600
+          assert p['providers'][1]['accumulation_seconds']==1800
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: canonical-rainfall-real-proof-${{ github.run_id }}
+          path: reports/historical/canonical_rainfall_real_proof.json
+          if-no-files-found: error
+          retention-days: 30
