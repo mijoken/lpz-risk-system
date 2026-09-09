@@ -2,10 +2,6 @@ name: LPZ CMORPH CDR Payload Proof
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "research/phase2/CMORPH_CDR_TRIGGER.txt"
 
 permissions:
   contents: read
