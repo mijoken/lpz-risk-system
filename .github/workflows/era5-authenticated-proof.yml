@@ -7,6 +7,10 @@ on:
         description: "Frozen ERA5 manifest request index for one proof payload"
         required: false
         default: "0"
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/ERA5_AUTH_PROOF_TRIGGER.txt"
 
 permissions:
   contents: read
@@ -56,9 +60,11 @@ jobs:
 
       - name: Download one ERA5 GRIB request
         run: |
+          REQUEST_INDEX="${{ github.event.inputs.request_index }}"
+          if [ -z "$REQUEST_INDEX" ]; then REQUEST_INDEX="0"; fi
           python scripts/era5_authenticated_probe.py \
             --manifest reports/historical/era5_request_manifest.json \
-            --request-index "${{ inputs.request_index }}" \
+            --request-index "$REQUEST_INDEX" \
             --output-grib reports/historical/era5_probe.grib \
             --output-report reports/historical/era5_authenticated_probe.json
 
