@@ -10,6 +10,7 @@ from lpz_risk.radar_science import (
     JMA_PRECIPITATION_CLASSES,
     class_interval,
     decode_jma_precipitation_png,
+    descendant_tile_indices,
     interval_definitely_at_least,
     interval_possibly_at_least,
     tile_pixel_center_lonlat,
@@ -73,6 +74,17 @@ class RadarScienceTests(unittest.TestCase):
         japan = web_mercator_pixel_area_km2(35.0, 8)
         self.assertGreater(equator, japan)
         self.assertGreater(japan, 0.0)
+
+    def test_z6_parent_has_exactly_64_z9_descendants(self) -> None:
+        children = descendant_tile_indices(6, 57, 23, 9)
+        self.assertEqual(len(children), 64)
+        self.assertEqual(children[0], (456, 184))
+        self.assertEqual(children[-1], (463, 191))
+        self.assertEqual(len(set(children)), 64)
+
+    def test_descendant_tiles_reject_reverse_zoom(self) -> None:
+        with self.assertRaises(ValueError):
+            descendant_tile_indices(9, 1, 1, 6)
 
 
 if __name__ == "__main__":
