@@ -26,6 +26,21 @@ class HistoricalCasesTest(unittest.TestCase):
         self.assertEqual(report["semantic_mapping_status"], "PENDING_HEADER_AUDIT")
         self.assertEqual(report["rows"][0]["raw"]["地域"], "福岡県")
 
+    def test_jma_update_preamble_is_not_treated_as_header(self):
+        text = (
+            "最終更新時刻:20260909193000\n"
+            "年,月,日,時,分,地域\n"
+            "2026,9,9,18,40,福岡県\n"
+        )
+        report = ingest_source_rows("JMA_TEST", 2026, text.encode("cp932"))
+        self.assertEqual(report["header_line_number"], 2)
+        self.assertEqual(report["headers"], ["年", "月", "日", "時", "分", "地域"])
+        self.assertEqual(report["row_count"], 1)
+        self.assertEqual(report["rows"][0]["row_number"], 3)
+        self.assertEqual(report["rows"][0]["raw"]["地域"], "福岡県")
+        self.assertEqual(report["source_metadata"]["last_updated_compact"], "20260909193000")
+        self.assertTrue(report["source_metadata"]["last_updated_jst"].startswith("2026-09-09T19:30:00"))
+
     def test_cp932_decode(self):
         text = "解析日時,地域\n2025/08/10 03:20,福岡県\n"
         decoded, encoding = decode_csv_bytes(text.encode("cp932"))
