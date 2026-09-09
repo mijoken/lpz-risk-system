@@ -17,6 +17,7 @@ on:
       - "scripts/radar_temporal_descriptor.py"
       - "scripts/radar_genesis_geometry_report.py"
       - "scripts/radar_inflow_geometry_probe.py"
+      - "scripts/build_parent_precursor_report.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
@@ -139,6 +140,15 @@ jobs:
             --genesis reports/scientific/radar_genesis_geometry.json \
             --output reports/scientific/radar_inflow_geometry.json
 
+      - name: Build per-parent precursor feature table
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
+        run: |
+          python scripts/build_parent_precursor_report.py \
+            --temporal reports/scientific/radar_temporal.json \
+            --inflow reports/scientific/radar_inflow_geometry.json \
+            --output reports/scientific/parent_precursor_features.json \
+            --csv-output reports/scientific/parent_precursor_features.csv
+
       - name: Upload Phase 0.5 / 1A / 1B / 1C evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -157,5 +167,7 @@ jobs:
             reports/scientific/radar_temporal.json
             reports/scientific/radar_genesis_geometry.json
             reports/scientific/radar_inflow_geometry.json
+            reports/scientific/parent_precursor_features.json
+            reports/scientific/parent_precursor_features.csv
           if-no-files-found: warn
           retention-days: 30
