@@ -1,2 +1,3 @@
-Phase 2I full DEVELOPMENT rainfall reconstruction rerun after GSMaP live-directory filename resolution fix.
+Phase 2I definitive full DEVELOPMENT rainfall reconstruction with provider-isolated concurrency.
+GSMaP: serial max-parallel=1 plus bounded retry/backoff and live directory filename resolution.
 Expected: 69 tasks / 567 windows / 1503 anchor-provider mappings / 195 local-episode representatives.
