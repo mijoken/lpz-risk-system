@@ -6,21 +6,46 @@ Explainable real-time risk monitoring and research system for linear precipitati
 
 ## Current phase
 
-**Phase 0.5 — Data Acquisition Proof**
+**Phase 1A — Canonical Data Adapter Proof**
 
-Before building any LPZ risk score, this phase verifies that the planned live data sources can actually be acquired and parsed reliably from GitHub Actions.
+Phase 0 data-source audit is complete and Phase 0.5 has demonstrated real payload acquisition for all four mandatory sources from GitHub Actions.
 
-### v0.1 source policy
+### Phase 0.5 mandatory payload gate
+
+- JMA High-Resolution Precipitation Nowcast — **PASS**
+- JMA analyzed precipitation / RASRF — **PASS**
+- JMA AMeDAS — **PASS**
+- NOAA/NCEP GFS 0.25° — **PASS**
+
+Supplementary sources:
+- JMA Himawari — metadata proof complete; scientific image/channel validation pending
+- JMA WINDAS — stable machine acquisition route pending
+
+The scheduled proof remains conservative at 30-minute cadence while availability and freshness evidence accumulates.
+
+## Current Phase 1A gates
+
+```text
+mandatory transport              PASS
+AMeDAS station normalization     PASS
+radar pixel scientific decode    PENDING
+GFS LPZ-variable decode          PENDING
+risk engine allowed              NO
+```
+
+No LPZ prediction score will be introduced until the scientific decoding gates are closed.
+
+## v0.1 source policy
 
 **Live mandatory**
 - JMA High-Resolution Precipitation Nowcast
-- JMA analyzed precipitation / precipitation-analysis metadata
+- JMA analyzed precipitation / RASRF
 - JMA AMeDAS
 - NOAA/NCEP GFS 0.25°
 
 **Live supplementary**
 - JMA WINDAS / wind profiler
-- JMA Himawari imagery metadata
+- JMA Himawari imagery
 
 **Benchmark only — never an input to the independent LPZ score**
 - JMA official linear precipitation zone detection / event records
@@ -51,43 +76,49 @@ GitHub Actions
         v
 Acquisition + validation
         |
-        +--> raw/normalized data adapters
+        v
+Canonical adapters
+  - source_health
+  - radar_frame
+  - surface_station_frame
+  - environment_frame
+        |
+        +--> historical research / backtest
         |
         v
-Canonical JSON / GeoJSON
+Future LPZ state / risk engine
         |
-        +--> research / backtest
+        v
+JSON / GeoJSON
         |
         v
 GitHub Pages dashboard
 ```
 
-Live and historical pipelines are intentionally separated. They converge only at a canonical feature schema.
+Live and historical pipelines are intentionally separated. They converge only at canonical feature definitions.
 
-## Phase 0.5 acceptance policy
+## Current evidence
 
-A source is not promoted to `CORE` merely because documentation says it exists. We collect evidence from repeated workflow runs and record:
+The Phase 1A GitHub Actions proof normalized 1,286 AMeDAS stations, including 915 stations with wind observations and 841 with humidity observations. Station latitude/longitude metadata and meteorological wind vectors are normalized into the canonical schema.
 
-- HTTP/download success
-- payload parse success
-- observation/valid time
-- data age / freshness
-- response bytes
-- latency
-- record count or metadata count
-- failure details
-- probe type (`PAYLOAD`, `METADATA`, `SERVICE`)
-- promotion state
+GFS transport proof includes automatic fallback to the previous completed model cycle when a newly scheduled cycle is not yet published.
 
-The first probe intentionally starts conservatively. Metadata-only success does **not** equal final payload acceptance.
+See:
+- `docs/PHASE0_DATA_SOURCE_AUDIT.md`
+- `research/phase0/PHASE0_5_BASELINE_20260909.md`
 
 ## Run locally
 
 ```bash
-python scripts/acquisition_probe.py --output reports/acquisition/acquisition_report.json
+python scripts/acquisition_probe.py \
+  --output reports/acquisition/acquisition_report.json
+
+python scripts/build_canonical_snapshot.py \
+  --acquisition-report reports/acquisition/acquisition_report.json \
+  --output reports/canonical/canonical_snapshot.json
 ```
 
-No paid API or LLM API is required for Phase 0.5.
+No paid API or LLM API is required for the current phase.
 
 ## Repository policy
 
@@ -95,7 +126,7 @@ GitHub is the canonical source for code, configuration, research notes, schemas,
 
 ## Data freshness
 
-The future operational dashboard will display observation time, analysis time, data age, and a `FRESH / STALE` status. If upstream data are stale, the current risk score must be suspended rather than silently reused.
+The future operational dashboard will display observation time, analysis time, data age, and a `FRESH / STALE` status. If mandatory upstream data are stale, the current risk score must be suspended rather than silently reused.
 
 ## License
 
