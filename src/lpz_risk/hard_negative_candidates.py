@@ -1,7 +1,9 @@
 """Generate research-safe hard-negative candidates from rainfall screening records.
 
-This module deliberately stops at UNCONFIRMED_HARD_NEGATIVE_CANDIDATE.
-Rainfall intensity alone may never emit a final HARD_NEGATIVE label.
+Candidate generation is intentionally blocked while the zero-cost GSMaP/IMERG
+source-native thresholds are uncalibrated. Legacy JMA 1-km rainfall thresholds must
+not be reused on 0.1-degree satellite grids. Rainfall intensity alone may never emit
+a final HARD_NEGATIVE label.
 """
 
 from __future__ import annotations
@@ -26,51 +28,6 @@ def _stable_id(payload: dict[str, Any]) -> str:
     return "HNCCAND-" + hashlib.sha256(raw).hexdigest()[:16]
 
 
-def _threshold_area(record: dict[str, Any], threshold_mm: float) -> float:
-    for row in record.get("threshold_descriptors", []):
-        if abs(float(row["threshold_mm"]) - float(threshold_mm)) < 1e-9:
-            return float(row["area_km2"])
-    raise ValueError(f"screening record lacks threshold descriptor {threshold_mm} mm")
-
-
-def _metrics(record: dict[str, Any]) -> dict[str, float]:
-    return {
-        "max_accumulation_mm": float(record["max_accumulation_mm"]),
-        "area_ge_80mm_km2": _threshold_area(record, 80.0),
-        "area_ge_100mm_km2": _threshold_area(record, 100.0),
-        "area_ge_150mm_km2": _threshold_area(record, 150.0),
-    }
-
-
-def _condition(metric_values: dict[str, float], condition: dict[str, Any]) -> bool:
-    metric = str(condition["metric"])
-    op = str(condition["operator"])
-    value = float(condition["value"])
-    actual = float(metric_values[metric])
-    if op == ">=":
-        return actual >= value
-    if op == ">":
-        return actual > value
-    if op == "<=":
-        return actual <= value
-    if op == "<":
-        return actual < value
-    raise ValueError(f"unsupported operator: {op}")
-
-
-def _compound(metric_values: dict[str, float], rule: dict[str, Any]) -> bool:
-    conditions = list(rule.get("conditions") or [])
-    op = str(rule.get("operator", "AND")).upper()
-    values = [_condition(metric_values, c) for c in conditions]
-    if not values:
-        raise ValueError("compound rule has no conditions")
-    if op == "AND":
-        return all(values)
-    if op == "OR":
-        return any(values)
-    raise ValueError(f"unsupported compound operator: {op}")
-
-
 def _positive_anchor_windows(positive_registry: dict[str, Any], before_min: int, after_min: int) -> dict[str, list[tuple[datetime, datetime, str]]]:
     result: dict[str, list[tuple[datetime, datetime, str]]] = {}
     for anchor in positive_registry.get("realized_positive_anchors", []):
@@ -92,15 +49,51 @@ def build_hard_negative_candidates(
     if policy.get("risk_engine_allowed") is not False:
         raise ValueError("risk engine must remain disabled")
 
-    exclusion = policy["positive_exclusion"]
-    windows = _positive_anchor_windows(
-        positive_registry,
-        int(exclusion["minutes_before_anchor"]),
-        int(exclusion["minutes_after_anchor"]),
-    )
-    entry_rule = policy["candidate_generation"]["broad_entry_rule"]
-    tag_rules = list(policy["candidate_generation"].get("strength_tags", []))
+    generation = policy.get("candidate_generation") or {}
+    if generation.get("absolute_jma_1km_threshold_rule_enabled") is False and policy.get("policy_status") == "RECALIBRATION_REQUIRED_FOR_FREE_HISTORICAL_SOURCES":
+        raise RuntimeError(
+            "hard-negative candidate generation is blocked until source-native GSMaP/IMERG thresholds are calibrated and frozen on Development only"
+        )
 
+    # Legacy execution path is retained only for reproducibility of historical
+    # experiments whose policy explicitly contains a frozen broad_entry_rule.
+    entry_rule = generation.get("broad_entry_rule")
+    if not entry_rule:
+        raise RuntimeError("candidate policy has no frozen executable broad_entry_rule")
+
+    def threshold_area(record: dict[str, Any], threshold_mm: float) -> float:
+        for row in record.get("threshold_descriptors", []):
+            if abs(float(row["threshold_mm"]) - float(threshold_mm)) < 1e-9:
+                return float(row["area_km2"])
+        raise ValueError(f"screening record lacks threshold descriptor {threshold_mm} mm")
+
+    def metrics(record: dict[str, Any]) -> dict[str, float]:
+        return {
+            "max_accumulation_mm": float(record["max_accumulation_mm"]),
+            "area_ge_80mm_km2": threshold_area(record, 80.0),
+            "area_ge_100mm_km2": threshold_area(record, 100.0),
+            "area_ge_150mm_km2": threshold_area(record, 150.0),
+        }
+
+    def condition(metric_values: dict[str, float], cond: dict[str, Any]) -> bool:
+        metric = str(cond["metric"]); op = str(cond["operator"]); value = float(cond["value"]); actual = float(metric_values[metric])
+        if op == ">=": return actual >= value
+        if op == ">": return actual > value
+        if op == "<=": return actual <= value
+        if op == "<": return actual < value
+        raise ValueError(f"unsupported operator: {op}")
+
+    def compound(metric_values: dict[str, float], rule: dict[str, Any]) -> bool:
+        vals = [condition(metric_values, c) for c in list(rule.get("conditions") or [])]
+        if not vals: raise ValueError("compound rule has no conditions")
+        op = str(rule.get("operator", "AND")).upper()
+        if op == "AND": return all(vals)
+        if op == "OR": return any(vals)
+        raise ValueError(f"unsupported compound operator: {op}")
+
+    exclusion = policy["positive_exclusion"]
+    windows = _positive_anchor_windows(positive_registry, int(exclusion["minutes_before_anchor"]), int(exclusion["minutes_after_anchor"]))
+    tag_rules = list(generation.get("strength_tags", []))
     candidates: list[dict[str, Any]] = []
     rejected_by_entry = 0
     excluded_near_positive = 0
@@ -108,71 +101,38 @@ def build_hard_negative_candidates(
     for record in screening_records:
         if record.get("entity_type") != "THREE_HOUR_RAINFALL_SCREENING_RECORD":
             raise ValueError("unexpected screening entity type")
-        metrics = _metrics(record)
-        if not _compound(metrics, entry_rule):
+        m = metrics(record)
+        if not compound(m, entry_rule):
             rejected_by_entry += 1
             continue
-
         valid_time = _parse_utc(record["valid_time_utc"])
         code = str(record["primary_subdivision_code"])
-        matched_anchors: list[str] = []
-        for start, end, anchor_id in windows.get(code, []):
-            if start <= valid_time <= end:
-                matched_anchors.append(anchor_id)
-
-        tags: list[str] = []
+        matched = [aid for start, end, aid in windows.get(code, []) if start <= valid_time <= end]
+        tags = []
         for rule in tag_rules:
-            if "metric" in rule:
-                passed = _condition(metrics, rule)
-            else:
-                passed = _compound(metrics, rule)
-            if passed:
-                tags.append(str(rule["tag"]))
-
-        candidate_id = _stable_id({
-            "valid_time_utc": valid_time.isoformat(),
-            "primary_subdivision_code": code,
-            "source_product": record.get("source_product"),
-            "metrics": metrics,
-        })
-        excluded = bool(matched_anchors)
-        if excluded:
-            excluded_near_positive += 1
-
+            passed = condition(m, rule) if "metric" in rule else compound(m, rule)
+            if passed: tags.append(str(rule["tag"]))
+        cid = _stable_id({"valid_time_utc": valid_time.isoformat(), "primary_subdivision_code": code, "source_product": record.get("source_product"), "metrics": m})
+        excluded = bool(matched)
+        if excluded: excluded_near_positive += 1
         candidates.append({
-            "entity_type": "HARD_NEGATIVE_CANDIDATE",
-            "candidate_id": candidate_id,
+            "entity_type": "HARD_NEGATIVE_CANDIDATE", "candidate_id": cid,
             "valid_time_utc": valid_time.isoformat().replace("+00:00", "Z"),
-            "primary_subdivision_code": code,
-            "source_product": record.get("source_product"),
+            "primary_subdivision_code": code, "source_product": record.get("source_product"),
             "candidate_status": "EXCLUDED_NEAR_OFFICIAL_POSITIVE" if excluded else policy["candidate_status_after_generation"],
-            "positive_exclusion_applied": True,
-            "matched_positive_anchor_ids": matched_anchors,
-            "strength_tags": sorted(tags),
-            "rainfall_metrics": metrics,
-            "rainfall_screening_record": record,
-            "hard_negative_label": None,
-            "lpz_classification": None,
-            "risk_score": None,
+            "positive_exclusion_applied": True, "matched_positive_anchor_ids": matched,
+            "strength_tags": sorted(tags), "rainfall_metrics": m, "rainfall_screening_record": record,
+            "hard_negative_label": None, "lpz_classification": None, "risk_score": None,
         })
 
     eligible = [c for c in candidates if c["candidate_status"] == policy["candidate_status_after_generation"]]
     ids = [c["candidate_id"] for c in candidates]
-    if len(ids) != len(set(ids)):
-        raise ValueError("duplicate hard-negative candidate ID")
-
+    if len(ids) != len(set(ids)): raise ValueError("duplicate hard-negative candidate ID")
     return {
-        "schema_version": "0.1.0",
-        "phase": "2C-hard-negative-candidate-registry",
-        "source": policy["source_required"],
-        "policy_status": policy["policy_status"],
-        "screening_record_count": len(screening_records),
-        "entry_rejected_count": rejected_by_entry,
-        "broad_candidate_count": len(candidates),
-        "excluded_near_positive_count": excluded_near_positive,
-        "eligible_unconfirmed_candidate_count": len(eligible),
-        "candidates": candidates,
-        "hard_negative_registry_complete": False,
-        "hard_negative_label_allowed": False,
-        "risk_engine_allowed": False,
+        "schema_version": "0.1.0", "phase": "2C-hard-negative-candidate-registry",
+        "source": policy["source_required"], "policy_status": policy["policy_status"],
+        "screening_record_count": len(screening_records), "entry_rejected_count": rejected_by_entry,
+        "broad_candidate_count": len(candidates), "excluded_near_positive_count": excluded_near_positive,
+        "eligible_unconfirmed_candidate_count": len(eligible), "candidates": candidates,
+        "hard_negative_registry_complete": False, "hard_negative_label_allowed": False, "risk_engine_allowed": False,
     }
