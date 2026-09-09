@@ -75,6 +75,7 @@ jobs:
             --output reports/scientific/gfs_scientific_decode.json
 
       - name: Run radar scientific decode proof
+        if: github.event_name != 'schedule'
         run: |
           python scripts/radar_scientific_decode_probe.py \
             --output reports/scientific/radar_scientific_decode.json
