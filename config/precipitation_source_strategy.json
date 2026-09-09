@@ -1,23 +1,90 @@
 {
-  "schema_version": "0.1.0",
-  "phase": "2E-precipitation-source-strategy",
+  "schema_version": "0.2.0",
+  "phase": "2E-zero-cost-precipitation-source-strategy",
+  "project_cost_policy": "ZERO_COST_EXTERNAL_DATA_REQUIRED",
   "sources": [
     {
-      "source_id": "JMA_ANALYZED_RAINFALL_HISTORICAL",
-      "role": "PRIMARY_HISTORICAL",
+      "source_id": "GSMAP_STANDARD_V8_HISTORICAL",
+      "provider": "JAXA",
+      "role": "PRIMARY_HISTORICAL_FREE",
       "purpose": [
         "historical_heavy_rain_screening",
         "three_hour_accumulation",
         "hard_negative_candidate_generation",
-        "independent_reference_for_satellite_products"
+        "primary_historical_precipitation_reference"
       ],
-      "status": "PAYLOAD_ACQUISITION_REQUIRED",
+      "coverage": "1998-present",
+      "spatial_resolution": "0.1_degree",
+      "temporal_resolution": "1hour",
+      "gauge_calibrated": true,
+      "access_cost": "FREE",
+      "registration_may_be_required": true,
+      "exact_substitute_for_jma_1km": false,
+      "jma_1km_thresholds_may_be_reused_directly": false,
+      "may_define_hard_negative_directly": false,
+      "may_feed_risk_score": false
+    },
+    {
+      "source_id": "NASA_IMERG_FINAL_V07",
+      "provider": "NASA_GPM",
+      "role": "INDEPENDENT_HISTORICAL_SECONDARY_FREE",
+      "purpose": [
+        "independent_historical_cross_validation",
+        "heavy_rain_screening",
+        "source_disagreement_diagnostic",
+        "fallback_if_gsmap_unavailable"
+      ],
+      "coverage": "1998-present",
+      "spatial_resolution": "0.1_degree",
+      "temporal_resolution": "30min",
+      "research_grade_archival_product": true,
+      "access_cost": "FREE",
+      "registration_may_be_required": true,
+      "exact_substitute_for_jma_1km": false,
+      "jma_1km_thresholds_may_be_reused_directly": false,
+      "may_define_hard_negative_directly": false,
+      "may_feed_risk_score": false
+    },
+    {
+      "source_id": "NOAA_CMORPH_CDR",
+      "provider": "NOAA_NCEI",
+      "role": "TERTIARY_HISTORICAL_BACKUP_FREE",
+      "purpose": [
+        "independent_cross_validation",
+        "fallback_if_gsmap_and_imerg_unavailable",
+        "satellite_disagreement_diagnostic"
+      ],
+      "coverage": "1998-present",
+      "spatial_resolution": "8km_class",
+      "temporal_resolution": "30min",
+      "access_cost": "FREE",
+      "registration_may_be_required": false,
+      "exact_substitute_for_jma_1km": false,
+      "jma_1km_thresholds_may_be_reused_directly": false,
+      "may_define_hard_negative_directly": false,
+      "may_feed_risk_score": false
+    },
+    {
+      "source_id": "ERA5_LAND_TOTAL_PRECIPITATION",
+      "provider": "ECMWF_COPERNICUS",
+      "role": "QUATERNARY_REANALYSIS_BACKUP_FREE",
+      "purpose": [
+        "coarse_independent_precipitation_context",
+        "fallback_when_satellite_products_are_unavailable",
+        "historical_environment_precipitation_consistency_check"
+      ],
+      "coverage": "1950-present",
+      "spatial_resolution": "0.1_degree_class",
+      "temporal_resolution": "1hour",
+      "access_cost": "FREE",
+      "registration_may_be_required": true,
+      "exact_substitute_for_satellite_or_radar": false,
       "may_define_hard_negative_directly": false,
       "may_feed_risk_score": false
     },
     {
       "source_id": "JMA_PUBLIC_RADAR_PROSPECTIVE_FEATURE_ARCHIVE",
-      "role": "PROSPECTIVE_NATIVE",
+      "role": "PROSPECTIVE_NATIVE_FREE",
       "purpose": [
         "future_pristine_feature_archive",
         "radar_morphology",
@@ -26,51 +93,40 @@
         "temporal_descriptors",
         "genesis_geometry"
       ],
+      "access_cost": "FREE",
       "raw_image_repository_policy": "DO_NOT_COMMIT_RAW_RADAR_IMAGES",
       "derived_feature_repository_policy": "DAILY_CONSOLIDATED_JSONL_IS_SOURCE_OF_TRUTH",
       "prospective_holdout_start_utc": "2026-09-10T00:00:00Z",
-      "may_feed_risk_score": false
-    },
-    {
-      "source_id": "GSMAP_HISTORICAL",
-      "role": "BACKUP_SATELLITE_PRIMARY",
-      "purpose": [
-        "backup_historical_precipitation",
-        "independent_cross_validation",
-        "coverage_gap_filling"
-      ],
-      "spatial_resolution": "0.1_degree_class",
-      "temporal_resolution": "hourly_class",
-      "exact_substitute_for_jma_1km": false,
-      "may_define_hard_negative_directly": false,
-      "may_feed_risk_score": false
-    },
-    {
-      "source_id": "NOAA_CMORPH_CDR",
-      "role": "BACKUP_SATELLITE_SECONDARY",
-      "purpose": [
-        "independent_cross_validation",
-        "fallback_if_gsmap_unavailable",
-        "satellite_disagreement_diagnostic"
-      ],
-      "spatial_resolution": "8km_class",
-      "temporal_resolution": "30min",
-      "exact_substitute_for_jma_1km": false,
-      "may_define_hard_negative_directly": false,
       "may_feed_risk_score": false
     }
   ],
   "fusion_policy": {
     "priority_order": [
-      "JMA_ANALYZED_RAINFALL_HISTORICAL",
-      "GSMAP_HISTORICAL",
-      "NOAA_CMORPH_CDR"
+      "GSMAP_STANDARD_V8_HISTORICAL",
+      "NASA_IMERG_FINAL_V07",
+      "NOAA_CMORPH_CDR",
+      "ERA5_LAND_TOTAL_PRECIPITATION"
     ],
     "never_silently_replace_primary": true,
     "record_source_used_per_feature_row": true,
     "record_primary_backup_disagreement": true,
     "do_not_average_sources_without_frozen_validation": true,
-    "do_not_treat_satellite_resolution_as_1km_radar_equivalent": true
+    "do_not_treat_satellite_resolution_as_1km_radar_equivalent": true,
+    "do_not_reuse_jma_1km_objective_thresholds_on_coarse_satellite_grids": true
   },
+  "excluded_required_sources": [
+    {
+      "source_id": "JMA_ANALYZED_RAINFALL_HISTORICAL_PAID_MEDIA",
+      "reason": "PROJECT_ZERO_COST_POLICY",
+      "may_be_required": false,
+      "may_block_project": false
+    },
+    {
+      "source_id": "DIAS_XRAIN_PERMISSION_RESTRICTED",
+      "reason": "OPTIONAL_ONLY_NOT_REQUIRED_FOR_CORE_SYSTEM",
+      "may_be_required": false,
+      "may_block_project": false
+    }
+  ],
   "risk_engine_allowed": false
 }
