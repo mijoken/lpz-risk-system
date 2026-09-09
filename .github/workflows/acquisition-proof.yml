@@ -8,6 +8,7 @@ on:
       - "scripts/acquisition_probe.py"
       - "scripts/build_canonical_snapshot.py"
       - "scripts/validate_scientific_evidence.py"
+      - "scripts/validate_historical_policies.py"
       - "scripts/gfs_scientific_decode_probe.py"
       - "scripts/radar_scientific_decode_probe.py"
       - "scripts/radar_morphology_probe.py"
@@ -24,6 +25,8 @@ on:
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
       - "config/historical_case_sources.json"
+      - "config/historical_reconstruction_matrix.json"
+      - "config/hard_negative_policy.json"
       - "research/evidence/**"
       - "tests/**"
       - "pyproject.toml"
@@ -68,6 +71,13 @@ jobs:
             --registry research/evidence/scientific_evidence_registry.json \
             --requirements config/scientific_variable_requirements.json \
             --output reports/evidence/scientific_evidence_validation.json
+
+      - name: Validate historical reconstruction policies
+        run: |
+          python scripts/validate_historical_policies.py \
+            --matrix config/historical_reconstruction_matrix.json \
+            --negative-policy config/hard_negative_policy.json \
+            --output reports/historical/historical_policy_validation.json
 
       # Historical official-case CSVs change infrequently. Audit them on pushes
       # and manual runs, not every scheduled 30-minute live probe.
@@ -178,6 +188,7 @@ jobs:
             reports/acquisition/acquisition_report.json
             reports/canonical/canonical_snapshot.json
             reports/evidence/scientific_evidence_validation.json
+            reports/historical/historical_policy_validation.json
             reports/historical/historical_case_source_registry.json
             reports/historical/positive_case_registry.json
             reports/scientific/gfs_scientific_decode.json
