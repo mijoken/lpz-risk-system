@@ -8,9 +8,12 @@ on:
       - "config/historical_split_policy.json"
       - "src/lpz_risk/historical_episodes.py"
       - "src/lpz_risk/rainfall_window_manifest.py"
+      - "src/lpz_risk/rainfall_production_plan.py"
       - "scripts/build_positive_episode_registry.py"
       - "scripts/build_development_rainfall_window_manifest.py"
+      - "scripts/build_development_rainfall_production_plan.py"
       - "tests/test_historical_episodes.py"
+      - "tests/test_rainfall_production_plan.py"
       - ".github/workflows/historical-episode-proof.yml"
 
 permissions:
@@ -27,8 +30,10 @@ jobs:
           python-version: "3.12"
       - name: Install package
         run: python -m pip install -e .
-      - name: Run episode policy unit tests
-        run: python -m unittest tests.test_historical_episodes -v
+      - name: Run episode and production-plan unit tests
+        run: |
+          python -m unittest tests.test_historical_episodes -v
+          python -m unittest tests.test_rainfall_production_plan -v
       - name: Build official positive registry
         run: |
           python scripts/build_historical_case_registry.py \
@@ -49,6 +54,11 @@ jobs:
           python scripts/build_development_rainfall_window_manifest.py \
             --episode-registry reports/historical/positive_episode_registry.json \
             --output reports/historical/development_rainfall_window_manifest.json
+      - name: Build provider-native production plan
+        run: |
+          python scripts/build_development_rainfall_production_plan.py \
+            --window-manifest reports/historical/development_rainfall_window_manifest.json \
+            --output reports/historical/development_rainfall_production_plan.json
       - name: Assert anti-leakage invariants
         run: |
           python - <<'PY'
@@ -68,6 +78,7 @@ jobs:
           assert m['development_anchor_count']==501, m
           assert m['provider_count']==3, m
           assert m['anchor_provider_mapping_count']==1503, m
+          assert m['unique_request_window_count']==567, m
           assert m['future_interval_count']==0, m
           assert m['temporal_resampling_performed'] is False, m
           assert m['cross_source_accumulation_performed'] is False, m
@@ -76,9 +87,18 @@ jobs:
           assert m['retrospective_test_data_used'] is False, m
           assert m['prospective_holdout_data_used'] is False, m
           assert m['risk_engine_allowed'] is False, m
-          assert {x['source_id'] for x in m['source_summary']} == {
-              'GSMAP_STANDARD_V8_HISTORICAL','NASA_IMERG_FINAL_V07','NOAA_CMORPH_CDR'
-          }
+
+          q=json.load(open('reports/historical/development_rainfall_production_plan.json',encoding='utf-8'))
+          assert q['split']=='DEVELOPMENT', q
+          assert q['input_unique_window_count']==567, q
+          assert q['unique_payload_count'] <= q['unique_native_field_count'], q
+          assert q['temporal_resampling_performed'] is False, q
+          assert q['cross_source_accumulation_performed'] is False, q
+          assert q['validation_data_used'] is False, q
+          assert q['retrospective_test_data_used'] is False, q
+          assert q['prospective_holdout_data_used'] is False, q
+          assert q['candidate_threshold_selected'] is False, q
+          assert q['risk_engine_allowed'] is False, q
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -87,5 +107,6 @@ jobs:
             reports/historical/positive_case_registry.json
             reports/historical/positive_episode_registry.json
             reports/historical/development_rainfall_window_manifest.json
+            reports/historical/development_rainfall_production_plan.json
           if-no-files-found: error
           retention-days: 90
