@@ -2,10 +2,6 @@ name: LPZ GSMaP Standard v8 Payload Proof
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "research/phase2/GSMAP_PAYLOAD_TRIGGER.txt"
 
 permissions:
   contents: read
