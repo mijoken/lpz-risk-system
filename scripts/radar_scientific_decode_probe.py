@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Phase 1C proof for JMA public precipitation PNG scientific class decoding."""
+"""Phase 1C proof for JMA public precipitation PNG scientific class decoding.
+
+The proof first searches a bounded Japan tile set for an actually rainy pixel,
+then verifies that seed again at a higher Web-Mercator zoom. This avoids false
+failures caused by hard-coded sample points landing in dry tiles.
+"""
 
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import sys
 import time
@@ -12,6 +18,8 @@ from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -22,29 +30,25 @@ from lpz_risk.radar_science import (  # noqa: E402
     JMA_PRECIPITATION_CLASSES,
     decode_jma_precipitation_png,
     lonlat_to_xyz,
+    tile_pixel_center_lonlat,
+    web_mercator_pixel_area_km2,
 )
 
 USER_AGENT = "lpz-risk-system/0.1.0 (+https://github.com/mijoken/lpz-risk-system)"
-TIMEOUT_SECONDS = 25
+TIMEOUT_SECONDS = 20
 MAX_TILE_BYTES = 2 * 1024 * 1024
-
 NOWC_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json"
 RASRF_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/rasrf/targetTimes.json"
 
-# Distributed points are used only to increase the chance of sampling rain
-# without downloading a dense national tile set during the proof phase.
-SAMPLE_POINTS = (
-    (130.4, 33.6, "north_kyushu"),
-    (130.6, 31.6, "south_kyushu"),
-    (132.5, 34.4, "chugoku"),
-    (133.6, 33.6, "shikoku"),
-    (135.5, 34.7, "kansai"),
-    (136.9, 35.2, "chubu"),
-    (139.7, 35.7, "kanto"),
-    (140.9, 38.3, "tohoku"),
-    (141.4, 43.1, "hokkaido"),
-    (127.7, 26.2, "okinawa"),
-)
+# The discovery pass deliberately uses a modest zoom and bounded national box.
+# A discovered rainy pixel is then re-fetched at z=9, whose Web-Mercator pixel
+# ground spacing is roughly 250 m near 35 N. This does NOT assert that the JMA
+# display tile itself is a native 250-m scientific raster everywhere.
+DISCOVERY_ZOOM = 6
+VERIFY_ZOOM = 9
+JAPAN_BBOX = {"west": 122.0, "east": 154.0, "south": 20.0, "north": 46.0}
+MAX_FRAMES_PER_PRODUCT = 4
+DISCOVERY_WORKERS = 4
 
 
 def iso_utc(dt: datetime) -> str:
@@ -79,79 +83,170 @@ def load_json(url: str) -> Any:
     return json.loads(body.decode("utf-8"))
 
 
-def latest_nowc_row(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    candidates = [r for r in rows if "hrpns" in r.get("elements", [])]
+def current_rows(product: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if product == "nowc":
+        candidates = [r for r in rows if "hrpns" in r.get("elements", [])]
+    elif product == "rasrf":
+        candidates = [
+            r for r in rows
+            if "rasrf" in r.get("elements", [])
+            and str(r.get("validtime", "")) == str(r.get("basetime", ""))
+        ]
+    else:
+        raise ValueError(f"unknown product: {product}")
     if not candidates:
-        raise ValueError("no hrpns targetTimes row")
-    return max(candidates, key=lambda r: (str(r.get("validtime", "")), str(r.get("basetime", ""))))
+        raise ValueError(f"no usable targetTimes rows for {product}")
+    return sorted(
+        candidates,
+        key=lambda r: (str(r.get("validtime", "")), str(r.get("basetime", ""))),
+        reverse=True,
+    )
 
 
-def latest_rasrf_row(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    candidates = [
-        r
-        for r in rows
-        if "rasrf" in r.get("elements", [])
-        and str(r.get("validtime", "")) == str(r.get("basetime", ""))
-    ]
-    if not candidates:
-        raise ValueError("no current rasrf targetTimes row")
-    return max(candidates, key=lambda r: (str(r.get("validtime", "")), str(r.get("basetime", ""))))
+def spaced_recent_rows(rows: list[dict[str, Any]], count: int) -> list[dict[str, Any]]:
+    """Select recent rows separated by about 30 minutes when possible."""
+    chosen: list[dict[str, Any]] = []
+    last_dt: datetime | None = None
+    for row in rows:
+        dt = parse_compact(str(row.get("validtime") or row.get("basetime")))
+        if last_dt is None or (last_dt - dt).total_seconds() >= 30 * 60:
+            chosen.append(row)
+            last_dt = dt
+        if len(chosen) >= count:
+            break
+    return chosen or rows[:1]
 
 
-def tile_urls() -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    nowc_rows = load_json(NOWC_TIMES)
-    rasrf_rows = load_json(RASRF_TIMES)
-    if not isinstance(nowc_rows, list) or not isinstance(rasrf_rows, list):
-        raise ValueError("targetTimes payload was not a list")
+def tile_url(product: str, row: dict[str, Any], z: int, x: int, y: int) -> str:
+    basetime = str(row["basetime"])
+    validtime = str(row["validtime"])
+    if product == "nowc":
+        return (
+            "https://www.jma.go.jp/bosai/jmatile/data/nowc/"
+            f"{basetime}/none/{validtime}/surf/hrpns/{z}/{x}/{y}.png"
+        )
+    member = str(row.get("member") or "immed")
+    return (
+        "https://www.jma.go.jp/bosai/jmatile/data/rasrf/"
+        f"{basetime}/{member}/{validtime}/surf/rasrf/{z}/{x}/{y}.png"
+    )
 
-    nowc = latest_nowc_row(nowc_rows)
-    rasrf = latest_rasrf_row(rasrf_rows)
-    metadata = {
-        "nowc": nowc,
-        "rasrf": rasrf,
+
+def japan_tile_indices(zoom: int) -> list[tuple[int, int]]:
+    _, west_x, north_y = lonlat_to_xyz(JAPAN_BBOX["west"], JAPAN_BBOX["north"], zoom)
+    _, east_x, south_y = lonlat_to_xyz(JAPAN_BBOX["east"], JAPAN_BBOX["south"], zoom)
+    x0, x1 = sorted((west_x, east_x))
+    y0, y1 = sorted((north_y, south_y))
+    return [(x, y) for y in range(y0, y1 + 1) for x in range(x0, x1 + 1)]
+
+
+def inspect_tile(product: str, row: dict[str, Any], z: int, x: int, y: int) -> dict[str, Any]:
+    url = tile_url(product, row, z, x, y)
+    result: dict[str, Any] = {"z": z, "x": x, "y": y, "url": url}
+    try:
+        payload, status, latency = http_get(url, MAX_TILE_BYTES)
+        decoded = decode_jma_precipitation_png(payload)
+        known = np.argwhere(decoded.class_index >= 0)
+        seed = None
+        if known.size:
+            py, px = map(int, known[0])
+            lon, lat = tile_pixel_center_lonlat(z, x, y, px, py)
+            class_idx = int(decoded.class_index[py, px])
+            cls = JMA_PRECIPITATION_CLASSES[class_idx]
+            seed = {
+                "pixel_x": px,
+                "pixel_y": py,
+                "lon": lon,
+                "lat": lat,
+                "class_index": class_idx,
+                "class_id": cls.class_id,
+                "lower_mmph": cls.lower_mmph,
+                "upper_mmph": cls.upper_mmph,
+            }
+        result.update(
+            {
+                "status": "PASS",
+                "http_status": status,
+                "latency_ms": latency,
+                "bytes": len(payload),
+                "known_precipitation_pixels": int(known.shape[0]) if known.ndim == 2 else 0,
+                "unknown_opaque_pixels": decoded.unknown_opaque_pixel_count,
+                "class_counts": decoded.class_counts(),
+                "seed": seed,
+            }
+        )
+    except HTTPError as exc:
+        result.update({"status": "MISSING_TILE", "http_status": exc.code, "error": str(exc)})
+    except (URLError, TimeoutError, ValueError, OSError) as exc:
+        result.update({"status": "FAIL", "error": f"{type(exc).__name__}: {exc}"})
+    return result
+
+
+def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    tiles = japan_tile_indices(DISCOVERY_ZOOM)
+    selected_rows = spaced_recent_rows(rows, MAX_FRAMES_PER_PRODUCT)
+    frame_reports: list[dict[str, Any]] = []
+    total_unknown = 0
+    successful_tiles = 0
+
+    for row in selected_rows:
+        reports: list[dict[str, Any]] = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=DISCOVERY_WORKERS) as pool:
+            futures = [
+                pool.submit(inspect_tile, product, row, DISCOVERY_ZOOM, x, y)
+                for x, y in tiles
+            ]
+            for future in concurrent.futures.as_completed(futures):
+                report = future.result()
+                reports.append(report)
+                if report.get("status") == "PASS":
+                    successful_tiles += 1
+                    total_unknown += int(report.get("unknown_opaque_pixels", 0))
+
+        rainy = [r for r in reports if r.get("seed")]
+        frame_report = {
+            "basetime": row.get("basetime"),
+            "validtime": row.get("validtime"),
+            "tiles_attempted": len(reports),
+            "tiles_pass": sum(r.get("status") == "PASS" for r in reports),
+            "tiles_with_precipitation": len(rainy),
+            "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in reports),
+        }
+        frame_reports.append(frame_report)
+        if rainy:
+            seed_tile = rainy[0]
+            return {
+                "found": True,
+                "row": row,
+                "seed": seed_tile["seed"],
+                "seed_tile": {k: seed_tile[k] for k in ("z", "x", "y", "url")},
+                "frame_reports": frame_reports,
+                "successful_tiles": successful_tiles,
+                "unknown_opaque_pixels": total_unknown,
+            }
+
+    return {
+        "found": False,
+        "row": selected_rows[0] if selected_rows else None,
+        "seed": None,
+        "seed_tile": None,
+        "frame_reports": frame_reports,
+        "successful_tiles": successful_tiles,
+        "unknown_opaque_pixels": total_unknown,
     }
 
-    entries: list[dict[str, Any]] = []
-    seen: set[tuple[str, int, int, int]] = set()
-    zoom = 7
-    for lon, lat, label in SAMPLE_POINTS:
-        z, x, y = lonlat_to_xyz(lon, lat, zoom)
-        for product in ("nowc", "rasrf"):
-            dedupe = (product, z, x, y)
-            if dedupe in seen:
-                continue
-            seen.add(dedupe)
-            if product == "nowc":
-                basetime = str(nowc["basetime"])
-                validtime = str(nowc["validtime"])
-                member = "none"
-                element = "hrpns"
-                url = (
-                    "https://www.jma.go.jp/bosai/jmatile/data/nowc/"
-                    f"{basetime}/{member}/{validtime}/surf/{element}/{z}/{x}/{y}.png"
-                )
-            else:
-                basetime = str(rasrf["basetime"])
-                validtime = str(rasrf["validtime"])
-                member = str(rasrf.get("member") or "immed")
-                element = "rasrf"
-                url = (
-                    "https://www.jma.go.jp/bosai/jmatile/data/rasrf/"
-                    f"{basetime}/{member}/{validtime}/surf/{element}/{z}/{x}/{y}.png"
-                )
-            entries.append(
-                {
-                    "product": product,
-                    "label": label,
-                    "z": z,
-                    "x": x,
-                    "y": y,
-                    "basetime": basetime,
-                    "validtime": validtime,
-                    "url": url,
-                }
-            )
-    return metadata, entries
+
+def verify_seed_at_high_zoom(product: str, row: dict[str, Any], seed: dict[str, Any]) -> dict[str, Any]:
+    z, x, y = lonlat_to_xyz(float(seed["lon"]), float(seed["lat"]), VERIFY_ZOOM)
+    report = inspect_tile(product, row, z, x, y)
+    report["approx_pixel_area_km2_at_seed_lat"] = web_mercator_pixel_area_km2(
+        float(seed["lat"]), VERIFY_ZOOM
+    )
+    report["note"] = (
+        "z=9 Web-Mercator ground spacing is approximately 250 m near central Japan; "
+        "this is a display-tile verification and not a claim that every tile pixel is a native radar grid cell."
+    )
+    return report
 
 
 def run() -> dict[str, Any]:
@@ -166,100 +261,100 @@ def run() -> dict[str, Any]:
     }
 
     try:
-        metadata, entries = tile_urls()
+        nowc_rows_raw = load_json(NOWC_TIMES)
+        rasrf_rows_raw = load_json(RASRF_TIMES)
+        if not isinstance(nowc_rows_raw, list) or not isinstance(rasrf_rows_raw, list):
+            raise ValueError("targetTimes payload was not a list")
+        product_rows = {
+            "nowc": current_rows("nowc", nowc_rows_raw),
+            "rasrf": current_rows("rasrf", rasrf_rows_raw),
+        }
     except Exception as exc:
         return {
-            "schema_version": "0.1.0",
+            "schema_version": "0.2.0",
             "phase": "1C-radar-scientific-decode-proof",
             "generated_at": iso_utc(generated),
-            "ok": False,
+            "execution_ok": False,
+            "scientific_decode_proven": False,
             "error": f"{type(exc).__name__}: {exc}",
             "official_palette": official_palette,
             "gates": {
                 "target_times": False,
                 "png_transport": False,
-                "official_palette_only": False,
+                "official_palette_integrity": False,
+                "precipitation_palette_observed": False,
+                "high_zoom_seed_verification": False,
                 "continuous_mmph_recovery": False,
                 "risk_engine_allowed": False,
             },
         }
 
-    tile_reports: list[dict[str, Any]] = []
-    product_success = {"nowc": 0, "rasrf": 0}
-    unknown_opaque_total = 0
-    known_opaque_total = 0
-    observed_classes: set[str] = set()
-    transparent_rgbs: set[tuple[int, int, int]] = set()
+    discovery: dict[str, Any] = {}
+    high_zoom: dict[str, Any] = {}
+    technical_failure = False
+    total_unknown = 0
+    total_success_tiles = 0
 
-    for entry in entries:
-        report = dict(entry)
-        try:
-            payload, status, latency = http_get(entry["url"], MAX_TILE_BYTES)
-            decoded = decode_jma_precipitation_png(payload)
-            summary = decoded.summary()
-            report.update(
-                {
-                    "http_status": status,
-                    "bytes": len(payload),
-                    "latency_ms": latency,
-                    "decode": "PASS",
-                    "summary": summary,
-                }
-            )
-            product_success[entry["product"]] += 1
-            unknown_opaque_total += decoded.unknown_opaque_pixel_count
-            class_counts = decoded.class_counts()
-            known_opaque_total += sum(class_counts.values())
-            observed_classes.update(class_counts)
-            transparent_rgbs.update(decoded.transparent_rgbs)
-        except HTTPError as exc:
-            report.update({"decode": "MISSING_TILE", "http_status": exc.code, "error": str(exc)})
-        except (URLError, TimeoutError, ValueError, OSError) as exc:
-            report.update({"decode": "FAIL", "error": f"{type(exc).__name__}: {exc}"})
-        tile_reports.append(report)
+    for product in ("nowc", "rasrf"):
+        found = discover_rain_seed(product, product_rows[product])
+        discovery[product] = found
+        total_unknown += int(found.get("unknown_opaque_pixels", 0))
+        total_success_tiles += int(found.get("successful_tiles", 0))
+        if found.get("found") and found.get("row") and found.get("seed"):
+            high_zoom[product] = verify_seed_at_high_zoom(product, found["row"], found["seed"])
+            total_unknown += int(high_zoom[product].get("unknown_opaque_pixels", 0))
+        else:
+            high_zoom[product] = {"status": "NO_RAIN_SAMPLE"}
+        if int(found.get("successful_tiles", 0)) == 0:
+            technical_failure = True
 
-    palette_gate = unknown_opaque_total == 0
-    transport_gate = product_success["nowc"] > 0 and product_success["rasrf"] > 0
-    scientific_class_gate = transport_gate and palette_gate and known_opaque_total > 0
+    palette_observed = any(bool(discovery[p].get("found")) for p in discovery)
+    high_zoom_verified = any(
+        high_zoom[p].get("status") == "PASS" and high_zoom[p].get("seed")
+        for p in high_zoom
+    )
+    palette_integrity = total_unknown == 0
+    transport_gate = total_success_tiles > 0 and not technical_failure
+    scientific_decode_proven = transport_gate and palette_integrity and palette_observed and high_zoom_verified
 
-    nowc_dt = parse_compact(str(metadata["nowc"]["validtime"]))
-    rasrf_dt = parse_compact(str(metadata["rasrf"]["validtime"]))
+    latest_nowc = parse_compact(str(product_rows["nowc"][0]["validtime"]))
+    latest_rasrf = parse_compact(str(product_rows["rasrf"][0]["validtime"]))
 
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "phase": "1C-radar-scientific-decode-proof",
         "generated_at": iso_utc(generated),
-        "ok": scientific_class_gate,
+        "execution_ok": transport_gate and palette_integrity,
+        "scientific_decode_proven": scientific_decode_proven,
         "metadata": {
-            "nowc_valid_time": iso_utc(nowc_dt),
-            "rasrf_valid_time": iso_utc(rasrf_dt),
-            "sample_zoom": 7,
-            "sample_point_count": len(SAMPLE_POINTS),
-            "tile_attempt_count": len(entries),
+            "latest_nowc_valid_time": iso_utc(latest_nowc),
+            "latest_rasrf_valid_time": iso_utc(latest_rasrf),
+            "discovery_zoom": DISCOVERY_ZOOM,
+            "verification_zoom": VERIFY_ZOOM,
+            "discovery_tile_count_per_frame": len(japan_tile_indices(DISCOVERY_ZOOM)),
+            "max_frames_per_product": MAX_FRAMES_PER_PRODUCT,
+            "bbox": JAPAN_BBOX,
         },
         "official_palette": official_palette,
-        "results": {
-            "successful_tiles_by_product": product_success,
-            "known_opaque_pixel_total": known_opaque_total,
-            "unknown_opaque_pixel_total": unknown_opaque_total,
-            "observed_precipitation_classes": sorted(observed_classes),
-            "observed_transparent_rgbs": [list(rgb) for rgb in sorted(transparent_rgbs)],
-        },
-        "tiles": tile_reports,
+        "discovery": discovery,
+        "high_zoom_verification": high_zoom,
         "interpretation": {
             "public_png_semantics": "official precipitation colour intervals only",
             "exact_continuous_mmph": False,
             "transparent_pixels_as_zero": False,
+            "no_rain_sample_is_technical_failure": False,
             "reason": (
-                "The public PNG is a display-class product. LPZ-RISK preserves bucket bounds and "
-                "does not invent a midpoint or treat transparency as measured zero without a separate proof."
+                "The public PNG is a display-class product. LPZ-RISK preserves bucket bounds, "
+                "does not invent midpoints, and does not turn natural dry conditions into CI failures."
             ),
         },
         "gates": {
             "target_times": True,
             "png_transport": transport_gate,
-            "official_palette_only": palette_gate,
-            "precipitation_class_decode": scientific_class_gate,
+            "official_palette_integrity": palette_integrity,
+            "precipitation_palette_observed": palette_observed,
+            "high_zoom_seed_verification": high_zoom_verified,
+            "precipitation_class_decode": scientific_decode_proven,
             "continuous_mmph_recovery": False,
             "hirockawa_exact_3h_accumulation": False,
             "risk_engine_allowed": False,
@@ -282,15 +377,16 @@ def main() -> int:
     print(
         json.dumps(
             {
-                "ok": report.get("ok"),
-                "results": report.get("results"),
+                "execution_ok": report.get("execution_ok"),
+                "scientific_decode_proven": report.get("scientific_decode_proven"),
                 "gates": report.get("gates"),
             },
             indent=2,
         )
     )
     print(f"report={output}")
-    return 0 if report.get("ok") else 2
+    # A naturally dry sample does not fail CI. Technical transport/palette errors do.
+    return 0 if report.get("execution_ok") else 2
 
 
 if __name__ == "__main__":
