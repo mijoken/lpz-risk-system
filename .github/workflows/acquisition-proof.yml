@@ -19,6 +19,7 @@ on:
       - "scripts/radar_inflow_geometry_probe.py"
       - "scripts/build_parent_precursor_report.py"
       - "scripts/build_historical_case_registry.py"
+      - "scripts/build_positive_case_registry.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
@@ -76,6 +77,14 @@ jobs:
           python scripts/build_historical_case_registry.py \
             --config config/historical_case_sources.json \
             --output reports/historical/historical_case_source_registry.json
+
+      - name: Build normalized official positive registry
+        if: github.event_name != 'schedule'
+        run: |
+          python scripts/build_positive_case_registry.py \
+            --source-audit reports/historical/historical_case_source_registry.json \
+            --config config/historical_case_sources.json \
+            --output reports/historical/positive_case_registry.json
 
       - name: Run acquisition probe
         run: |
@@ -170,6 +179,7 @@ jobs:
             reports/canonical/canonical_snapshot.json
             reports/evidence/scientific_evidence_validation.json
             reports/historical/historical_case_source_registry.json
+            reports/historical/positive_case_registry.json
             reports/scientific/gfs_scientific_decode.json
             reports/scientific/radar_scientific_decode.json
             reports/scientific/radar_morphology.json
