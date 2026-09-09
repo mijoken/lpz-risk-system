@@ -1,0 +1,47 @@
+name: LPZ CMORPH CDR Payload Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/CMORPH_CDR_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  cmorph-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Run real CMORPH CDR payload proof
+        run: python scripts/cmorph_cdr_payload_probe.py --output reports/historical/cmorph_cdr_payload_probe.json
+      - name: Assert scientific gates
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/cmorph_cdr_payload_probe.json',encoding='utf-8'))
+          assert p['gate']=='PASS_REAL_CMORPH_CDR_CANONICAL_DECODE', p
+          assert p['native_field_count']==2, p
+          assert p['raw_payload_persisted'] is False
+          assert p['hard_negative_label'] is None
+          assert p['risk_score'] is None
+          assert p['risk_engine_allowed'] is False
+          for f in p['fields']:
+              assert f['accumulation_seconds']==1800
+              assert f['source_id']=='NOAA_CMORPH_CDR'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cmorph-cdr-payload-proof-${{ github.run_id }}
+          path: reports/historical/cmorph_cdr_payload_probe.json
+          if-no-files-found: error
+          retention-days: 30
