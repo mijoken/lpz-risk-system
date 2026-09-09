@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2E-zero-cost-precip-auth",
+  "zero_cost_required": true,
+  "providers": [
+    {
+      "source_id": "GSMAP_STANDARD_V8",
+      "provider": "JAXA_EORC",
+      "role": "PRIMARY_FREE_HISTORICAL",
+      "authentication": "FTP_USERNAME_PASSWORD",
+      "github_secrets": ["GSMAP_FTP_USERNAME", "GSMAP_FTP_PASSWORD"],
+      "host_strategy": "DISCOVER_FROM_REGISTRATION_EMAIL_OR_DEFAULT_HOST",
+      "default_host": "hokusai.eorc.jaxa.jp",
+      "probe": "LOGIN_AND_LIST_ROOT_ONLY",
+      "raw_data_repository_policy": "DO_NOT_COMMIT_RAW_GSMAP",
+      "risk_engine_allowed": false
+    },
+    {
+      "source_id": "NASA_IMERG_FINAL_V07",
+      "provider": "NASA_EARTHDATA_GES_DISC",
+      "role": "SECONDARY_FREE_HISTORICAL",
+      "authentication": "EARTHACCESS_ENVIRONMENT",
+      "github_secrets": ["EARTHDATA_USERNAME", "EARTHDATA_PASSWORD"],
+      "short_name": "GPM_3IMERGHH_07",
+      "probe": "AUTHENTICATE_SEARCH_ONE_GRANULE_AND_OPTIONAL_DOWNLOAD",
+      "raw_data_repository_policy": "DO_NOT_COMMIT_RAW_IMERG",
+      "risk_engine_allowed": false
+    },
+    {
+      "source_id": "NOAA_CMORPH_CDR",
+      "provider": "NOAA_NCEI",
+      "role": "TERTIARY_FREE_HISTORICAL",
+      "authentication": "PUBLIC_NO_ACCOUNT",
+      "github_secrets": [],
+      "risk_engine_allowed": false
+    },
+    {
+      "source_id": "ERA5_LAND",
+      "provider": "COPERNICUS_CDS",
+      "role": "FREE_REANALYSIS_AUXILIARY",
+      "authentication": "EXISTING_CDSAPI_KEY",
+      "github_secrets": ["CDSAPI_KEY"],
+      "risk_engine_allowed": false
+    }
+  ],
+  "forbidden": [
+    "paid_dataset_as_required_dependency",
+    "secret_value_in_repository_or_artifact",
+    "raw_precipitation_bulk_archive_in_git",
+    "satellite_grid_treated_as_jma_1km_equivalent",
+    "risk_score_from_authentication_probe"
+  ],
+  "risk_engine_allowed": false
+}
