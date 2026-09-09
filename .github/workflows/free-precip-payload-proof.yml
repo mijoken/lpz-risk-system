@@ -1,0 +1,60 @@
+name: LPZ Free Precipitation Payload Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/FREE_PRECIP_PAYLOAD_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  payload-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GSMAP_FTP_USERNAME: ${{ secrets.GSMAP_FTP_USERNAME }}
+      GSMAP_FTP_PASSWORD: ${{ secrets.GSMAP_FTP_PASSWORD }}
+      EARTHDATA_USERNAME: ${{ secrets.EARTHDATA_USERNAME }}
+      EARTHDATA_PASSWORD: ${{ secrets.EARTHDATA_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Verify required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GSMAP_FTP_USERNAME:-}"
+          test -n "${GSMAP_FTP_PASSWORD:-}"
+          test -n "${EARTHDATA_USERNAME:-}"
+          test -n "${EARTHDATA_PASSWORD:-}"
+      - name: Run zero-cost real payload proof
+        run: |
+          python scripts/free_precipitation_payload_probe.py \
+            --output reports/historical/free_precipitation_payload_probe.json
+      - name: Assert no raw persistence or operational classification
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/free_precipitation_payload_probe.json',encoding='utf-8'))
+          assert p['zero_cost_required'] is True
+          assert p['raw_payloads_persisted'] is False
+          assert p['all_payload_proofs_pass'] is True, p
+          assert p['lpz_classification'] is None
+          assert p['risk_score'] is None
+          assert p['risk_engine_allowed'] is False
+          assert all(x.get('secret_value_recorded') is False for x in p['providers'])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: free-precip-payload-proof-${{ github.run_id }}
+          path: reports/historical/free_precipitation_payload_probe.json
+          if-no-files-found: warn
+          retention-days: 30
