@@ -7,6 +7,10 @@ on:
     paths:
       - "research/phase2/DEVELOPMENT_RAINFALL_FULL_TRIGGER.txt"
 
+concurrency:
+  group: lpz-development-rainfall-full-reconstruction
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
