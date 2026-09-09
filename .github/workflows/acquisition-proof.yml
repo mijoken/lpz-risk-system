@@ -14,6 +14,9 @@ on:
       - "scripts/radar_wind_orientation_probe.py"
       - "scripts/radar_tracking_probe.py"
       - "scripts/radar_hierarchy_probe.py"
+      - "scripts/radar_temporal_descriptor.py"
+      - "scripts/radar_genesis_geometry_report.py"
+      - "scripts/radar_inflow_geometry_probe.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
@@ -113,6 +116,29 @@ jobs:
             --tracking reports/scientific/radar_tracking.json \
             --output reports/scientific/radar_hierarchy.json
 
+      - name: Build parent temporal descriptors
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
+        run: |
+          python scripts/radar_temporal_descriptor.py \
+            --tracking reports/scientific/radar_tracking.json \
+            --hierarchy reports/scientific/radar_hierarchy.json \
+            --output reports/scientific/radar_temporal.json
+
+      - name: Build embedded-core genesis relative-motion geometry
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
+        run: |
+          python scripts/radar_genesis_geometry_report.py \
+            --tracking reports/scientific/radar_tracking.json \
+            --hierarchy reports/scientific/radar_hierarchy.json \
+            --output reports/scientific/radar_genesis_geometry.json
+
+      - name: Run genesis vs 850-hPa inflow geometry proof
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
+        run: |
+          python scripts/radar_inflow_geometry_probe.py \
+            --genesis reports/scientific/radar_genesis_geometry.json \
+            --output reports/scientific/radar_inflow_geometry.json
+
       - name: Upload Phase 0.5 / 1A / 1B / 1C evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -128,5 +154,8 @@ jobs:
             reports/scientific/radar_wind_orientation.json
             reports/scientific/radar_tracking.json
             reports/scientific/radar_hierarchy.json
+            reports/scientific/radar_temporal.json
+            reports/scientific/radar_genesis_geometry.json
+            reports/scientific/radar_inflow_geometry.json
           if-no-files-found: warn
           retention-days: 30
