@@ -7,8 +7,10 @@ on:
     paths:
       - "scripts/build_primary_subdivision_geometry.py"
       - "src/lpz_risk/historical_spatial.py"
+      - "src/lpz_risk/historical_polygon.py"
       - "config/jma_primary_subdivision_gis.json"
       - "tests/test_historical_spatial.py"
+      - "tests/test_historical_polygon.py"
       - ".github/workflows/historical-spatial-proof.yml"
       - "pyproject.toml"
 
@@ -18,7 +20,7 @@ permissions:
 jobs:
   spatial-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,8 +33,8 @@ jobs:
       - name: Install package
         run: python -m pip install -e .
 
-      - name: Run spatial unit tests
-        run: python -m unittest tests.test_historical_spatial -v
+      - name: Run spatial and polygon unit tests
+        run: python -m unittest tests.test_historical_spatial tests.test_historical_polygon -v
 
       - name: Build current positive registry prerequisites
         run: |
@@ -44,12 +46,28 @@ jobs:
             --config config/historical_case_sources.json \
             --output reports/historical/positive_case_registry.json
 
-      - name: Build official JMA primary subdivision geometry registry
+      - name: Build official JMA primary subdivision bbox and polygon geometry
         run: |
           python scripts/build_primary_subdivision_geometry.py \
             --positive-registry reports/historical/positive_case_registry.json \
             --config config/jma_primary_subdivision_gis.json \
-            --output reports/historical/primary_subdivision_geometry.json
+            --output reports/historical/primary_subdivision_geometry.json \
+            --geojson-output reports/historical/primary_subdivision_polygons.geojson
+
+      - name: Assert polygon completeness
+        run: |
+          python - <<'PY'
+          import json
+          bbox=json.load(open('reports/historical/primary_subdivision_geometry.json',encoding='utf-8'))
+          geo=json.load(open('reports/historical/primary_subdivision_polygons.geojson',encoding='utf-8'))
+          assert bbox['geometry_complete_for_required_codes'] is True, bbox
+          assert bbox['resolved_code_count'] == 58, bbox
+          assert geo['geometry_complete_for_required_codes'] is True, geo
+          assert geo['resolved_code_count'] == 58, geo
+          assert len(geo['features']) == 58, len(geo['features'])
+          assert all(f['geometry']['type'] in {'Polygon','MultiPolygon','GeometryCollection'} for f in geo['features'])
+          assert geo['risk_engine_allowed'] is False
+          PY
 
       - name: Upload spatial evidence
         if: always()
@@ -60,5 +78,6 @@ jobs:
             reports/historical/historical_case_source_registry.json
             reports/historical/positive_case_registry.json
             reports/historical/primary_subdivision_geometry.json
+            reports/historical/primary_subdivision_polygons.geojson
           if-no-files-found: warn
           retention-days: 30
