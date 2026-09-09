@@ -1,3 +1,5 @@
-Phase 2I definitive full DEVELOPMENT rainfall reconstruction with provider-isolated concurrency.
+Phase 2I definitive full DEVELOPMENT rainfall reconstruction with overlap lock and transient-network retry.
 GSMaP: serial max-parallel=1 plus bounded retry/backoff and live directory filename resolution.
+IMERG: bounded retry for transient Earthdata network failures only.
+Concurrency: only one full Phase 2I reconstruction run may remain active.
 Expected: 69 tasks / 567 windows / 1503 anchor-provider mappings / 195 local-episode representatives.
