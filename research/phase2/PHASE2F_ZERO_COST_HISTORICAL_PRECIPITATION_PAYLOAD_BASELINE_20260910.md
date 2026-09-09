@@ -22,15 +22,20 @@ No source is allowed to silently replace another. Primary/backup disagreement mu
 ## GSMaP authenticated and real-file proof
 
 Workflow: `LPZ GSMaP Standard v8 Payload Proof`
-Run ID: `34407808498`
-Artifact ID: `10126348766`
+Preferred efficient proof run ID: `34408806066`
+Artifact ID: `10126411800`
 Conclusion: SUCCESS
+Discovery method: `MLSD_WITH_CONSERVATIVE_NLST_FALLBACK`
+
+The earlier initial proof run `34407808498` also succeeded, but used inefficient per-entry directory probing. The preferred run above closes that engineering issue and discovers the 2023 payload hierarchy efficiently.
 
 Authenticated FTP host: `hokusai.eorc.jaxa.jp`
 Official product root: `/standard/v8`
-Official gauge-calibrated hourly hierarchy confirmed from JAXA README:
+Official gauge-calibrated hourly hierarchy confirmed from live FTP and JAXA README:
 
 `/standard/v8/hourly_G/YYYY/MM/DD/`
+
+The live 2023 tree was confirmed through year → month → day, with 24 hourly Gauge files on 2023-01-01.
 
 A real 2023 GSMaP Gauge Standard v8 payload was acquired ephemerally:
 
@@ -39,11 +44,12 @@ A real 2023 GSMaP Gauge Standard v8 payload was acquired ephemerally:
 Payload bytes: `2,321,026`
 SHA-256 prefix: `49dd4de502785b94`
 
-The official README also confirmed:
+The official README retrieved from the authenticated FTP also confirmed:
 
 - archive from 1998-01-01
 - GSMaP_MVK and GSMaP_Gauge
 - hourly Gauge-calibrated Rain Rate file naming
+- official format document path `/standard/v8/doc/DataFormatDescription_MVK_RNL_v8.0000.pdf`
 - NetCDF/HDF product locations
 - daily/monthly product locations
 
@@ -51,7 +57,7 @@ Current scientific gate:
 
 `PASS_REAL_FILE_ACQUIRED_FORMAT_DECODE_PENDING`
 
-The raw `.dat.gz` was not committed or persisted. Decoder semantics will be implemented only after the JAXA format document is audited; no guessed binary interpretation is allowed.
+The raw `.dat.gz` was not committed or persisted. Decoder semantics will be implemented only after the official JAXA format document is audited; no guessed binary interpretation is allowed.
 
 ## NASA Earthdata / IMERG authenticated and real-HDF5 proof
 
