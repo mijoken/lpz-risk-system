@@ -1,0 +1,117 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2A-historical-reconstruction-capability",
+  "principle": "Historical reconstruction must record whether each live feature is reproduced EXACTLY, by a scientifically declared PROXY, or is BLOCKED. Missing historical sources are never silently replaced.",
+  "sources": {
+    "JMA_OFFICIAL_LPZ_CSV": {
+      "status": "AVAILABLE",
+      "purpose": ["positive_detection_rows", "realized_positive_anchors"],
+      "access": "public_web"
+    },
+    "JMA_ANALYZED_RAINFALL_ANNUAL": {
+      "status": "AVAILABLE_OFFLINE_OR_JMBSC",
+      "resolution": "1km",
+      "coverage": "2017-01-01 onward",
+      "purpose": ["hourly_accumulation", "heavy_rain_candidate_screening", "hard_negative_candidate_generation"],
+      "access": "JMA viewing / Japan Meteorological Business Support Center annual media or equivalent permitted route"
+    },
+    "DIAS_XRAIN_CXMP": {
+      "status": "REQUIRES_PERMISSION",
+      "resolution": "250m",
+      "temporal_resolution": "1minute",
+      "coverage_note": "CXMP composite metadata states 2018-05-01 onward; underlying stored composite history includes data from 2017-06 with evolving coverage.",
+      "purpose": ["instantaneous_precipitation_morphology", "cell_tracking", "core_genesis", "historical_parent_child_features"],
+      "access_requirements": ["DIAS account", "MLIT XRAIN dataset permission"],
+      "original_data_redistribution_allowed": false
+    },
+    "ERA5": {
+      "status": "AVAILABLE",
+      "purpose": ["retrospective_environmental_fields", "RH500_RH700", "600hPa_wind", "850hPa_inflow", "low_level_moisture_context"],
+      "exactness_note": "ERA5 is a retrospective reanalysis source and is not identical to live GFS forecasts. Historical features must be tagged as ERA5-derived, not silently labeled GFS."
+    },
+    "JMA_HISTORICAL_HRPN_NUMERIC": {
+      "status": "NOT_YET_ACQUIRED",
+      "purpose": ["exact_live-public-radar-equivalent historical morphology where compatible"],
+      "access_note": "No assumption of a public web historical PNG archive. Acquisition route must be separately verified."
+    }
+  },
+  "feature_capabilities": [
+    {
+      "feature_id": "official_positive_label",
+      "historical_status": "EXACT",
+      "source": "JMA_OFFICIAL_LPZ_CSV"
+    },
+    {
+      "feature_id": "snapshot_schedule_Tminus180_to_T0",
+      "historical_status": "EXACT",
+      "source": "JMA_OFFICIAL_LPZ_CSV"
+    },
+    {
+      "feature_id": "one_hour_analyzed_rainfall",
+      "historical_status": "EXACT_SOURCE_PRODUCT",
+      "source": "JMA_ANALYZED_RAINFALL_ANNUAL"
+    },
+    {
+      "feature_id": "three_hour_accumulation_screening",
+      "historical_status": "DERIVABLE",
+      "source": "JMA_ANALYZED_RAINFALL_ANNUAL",
+      "method": "sum/time-align permitted 1-hour analyzed-rainfall fields after format audit"
+    },
+    {
+      "feature_id": "live_public_png_30_50_80_object_morphology",
+      "historical_status": "BLOCKED_PENDING_HIGH_RES_RADAR",
+      "preferred_source": "DIAS_XRAIN_CXMP",
+      "note": "XRAIN can support a high-resolution historical morphology analogue but is not bit-identical to JMA public HRPN PNG classes. Keep source identity explicit."
+    },
+    {
+      "feature_id": "multi_frame_parent_tracking",
+      "historical_status": "BLOCKED_PENDING_HIGH_RES_RADAR",
+      "preferred_source": "DIAS_XRAIN_CXMP"
+    },
+    {
+      "feature_id": "embedded_50_80_core_genesis",
+      "historical_status": "BLOCKED_PENDING_HIGH_RES_RADAR",
+      "preferred_source": "DIAS_XRAIN_CXMP"
+    },
+    {
+      "feature_id": "parent_relative_genesis_geometry",
+      "historical_status": "BLOCKED_PENDING_HIGH_RES_RADAR",
+      "preferred_source": "DIAS_XRAIN_CXMP"
+    },
+    {
+      "feature_id": "RH500_RH700_environment",
+      "historical_status": "PROXY_REANALYSIS",
+      "source": "ERA5",
+      "live_reference": "NOAA_GFS"
+    },
+    {
+      "feature_id": "600hPa_orientation_environment",
+      "historical_status": "PROXY_REANALYSIS",
+      "source": "ERA5",
+      "live_reference": "NOAA_GFS"
+    },
+    {
+      "feature_id": "850hPa_inflow_environment",
+      "historical_status": "PROXY_REANALYSIS",
+      "source": "ERA5",
+      "live_reference": "NOAA_GFS"
+    },
+    {
+      "feature_id": "850hPa_inflow_relative_genesis_geometry",
+      "historical_status": "BLOCKED_PENDING_HIGH_RES_RADAR",
+      "environment_source_when_unblocked": "ERA5",
+      "precipitation_source_when_unblocked": "DIAS_XRAIN_CXMP"
+    },
+    {
+      "feature_id": "Hirockawa_exact_3h_HRA",
+      "historical_status": "BLOCKED_EXACT_REPRODUCTION_NOT_YET_PROVEN",
+      "note": "Do not equate JMA annual analyzed rainfall or public PNG-derived morphology with the exact paper implementation until source/product/resolution conventions are reproduced."
+    }
+  ],
+  "hard_negative_generation_gate": {
+    "screening_from_analyzed_rainfall": "POSSIBLE_AFTER_DATA_ACQUISITION",
+    "morphology_qualified_hard_negatives": "BLOCKED_PENDING_HIGH_RES_RADAR",
+    "final_negative_selection": "BLOCKED_UNTIL_SELECTION_RULE_FROZEN"
+  },
+  "risk_engine_allowed": false
+}
