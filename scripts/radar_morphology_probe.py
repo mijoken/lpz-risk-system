@@ -15,7 +15,6 @@ import argparse
 import concurrent.futures
 import json
 import sys
-import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
