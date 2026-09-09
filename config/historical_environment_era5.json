@@ -1,0 +1,41 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2B-historical-environment",
+  "provider": "COPERNICUS_CDS_ERA5",
+  "dataset": "reanalysis-era5-pressure-levels",
+  "credential_env": "CDSAPI_KEY",
+  "time_alignment": {
+    "policy": "FLOOR_TO_AVAILABLE_HOUR",
+    "future_source_time_allowed": false,
+    "max_source_lag_minutes": 59,
+    "reason": "Historical precursor snapshots must not use an ERA5 analysis time later than the requested snapshot time."
+  },
+  "pressure_levels_hpa": [1000, 925, 850, 700, 600, 500],
+  "variables": [
+    "relative_humidity",
+    "specific_humidity",
+    "u_component_of_wind",
+    "v_component_of_wind"
+  ],
+  "required_feature_mapping": {
+    "RH500_RH700_environment": ["relative_humidity@500", "relative_humidity@700"],
+    "600hPa_orientation_environment": ["u_component_of_wind@600", "v_component_of_wind@600"],
+    "850hPa_inflow_environment": ["u_component_of_wind@850", "v_component_of_wind@850"],
+    "low_level_moisture_context": [
+      "specific_humidity@1000",
+      "specific_humidity@925",
+      "specific_humidity@850"
+    ]
+  },
+  "spatial_sampling": {
+    "status": "PENDING_PRIMARY_SUBDIVISION_GEOMETRY",
+    "rule": "Do not assign an arbitrary prefectural centroid to a JMA primary subdivision code.",
+    "temporary_retrieval_strategy": "REQUEST_MANIFEST_ONLY",
+    "future_strategy": "Sample ERA5 over a validated primary-subdivision polygon or defensible event ROI."
+  },
+  "download_mode": {
+    "ordinary_ci": "DRY_RUN_MANIFEST_ONLY",
+    "authenticated_workflow": "CDS_API_OR_ARCO_AFTER_CREDENTIAL_CONFIGURATION"
+  },
+  "risk_engine_allowed": false
+}
