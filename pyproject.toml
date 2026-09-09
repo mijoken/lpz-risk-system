@@ -7,7 +7,10 @@ name = "lpz-risk-system"
 version = "0.1.0"
 description = "Explainable real-time LPZ risk monitoring and research system"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "eccodes>=2.43.0",
+  "numpy>=1.26",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
