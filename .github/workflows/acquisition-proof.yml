@@ -13,6 +13,7 @@ on:
       - "scripts/radar_morphology_probe.py"
       - "scripts/radar_wind_orientation_probe.py"
       - "scripts/radar_tracking_probe.py"
+      - "scripts/radar_hierarchy_probe.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
@@ -105,6 +106,13 @@ jobs:
           python scripts/radar_tracking_probe.py \
             --output reports/scientific/radar_tracking.json
 
+      - name: Run parent-envelope embedded-core hierarchy proof
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
+        run: |
+          python scripts/radar_hierarchy_probe.py \
+            --tracking reports/scientific/radar_tracking.json \
+            --output reports/scientific/radar_hierarchy.json
+
       - name: Upload Phase 0.5 / 1A / 1B / 1C evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -119,5 +127,6 @@ jobs:
             reports/scientific/radar_morphology.json
             reports/scientific/radar_wind_orientation.json
             reports/scientific/radar_tracking.json
+            reports/scientific/radar_hierarchy.json
           if-no-files-found: warn
           retention-days: 30
