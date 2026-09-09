@@ -21,6 +21,7 @@ from typing import Any
 JST = timezone(timedelta(hours=9))
 _COMPACT14 = re.compile(r"^\d{14}$")
 _COMPACT12 = re.compile(r"^\d{12}$")
+_JMA_UPDATED = re.compile(r"^最終更新時刻[:：](\d{14})$")
 
 
 @dataclass(frozen=True)
@@ -55,15 +56,55 @@ def decode_csv_bytes(payload: bytes) -> tuple[str, str]:
     raise ValueError("CSV payload was neither UTF-8 nor Japanese legacy encoding")
 
 
-def parse_csv_text(text: str) -> tuple[list[str], list[dict[str, str]]]:
+def split_jma_preamble(text: str) -> tuple[list[str], str, int, dict[str, str]]:
+    """Separate non-tabular JMA metadata lines before the actual CSV header.
+
+    The LPZ case files currently begin with e.g.
+    ``最終更新時刻:20260909193000``. That line is metadata, not a DictReader
+    header. We preserve it and return the remaining tabular text unchanged.
+    """
+    physical = text.splitlines()
+    if not physical:
+        raise ValueError("CSV text is blank")
+
+    preamble: list[str] = []
+    metadata: dict[str, str] = {}
+    header_index = 0
+    for i, line in enumerate(physical):
+        stripped = line.strip().lstrip("\ufeff")
+        if not stripped:
+            preamble.append(line)
+            continue
+        match = _JMA_UPDATED.match(stripped)
+        if match:
+            preamble.append(line)
+            metadata["last_updated_compact"] = match.group(1)
+            parsed = _parse_datetime_value(match.group(1))
+            if parsed is not None:
+                metadata["last_updated_jst"] = parsed.isoformat()
+            header_index = i + 1
+            continue
+        header_index = i
+        break
+    else:
+        raise ValueError("CSV contained metadata but no tabular header")
+
+    table_lines = physical[header_index:]
+    if not table_lines:
+        raise ValueError("CSV has no tabular body")
+    return preamble, "\n".join(table_lines) + "\n", header_index + 1, metadata
+
+
+def parse_csv_text(text: str) -> tuple[list[str], list[dict[str, str]], list[str], int, dict[str, str]]:
     if not text.strip():
         raise ValueError("CSV text is blank")
-    sample = text[:8192]
+    preamble, table_text, header_line_number, metadata = split_jma_preamble(text)
+    sample = table_text[:8192]
     try:
         dialect = csv.Sniffer().sniff(sample, delimiters=",\t;")
     except csv.Error:
         dialect = csv.excel
-    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    reader = csv.DictReader(io.StringIO(table_text), dialect=dialect)
     headers = [str(h).strip() for h in (reader.fieldnames or []) if h is not None]
     if not headers:
         raise ValueError("CSV has no header row")
@@ -72,7 +113,7 @@ def parse_csv_text(text: str) -> tuple[list[str], list[dict[str, str]]]:
         normalized = {str(k).strip(): "" if v is None else str(v).strip() for k, v in row.items() if k is not None}
         if any(normalized.values()):
             rows.append(normalized)
-    return headers, rows
+    return headers, rows, preamble, header_line_number, metadata
 
 
 def stable_row_hash(source_id: str, row: dict[str, str]) -> str:
@@ -117,12 +158,13 @@ def datetime_candidates(row: dict[str, str]) -> tuple[str, ...]:
 
 def ingest_source_rows(source_id: str, source_year: int, payload: bytes) -> dict[str, Any]:
     text, encoding = decode_csv_bytes(payload)
-    headers, raw_rows = parse_csv_text(text)
+    headers, raw_rows, preamble, header_line_number, metadata = parse_csv_text(text)
+    first_data_line = header_line_number + 1
     rows = [
         SourceRow(
             source_id=source_id,
             source_year=source_year,
-            row_number=i + 2,
+            row_number=first_data_line + i,
             raw=row,
             row_sha256=stable_row_hash(source_id, row),
             datetime_candidates=datetime_candidates(row),
@@ -134,6 +176,9 @@ def ingest_source_rows(source_id: str, source_year: int, payload: bytes) -> dict
         "source_id": source_id,
         "source_year": source_year,
         "encoding": encoding,
+        "preamble": preamble,
+        "source_metadata": metadata,
+        "header_line_number": header_line_number,
         "headers": headers,
         "row_count": len(rows),
         "duplicate_row_hash_count": len(hashes) - len(set(hashes)),
