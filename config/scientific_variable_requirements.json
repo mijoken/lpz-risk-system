@@ -1,0 +1,102 @@
+{
+  "schema_version": "0.1.0",
+  "purpose": "Evidence-driven variable acquisition requirements for Phase 1B/1C scientific feature reproduction.",
+  "source": "NOAA_NCEP_GFS_0P25",
+  "policy": {
+    "exact_reproduction_required": true,
+    "pressure_level_proxy_is_not_exact_height_level": true,
+    "paper_thresholds_must_keep_original_units_and_sign_conventions": true
+  },
+  "gfs_pressure_levels_hpa": [1000, 975, 950, 925, 900, 850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200],
+  "requirements": [
+    {
+      "requirement_id": "REQ_MID_RH",
+      "evidence_ids": ["KATO2020_MID_RH"],
+      "upstream_parameters": ["RH"],
+      "levels_hpa": [700, 500],
+      "canonical_outputs": ["relative_humidity_700hpa", "relative_humidity_500hpa"],
+      "reproduction_status": "EXACT_AFTER_GRIB_DECODE"
+    },
+    {
+      "requirement_id": "REQ_ORIENTATION_600",
+      "evidence_ids": ["SHIMAMURA2025_ORIENTATION600"],
+      "upstream_parameters": ["UGRD", "VGRD"],
+      "levels_hpa": [600],
+      "canonical_outputs": ["u_wind_600hpa", "v_wind_600hpa"],
+      "reproduction_status": "EXACT_AFTER_GRIB_DECODE"
+    },
+    {
+      "requirement_id": "REQ_IWVF_1000_900",
+      "evidence_ids": ["TAHARA2026_IWVF_1000_900", "TAHARA2026_IWVF_DIV"],
+      "upstream_parameters": ["SPFH", "UGRD", "VGRD"],
+      "levels_hpa": [1000, 975, 950, 925, 900],
+      "canonical_outputs": ["iwvf_1000_900hpa", "iwvf_divergence_1000_900hpa", "moisture_flux_convergence_1000_900hpa"],
+      "reproduction_status": "EXACT_AFTER_GRIB_DECODE_AND_HORIZONTAL_DERIVATIVES",
+      "notes": [
+        "Confirm whether the paper variable q is treated as mixing ratio while GFS SPFH is specific humidity; convert explicitly if required.",
+        "Moisture flux convergence is stored as the negative of divergence."
+      ]
+    },
+    {
+      "requirement_id": "REQ_KATO_FLWV500",
+      "evidence_ids": ["KATO2020_FLWV500"],
+      "upstream_parameters": ["HGT", "TMP", "SPFH", "UGRD", "VGRD", "PRES"],
+      "levels_hpa": [1000, 975, 950, 925, 900, 850],
+      "canonical_outputs": ["air_density_500m", "water_vapor_mixing_ratio_500m", "u_wind_500m", "v_wind_500m", "flwv_500m"],
+      "reproduction_status": "BLOCKED_PENDING_500M_HEIGHT_INTERPOLATION",
+      "notes": [
+        "NOMADS GFS 0.25 degree does not expose a 500 m above-ground level in the current filter level list.",
+        "Do not substitute 950 hPa as an exact 500 m diagnostic.",
+        "Candidate exact method: interpolate pressure-level HGT/TMP/SPFH/UGRD/VGRD to 500 m AGL after terrain-aware vertical reconstruction."
+      ]
+    },
+    {
+      "requirement_id": "REQ_THERMODYNAMIC_PROFILE",
+      "evidence_ids": ["KATO2020_DLFC", "KATO2020_EL"],
+      "upstream_parameters": ["TMP", "RH", "HGT", "PRES"],
+      "levels_hpa": [1000, 975, 950, 925, 900, 850, 800, 750, 700, 650, 600, 550, 500, 450, 400, 350, 300, 250, 200],
+      "canonical_outputs": ["temperature_profile", "humidity_profile", "pressure_profile", "level_of_free_convection", "equilibrium_level_height"],
+      "reproduction_status": "PENDING_PROFILE_THERMODYNAMICS",
+      "notes": ["CAPE/CIN products may be retained as supplementary diagnostics but are not substitutes for reproducing LFC/EL from the thermodynamic profile."]
+    },
+    {
+      "requirement_id": "REQ_ASCENT_700",
+      "evidence_ids": ["KATO2020_ASCENT700"],
+      "upstream_parameters": ["VVEL", "TMP", "SPFH"],
+      "levels_hpa": [700],
+      "canonical_outputs": ["omega_700hpa", "vertical_motion_700hpa"],
+      "reproduction_status": "PENDING_OMEGA_TO_GEOMETRIC_VERTICAL_VELOCITY",
+      "notes": [
+        "GFS VVEL is pressure vertical velocity, not automatically the m/s geometric vertical velocity used by the paper threshold.",
+        "Validate conversion and sign convention before comparing with the > 0 m/s ascent criterion.",
+        "Apply the paper's approximately 400 km spatial averaging after conversion."
+      ]
+    },
+    {
+      "requirement_id": "REQ_SREH03",
+      "evidence_ids": ["KATO2020_SREH03"],
+      "upstream_parameters": ["UGRD", "VGRD", "HGT"],
+      "levels_hpa": [1000, 975, 950, 925, 900, 850, 800, 750, 700],
+      "canonical_outputs": ["u_wind_vertical_profile", "v_wind_vertical_profile", "storm_motion_vector", "sreh_0_3km"],
+      "reproduction_status": "PENDING_EXACT_STORM_MOTION_IMPLEMENTATION",
+      "notes": [
+        "Kato (2020) uses the maximum SREH from storm motions estimated using Maddox (1976) and Bunkers et al. (2000).",
+        "A precomputed GFS helicity field must not be assumed identical without method verification."
+      ]
+    },
+    {
+      "requirement_id": "REQ_KYUSHU_850_WIND",
+      "evidence_ids": ["KATO2005_KYUSHU_850WIND"],
+      "upstream_parameters": ["UGRD", "VGRD"],
+      "levels_hpa": [850],
+      "canonical_outputs": ["u_wind_850hpa", "v_wind_850hpa", "wind_speed_850hpa", "wind_direction_850hpa"],
+      "reproduction_status": "EXACT_AFTER_GRIB_DECODE",
+      "regional_scope": "Kyushu"
+    }
+  ],
+  "supplementary_not_yet_evidence_gates": [
+    {"parameter": "PWAT", "reason": "useful environmental context; not promoted as an operational threshold by the current curated evidence set"},
+    {"parameter": "CAPE", "reason": "useful convective context; not a substitute for paper-specific LFC/EL reproduction"},
+    {"parameter": "CIN", "reason": "useful convective inhibition context; retain separately from dLFC"}
+  ]
+}
