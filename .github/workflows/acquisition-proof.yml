@@ -1,0 +1,57 @@
+name: Phase 0.5 Acquisition Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/acquisition_probe.py"
+      - "src/**"
+      - "config/data_sources.json"
+      - "tests/**"
+      - ".github/workflows/acquisition-proof.yml"
+  schedule:
+    # Start conservatively during the proof phase. Move to 5-minute cadence
+    # only after upstream load, runtime, and failure behavior are measured.
+    - cron: "17,47 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase0-5-acquisition-proof
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Run acquisition probe
+        run: |
+          python scripts/acquisition_probe.py \
+            --output reports/acquisition/acquisition_report.json
+
+      - name: Upload acquisition evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-5-acquisition-report-${{ github.run_id }}
+          path: reports/acquisition/acquisition_report.json
+          if-no-files-found: warn
+          retention-days: 30
