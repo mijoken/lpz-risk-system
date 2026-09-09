@@ -1,26 +1,29 @@
 {
-  "schema_version": "0.1.0",
-  "phase": "2C-hard-negative-candidate-policy",
-  "policy_status": "FROZEN_BEFORE_REAL_HISTORICAL_RAINFALL_PAYLOAD",
-  "source_required": "JMA_ANALYZED_RAINFALL_ANNUAL_2017_PLUS",
+  "schema_version": "0.2.0",
+  "phase": "2C-zero-cost-hard-negative-candidate-policy",
+  "policy_status": "RECALIBRATION_REQUIRED_FOR_FREE_HISTORICAL_SOURCES",
+  "source_required": "GSMAP_STANDARD_V8_HISTORICAL",
+  "independent_confirmation_source": "NASA_IMERG_FINAL_V07",
   "source_geometry_requirement": "OFFICIAL_PRIMARY_SUBDIVISION_POLYGON_OR_AUDITED_EQUIVALENT",
   "candidate_generation": {
-    "broad_entry_rule": {
-      "operator": "OR",
-      "conditions": [
-        {"metric": "max_accumulation_mm", "operator": ">=", "value": 80.0},
-        {"metric": "area_ge_80mm_km2", "operator": ">=", "value": 500.0}
-      ]
+    "absolute_jma_1km_threshold_rule_enabled": false,
+    "calibration_period": "DEVELOPMENT_ONLY_2023_2024",
+    "calibration_unit": "SOURCE_NATIVE_THREE_HOUR_ACCUMULATION_DISTRIBUTION",
+    "selection_principle": "SEVERE_RAIN_RELATIVE_TO_EACH_SOURCE_WITHOUT_IMPORTING_JMA_1KM_THRESHOLDS",
+    "initial_candidate_strategy": {
+      "primary_source": "GSMAP_STANDARD_V8_HISTORICAL",
+      "secondary_source": "NASA_IMERG_FINAL_V07",
+      "require_source_specific_frozen_thresholds": true,
+      "prefer_dual_source_concurrence_for_high_confidence_candidates": true,
+      "allow_single_source_candidate_pool": true,
+      "single_source_candidates_must_be_tagged_lower_confidence": true
     },
-    "strength_tags": [
-      {"tag": "MAX3H_GE_100", "metric": "max_accumulation_mm", "operator": ">=", "value": 100.0},
-      {"tag": "MAX3H_GE_150", "metric": "max_accumulation_mm", "operator": ">=", "value": 150.0},
-      {"tag": "AREA80_GE_500", "metric": "area_ge_80mm_km2", "operator": ">=", "value": 500.0},
-      {"tag": "AREA100_GE_500", "metric": "area_ge_100mm_km2", "operator": ">=", "value": 500.0},
-      {"tag": "RAIN_ONLY_NEAR_OFFICIAL_INTENSITY", "operator": "AND", "conditions": [
-        {"metric": "area_ge_100mm_km2", "operator": ">=", "value": 500.0},
-        {"metric": "max_accumulation_mm", "operator": ">=", "value": 150.0}
-      ]}
+    "threshold_freeze_requirements": [
+      "derive_thresholds_using_development_period_only",
+      "freeze_GSMaP_threshold_before_2025_validation",
+      "freeze_IMERG_threshold_before_2025_validation",
+      "do_not_use_model_scores_or_prediction_errors_in_threshold_selection",
+      "retain_natural_candidate_prevalence_before_any_sampling"
     ]
   },
   "positive_exclusion": {
@@ -32,19 +35,22 @@
   "candidate_status_after_generation": "UNCONFIRMED_HARD_NEGATIVE_CANDIDATE",
   "hard_negative_label_allowed": false,
   "confirmation_requirements": [
-    "actual_historical_analyzed_rainfall_payload_audited",
+    "free_historical_precipitation_payload_audited",
+    "source_specific_thresholds_frozen_on_development_only",
     "candidate_not_inside_positive_exclusion_window",
     "episode_grouping_or_equivalent_duplicate_control_complete",
     "no_outcome_or_model_score_used_to_choose_candidate",
     "candidate_train_validation_holdout_assignment_frozen_before_model_evaluation"
   ],
   "forbidden": [
+    "require_paid_historical_precipitation_data",
+    "reuse_JMA_1km_80_100_150mm_or_500km2_thresholds_as_satellite_equivalents",
     "random_sunny_day_negatives_as_primary_control",
     "choose_negatives_after_seeing_model_errors",
     "use_JMA_LPZ_forecast_as_model_feature",
     "use_KIKIKURU_as_model_feature",
     "assign_final_HARD_NEGATIVE_from_rainfall_threshold_alone",
-    "treat_1km_analyzed_rainfall_as_250m_instantaneous_radar_morphology"
+    "treat_0p1_degree_satellite_precipitation_as_250m_or_1km_radar_morphology"
   ],
   "risk_engine_allowed": false
 }
