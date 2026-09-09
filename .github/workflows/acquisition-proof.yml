@@ -1,4 +1,4 @@
-name: Phase 0.5 Acquisition Proof
+name: LPZ Scientific Data and Evidence CI
 
 on:
   workflow_dispatch:
@@ -10,19 +10,19 @@ on:
       - "scripts/validate_scientific_evidence.py"
       - "src/**"
       - "config/data_sources.json"
+      - "config/scientific_variable_requirements.json"
       - "research/evidence/**"
       - "tests/**"
       - ".github/workflows/acquisition-proof.yml"
   schedule:
-    # Start conservatively during the proof phase. Move to 5-minute cadence
-    # only after upstream load, runtime, and failure behavior are measured.
+    # Still conservative while Phase 1 scientific decoding is under validation.
     - cron: "17,47 * * * *"
 
 permissions:
   contents: read
 
 concurrency:
-  group: phase0-5-acquisition-proof
+  group: lpz-scientific-data-evidence-ci
   cancel-in-progress: false
 
 jobs:
@@ -46,13 +46,22 @@ jobs:
         run: python -m unittest discover -s tests -v
 
       - name: Validate Scientific Evidence Engine
-        run: python scripts/validate_scientific_evidence.py --registry research/evidence/scientific_evidence_registry.json --output reports/evidence/scientific_evidence_validation.json
+        run: |
+          python scripts/validate_scientific_evidence.py \
+            --registry research/evidence/scientific_evidence_registry.json \
+            --requirements config/scientific_variable_requirements.json \
+            --output reports/evidence/scientific_evidence_validation.json
 
       - name: Run acquisition probe
-        run: python scripts/acquisition_probe.py --output reports/acquisition/acquisition_report.json
+        run: |
+          python scripts/acquisition_probe.py \
+            --output reports/acquisition/acquisition_report.json
 
       - name: Build canonical snapshot
-        run: python scripts/build_canonical_snapshot.py --acquisition-report reports/acquisition/acquisition_report.json --output reports/canonical/canonical_snapshot.json
+        run: |
+          python scripts/build_canonical_snapshot.py \
+            --acquisition-report reports/acquisition/acquisition_report.json \
+            --output reports/canonical/canonical_snapshot.json
 
       - name: Upload Phase 0.5 / 1A / 1B evidence
         if: always()
