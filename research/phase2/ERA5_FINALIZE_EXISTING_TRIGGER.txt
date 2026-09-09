@@ -1,1 +1,0 @@
-One-shot trigger to finalize ERA5 historical reconstruction from Run 34361612066 artifacts.
