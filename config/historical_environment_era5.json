@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.1",
+  "schema_version": "0.1.2",
   "phase": "2B-historical-environment",
   "provider": "COPERNICUS_CDS_ERA5",
   "dataset": "reanalysis-era5-pressure-levels",
@@ -7,10 +7,14 @@
   "authentication_gate": {
     "credential_present": true,
     "credential_verified_by_github_actions": true,
-    "authenticated_proof_run_id": 34356909862,
-    "dataset_licence_status": "NOT_ACCEPTED",
-    "download_gate": "BLOCKED_PENDING_DATASET_LICENCE_ACCEPTANCE",
-    "note": "The CDS API key was present and the request reached CDS. CDS returned HTTP 403 required licences not accepted."
+    "authenticated_proof_run_id": 34359022859,
+    "dataset_licence_status": "ACCEPTED",
+    "download_gate": "PASS_ONE_REQUEST_PROOF",
+    "scientific_decode_gate": "PASS_ONE_REQUEST_PROOF",
+    "downloaded_bytes": 21120,
+    "required_fields_present": 9,
+    "required_fields_expected": 9,
+    "note": "Run 34359022859 successfully downloaded and scientifically decoded one authenticated ERA5 pressure-level request."
   },
   "time_alignment": {
     "policy": "FLOOR_TO_AVAILABLE_HOUR",
@@ -19,21 +23,12 @@
     "reason": "Historical precursor snapshots must not use an ERA5 analysis time later than the requested snapshot time."
   },
   "pressure_levels_hpa": [1000, 925, 850, 700, 600, 500],
-  "variables": [
-    "relative_humidity",
-    "specific_humidity",
-    "u_component_of_wind",
-    "v_component_of_wind"
-  ],
+  "variables": ["relative_humidity", "specific_humidity", "u_component_of_wind", "v_component_of_wind"],
   "required_feature_mapping": {
     "RH500_RH700_environment": ["relative_humidity@500", "relative_humidity@700"],
     "600hPa_orientation_environment": ["u_component_of_wind@600", "v_component_of_wind@600"],
     "850hPa_inflow_environment": ["u_component_of_wind@850", "v_component_of_wind@850"],
-    "low_level_moisture_context": [
-      "specific_humidity@1000",
-      "specific_humidity@925",
-      "specific_humidity@850"
-    ]
+    "low_level_moisture_context": ["specific_humidity@1000", "specific_humidity@925", "specific_humidity@850"]
   },
   "spatial_sampling": {
     "status": "PROVEN_JMA_PRIMARY_SUBDIVISION_BBOX",
@@ -41,12 +36,11 @@
     "geometry_evidence": "58/58 primary-subdivision codes observed in official positive anchors resolved from JMA official GIS.",
     "retrieval_strategy": "UTC_DATE_X_PRIMARY_SUBDIVISION",
     "bbox_padding_degrees": 0.5,
-    "padding_reason": "Two ERA5 0.25-degree grid cells of context around each official primary-subdivision bbox.",
-    "sampling_note": "BBox inclusion is a retrieval envelope, not an assumption that every grid point inside the bbox belongs to the subdivision polygon."
+    "sampling_note": "BBox is a retrieval envelope, not a subdivision-polygon mean."
   },
   "download_mode": {
     "ordinary_ci": "DRY_RUN_MANIFEST_ONLY",
-    "authenticated_workflow": "MANUAL_ONLY_AFTER_DATASET_LICENCE_ACCEPTANCE"
+    "authenticated_workflow": "MANUAL_OR_EXPLICIT_BATCH_PILOT_ONLY"
   },
   "risk_engine_allowed": false
 }
