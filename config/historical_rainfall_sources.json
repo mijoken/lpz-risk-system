@@ -1,6 +1,7 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "phase": "2B-historical-rainfall-acquisition",
+  "official_catalogue_url": "https://www.data.jma.go.jp/suishin/cgi-bin/catalogue/make_product_page.cgi?id=KaisekiU",
   "sources": [
     {
       "source_id": "JMA_ANALYZED_RAINFALL_CURRENT_GRIB2",
@@ -25,7 +26,8 @@
       "access": "JMA viewing / Japan Meteorological Business Support Center annual media or equivalent permitted route",
       "delivery_medium": "CD/DVD or support-center route per JMA catalogue",
       "status": "ACCESS_PATH_IDENTIFIED_PAYLOAD_NOT_ACQUIRED",
-      "machine_public_web_download_assumed": false
+      "machine_public_web_download_assumed": false,
+      "public_bulk_api_assumed": false
     }
   ],
   "historical_screening_use": {
@@ -42,6 +44,7 @@
     ]
   },
   "payload_gate": "BLOCKED_PENDING_ACTUAL_HISTORICAL_ANALYZED_RAINFALL_PAYLOAD",
+  "hard_negative_candidate_policy": "config/hard_negative_candidate_policy.json",
   "hard_negative_label_allowed": false,
   "risk_engine_allowed": false
 }
