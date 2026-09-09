@@ -1,0 +1,76 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2E-precipitation-source-strategy",
+  "sources": [
+    {
+      "source_id": "JMA_ANALYZED_RAINFALL_HISTORICAL",
+      "role": "PRIMARY_HISTORICAL",
+      "purpose": [
+        "historical_heavy_rain_screening",
+        "three_hour_accumulation",
+        "hard_negative_candidate_generation",
+        "independent_reference_for_satellite_products"
+      ],
+      "status": "PAYLOAD_ACQUISITION_REQUIRED",
+      "may_define_hard_negative_directly": false,
+      "may_feed_risk_score": false
+    },
+    {
+      "source_id": "JMA_PUBLIC_RADAR_PROSPECTIVE_FEATURE_ARCHIVE",
+      "role": "PROSPECTIVE_NATIVE",
+      "purpose": [
+        "future_pristine_feature_archive",
+        "radar_morphology",
+        "object_tracking",
+        "parent_core_hierarchy",
+        "temporal_descriptors",
+        "genesis_geometry"
+      ],
+      "raw_image_repository_policy": "DO_NOT_COMMIT_RAW_RADAR_IMAGES",
+      "derived_feature_repository_policy": "DAILY_CONSOLIDATED_JSONL_IS_SOURCE_OF_TRUTH",
+      "prospective_holdout_start_utc": "2026-09-10T00:00:00Z",
+      "may_feed_risk_score": false
+    },
+    {
+      "source_id": "GSMAP_HISTORICAL",
+      "role": "BACKUP_SATELLITE_PRIMARY",
+      "purpose": [
+        "backup_historical_precipitation",
+        "independent_cross_validation",
+        "coverage_gap_filling"
+      ],
+      "spatial_resolution": "0.1_degree_class",
+      "temporal_resolution": "hourly_class",
+      "exact_substitute_for_jma_1km": false,
+      "may_define_hard_negative_directly": false,
+      "may_feed_risk_score": false
+    },
+    {
+      "source_id": "NOAA_CMORPH_CDR",
+      "role": "BACKUP_SATELLITE_SECONDARY",
+      "purpose": [
+        "independent_cross_validation",
+        "fallback_if_gsmap_unavailable",
+        "satellite_disagreement_diagnostic"
+      ],
+      "spatial_resolution": "8km_class",
+      "temporal_resolution": "30min",
+      "exact_substitute_for_jma_1km": false,
+      "may_define_hard_negative_directly": false,
+      "may_feed_risk_score": false
+    }
+  ],
+  "fusion_policy": {
+    "priority_order": [
+      "JMA_ANALYZED_RAINFALL_HISTORICAL",
+      "GSMAP_HISTORICAL",
+      "NOAA_CMORPH_CDR"
+    ],
+    "never_silently_replace_primary": true,
+    "record_source_used_per_feature_row": true,
+    "record_primary_backup_disagreement": true,
+    "do_not_average_sources_without_frozen_validation": true,
+    "do_not_treat_satellite_resolution_as_1km_radar_equivalent": true
+  },
+  "risk_engine_allowed": false
+}
