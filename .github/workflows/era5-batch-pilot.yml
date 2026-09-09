@@ -1,0 +1,57 @@
+name: LPZ ERA5 Batch Reconstruction Pilot
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_index:
+        description: "Frozen manifest start index"
+        required: false
+        default: "0"
+      count:
+        description: "Number of requests for pilot"
+        required: false
+        default: "3"
+  push:
+    paths:
+      - "research/phase2/ERA5_BATCH_PILOT_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  batch-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Verify secret
+        run: test -n "$CDSAPI_KEY"
+      - name: Build official positive registry and ERA5 manifest
+        run: |
+          python scripts/build_historical_case_registry.py --config config/historical_case_sources.json --output reports/historical/historical_case_source_registry.json
+          python scripts/build_positive_case_registry.py --source-audit reports/historical/historical_case_source_registry.json --config config/historical_case_sources.json --output reports/historical/positive_case_registry.json
+          python scripts/build_era5_request_manifest.py --positive-registry reports/historical/positive_case_registry.json --config config/historical_environment_era5.json --geometry research/phase2/primary_subdivision_geometry_registry_20260909.json --output reports/historical/era5_request_manifest.json
+      - name: Run checkpointed batch pilot
+        run: |
+          START="${{ inputs.start_index }}"; COUNT="${{ inputs.count }}"
+          if [ -z "$START" ]; then START=0; fi
+          if [ -z "$COUNT" ]; then COUNT=3; fi
+          python scripts/era5_batch_reconstruction_pilot.py --manifest reports/historical/era5_request_manifest.json --start-index "$START" --count "$COUNT"
+      - name: Upload batch evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lpz-era5-batch-pilot-${{ github.run_id }}
+          path: |
+            reports/historical/era5_request_manifest.json
+            reports/historical/era5_batch_pilot_summary.json
+            reports/historical/era5_batch_pilot/*.json
+          if-no-files-found: warn
+          retention-days: 30
