@@ -1,0 +1,47 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2B-historical-rainfall-acquisition",
+  "sources": [
+    {
+      "source_id": "JMA_ANALYZED_RAINFALL_CURRENT_GRIB2",
+      "provider": "JMA",
+      "product": "Analyzed Rainfall",
+      "element": "1-hour precipitation",
+      "resolution": "1km",
+      "update_frequency": "30min",
+      "format": "GRIB2",
+      "filename_pattern": "Z__C_RJTD_yyyyMMddhhmmss_SRF_GPV_Ggis1km_Prr60lv_ANAL_grib2.bin",
+      "access": "Japan Meteorological Business Support Center",
+      "status": "SPECIFICATION_CONFIRMED_PAYLOAD_NOT_ACQUIRED"
+    },
+    {
+      "source_id": "JMA_ANALYZED_RAINFALL_ANNUAL_2017_PLUS",
+      "provider": "JMA",
+      "product": "Analyzed Rainfall Data",
+      "element": "analyzed rainfall",
+      "resolution": "1km",
+      "coverage_start": "2017-01-01",
+      "issue_frequency": "annual",
+      "access": "JMA viewing / Japan Meteorological Business Support Center annual media or equivalent permitted route",
+      "delivery_medium": "CD/DVD or support-center route per JMA catalogue",
+      "status": "ACCESS_PATH_IDENTIFIED_PAYLOAD_NOT_ACQUIRED",
+      "machine_public_web_download_assumed": false
+    }
+  ],
+  "historical_screening_use": {
+    "allowed_after_payload_audit": [
+      "one_hour_accumulation",
+      "three_hour_accumulation",
+      "heavy_rain_candidate_screening",
+      "hard_negative_candidate_generation"
+    ],
+    "not_allowed_without_additional_proof": [
+      "live_public_png_equivalent_morphology",
+      "250m_instantaneous_core_tracking",
+      "Hirockawa_exact_HRA_reproduction"
+    ]
+  },
+  "payload_gate": "BLOCKED_PENDING_ACTUAL_HISTORICAL_ANALYZED_RAINFALL_PAYLOAD",
+  "hard_negative_label_allowed": false,
+  "risk_engine_allowed": false
+}
