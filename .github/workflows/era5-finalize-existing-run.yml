@@ -1,0 +1,74 @@
+name: LPZ ERA5 Finalize Existing Reconstruction
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Existing full-reconstruction workflow run ID"
+        required: true
+        default: "34361612066"
+  push:
+    paths:
+      - "research/phase2/ERA5_FINALIZE_EXISTING_TRIGGER.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Resolve source run
+        id: source
+        run: |
+          SOURCE="${{ inputs.source_run_id }}"
+          if [ -z "$SOURCE" ]; then SOURCE="34361612066"; fi
+          echo "run_id=$SOURCE" >> "$GITHUB_OUTPUT"
+      - name: Download frozen manifest from source run
+        run: |
+          mkdir -p reports/historical collected
+          gh run download "${{ steps.source.outputs.run_id }}" --repo "$GITHUB_REPOSITORY" --name era5-full-manifest --dir reports/historical
+      - name: Download all chunk evidence from source run
+        run: |
+          for chunk in $(seq -w 0 12); do
+            gh run download "${{ steps.source.outputs.run_id }}" --repo "$GITHUB_REPOSITORY" --name "era5-full-chunk-${chunk}" --dir "collected/chunk_${chunk}"
+          done
+      - name: Finalize available ERA5 window
+        run: |
+          python scripts/merge_era5_reconstruction.py \
+            --manifest reports/historical/era5_request_manifest.json \
+            --descriptor-root collected \
+            --output reports/historical/era5_positive_snapshot_feature_table.json \
+            --summary-output reports/historical/era5_positive_snapshot_feature_summary.json
+      - name: Assert source-availability-aware gates
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/era5_positive_snapshot_feature_summary.json',encoding='utf-8'))
+          assert p['available_window_complete'] is True, p
+          assert p['hard_missing_request_indices'] == [], p
+          assert p['hard_missing_snapshot_key_count'] == 0, p
+          assert p['future_source_time_count'] == 0, p
+          assert p['pending_source_availability_request_indices'] == [102,103], p
+          assert p['historical_environment_reconstruction_complete'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: era5-positive-snapshot-feature-table-finalized-${{ github.run_id }}
+          path: |
+            reports/historical/era5_positive_snapshot_feature_table.json
+            reports/historical/era5_positive_snapshot_feature_summary.json
+            reports/historical/era5_request_manifest.json
+          if-no-files-found: error
+          retention-days: 90
