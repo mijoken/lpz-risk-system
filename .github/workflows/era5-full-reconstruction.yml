@@ -1,0 +1,138 @@
+name: LPZ ERA5 Full Historical Reconstruction
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "research/phase2/ERA5_FULL_RECONSTRUCTION_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+env:
+  CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Build frozen positive registry and ERA5 manifest
+        run: |
+          python scripts/build_historical_case_registry.py --config config/historical_case_sources.json --output reports/historical/historical_case_source_registry.json
+          python scripts/build_positive_case_registry.py --source-audit reports/historical/historical_case_source_registry.json --config config/historical_case_sources.json --output reports/historical/positive_case_registry.json
+          python scripts/build_era5_request_manifest.py --positive-registry reports/historical/positive_case_registry.json --config config/historical_environment_era5.json --geometry research/phase2/primary_subdivision_geometry_registry_20260909.json --output reports/historical/era5_request_manifest.json
+      - name: Assert frozen manifest size
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/era5_request_manifest.json',encoding='utf-8'))
+          assert p['date_subdivision_request_count']==104, p['date_subdivision_request_count']
+          assert p['snapshot_mapping_count']==5106, p['snapshot_mapping_count']
+          assert p['future_source_time_count']==0, p['future_source_time_count']
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: era5-full-manifest
+          path: |
+            reports/historical/era5_request_manifest.json
+            reports/historical/positive_case_registry.json
+          retention-days: 90
+
+  reconstruct:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        include:
+          - {chunk: "00", start: 0, count: 8}
+          - {chunk: "01", start: 8, count: 8}
+          - {chunk: "02", start: 16, count: 8}
+          - {chunk: "03", start: 24, count: 8}
+          - {chunk: "04", start: 32, count: 8}
+          - {chunk: "05", start: 40, count: 8}
+          - {chunk: "06", start: 48, count: 8}
+          - {chunk: "07", start: 56, count: 8}
+          - {chunk: "08", start: 64, count: 8}
+          - {chunk: "09", start: 72, count: 8}
+          - {chunk: "10", start: 80, count: 8}
+          - {chunk: "11", start: 88, count: 8}
+          - {chunk: "12", start: 96, count: 8}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Verify CDS secret
+        run: test -n "$CDSAPI_KEY"
+      - uses: actions/download-artifact@v4
+        with:
+          name: era5-full-manifest
+          path: reports/historical
+      - name: Reconstruct ERA5 chunk ${{ matrix.chunk }}
+        run: |
+          python scripts/era5_batch_reconstruction_pilot.py \
+            --manifest reports/historical/era5_request_manifest.json \
+            --start-index "${{ matrix.start }}" \
+            --count "${{ matrix.count }}" \
+            --output-dir "reports/historical/era5_full/chunk_${{ matrix.chunk }}" \
+            --summary "reports/historical/era5_full/summary_${{ matrix.chunk }}.json"
+      - name: Upload chunk evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: era5-full-chunk-${{ matrix.chunk }}
+          path: reports/historical/era5_full
+          if-no-files-found: error
+          retention-days: 90
+
+  merge:
+    if: always()
+    needs: [prepare, reconstruct]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          name: era5-full-manifest
+          path: reports/historical
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: era5-full-chunk-*
+          path: collected
+          merge-multiple: true
+      - name: Merge and join all positive snapshots
+        run: |
+          python scripts/merge_era5_reconstruction.py \
+            --manifest reports/historical/era5_request_manifest.json \
+            --descriptor-root collected \
+            --output reports/historical/era5_positive_snapshot_feature_table.json \
+            --summary-output reports/historical/era5_positive_snapshot_feature_summary.json
+      - name: Upload final historical environment table
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: era5-positive-snapshot-feature-table
+          path: |
+            reports/historical/era5_positive_snapshot_feature_table.json
+            reports/historical/era5_positive_snapshot_feature_summary.json
+            reports/historical/era5_request_manifest.json
+          if-no-files-found: warn
+          retention-days: 90
