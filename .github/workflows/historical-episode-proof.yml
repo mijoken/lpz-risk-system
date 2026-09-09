@@ -1,0 +1,66 @@
+name: LPZ Historical Positive Episode Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "config/historical_split_policy.json"
+      - "src/lpz_risk/historical_episodes.py"
+      - "scripts/build_positive_episode_registry.py"
+      - "tests/test_historical_episodes.py"
+      - ".github/workflows/historical-episode-proof.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  episode-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Run episode policy unit tests
+        run: python -m unittest tests.test_historical_episodes -v
+      - name: Build official positive registry
+        run: |
+          python scripts/build_historical_case_registry.py \
+            --config config/historical_case_sources.json \
+            --output reports/historical/historical_case_source_registry.json
+          python scripts/build_positive_case_registry.py \
+            --source-audit reports/historical/historical_case_source_registry.json \
+            --config config/historical_case_sources.json \
+            --output reports/historical/positive_case_registry.json
+      - name: Build conservative local positive episodes and frozen splits
+        run: |
+          python scripts/build_positive_episode_registry.py \
+            --positive-registry reports/historical/positive_case_registry.json \
+            --policy config/historical_split_policy.json \
+            --output reports/historical/positive_episode_registry.json
+      - name: Assert anti-leakage invariants
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/positive_episode_registry.json',encoding='utf-8'))
+          assert p['realized_positive_anchor_count'] == 851, p
+          assert sum(p['split_anchor_counts'].values()) == 851, p
+          assert p['cross_subdivision_episode_grouping_complete'] is False, p
+          assert p['prospective_holdout_pristine_by_policy'] is True, p
+          assert p['retrospective_2026_pristine'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          ids=[x['anchor_id'] for x in p['anchor_episode_assignments']]
+          assert len(ids)==len(set(ids))==851
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lpz-positive-episodes-${{ github.run_id }}
+          path: |
+            reports/historical/positive_case_registry.json
+            reports/historical/positive_episode_registry.json
+          if-no-files-found: error
+          retention-days: 90
