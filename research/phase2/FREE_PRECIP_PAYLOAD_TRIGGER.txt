@@ -1,1 +1,0 @@
-One-shot trigger for GSMaP Standard v8 and NASA IMERG Final v07 real payload proof.
