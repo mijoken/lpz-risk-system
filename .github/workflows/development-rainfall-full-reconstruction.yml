@@ -21,7 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
+      gsmap_matrix: ${{ steps.matrix.outputs.gsmap_matrix }}
+      imerg_matrix: ${{ steps.matrix.outputs.imerg_matrix }}
+      cmorph_matrix: ${{ steps.matrix.outputs.cmorph_matrix }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -57,6 +59,12 @@ jobs:
           assert p['unique_native_field_count']==590, p
           assert p['unique_payload_count']==481, p
           assert p['production_task_count']==69, p
+          by={x['source_id']:x['production_task_count'] for x in p['source_summary']}
+          assert by=={
+              'GSMAP_STANDARD_V8_HISTORICAL':23,
+              'NASA_IMERG_FINAL_V07':23,
+              'NOAA_CMORPH_CDR':23,
+          }, by
           assert p['validation_data_used'] is False
           assert p['retrospective_test_data_used'] is False
           assert p['prospective_holdout_data_used'] is False
@@ -68,13 +76,21 @@ jobs:
           python scripts/build_development_rainfall_geometry.py \
             --plan reports/historical/development_rainfall_production_plan.json \
             --output reports/historical/development_primary_subdivision_geometry.geojson
-      - name: Build dynamic matrix
+      - name: Build provider-isolated dynamic matrices
         id: matrix
         run: |
           python - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           p=json.load(open('reports/historical/development_rainfall_production_plan.json',encoding='utf-8'))
-          print('matrix='+json.dumps({'task_id':[t['task_id'] for t in p['tasks']]},separators=(',',':')))
+          mapping={
+              'gsmap_matrix':'GSMAP_STANDARD_V8_HISTORICAL',
+              'imerg_matrix':'NASA_IMERG_FINAL_V07',
+              'cmorph_matrix':'NOAA_CMORPH_CDR',
+          }
+          for output_name,source in mapping.items():
+              ids=[t['task_id'] for t in p['tasks'] if t['source_id']==source]
+              assert len(ids)==23, (source,len(ids))
+              print(output_name+'='+json.dumps({'task_id':ids},separators=(',',':')))
           PY
       - uses: actions/upload-artifact@v4
         with:
@@ -87,14 +103,14 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-  reconstruct:
+  reconstruct-gsmap:
     needs: prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
-      max-parallel: 4
-      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      max-parallel: 1
+      matrix: ${{ fromJson(needs.prepare.outputs.gsmap_matrix) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -106,15 +122,91 @@ jobs:
         with:
           name: development-rainfall-plan
           path: work/plan
-      - name: Verify acquisition credentials
+      - name: Verify GSMaP credentials
         shell: bash
         run: |
           set -euo pipefail
           test -n "${GSMAP_FTP_USERNAME:-}"
           test -n "${GSMAP_FTP_PASSWORD:-}"
+      - name: Reconstruct GSMaP real payload task
+        run: |
+          mkdir -p reports/historical/tasks
+          python scripts/reconstruct_development_rainfall_task.py \
+            --plan work/plan/development_rainfall_production_plan.json \
+            --window-manifest work/plan/development_rainfall_window_manifest.json \
+            --geometry work/plan/development_primary_subdivision_geometry.geojson \
+            --task-id "${{ matrix.task_id }}" \
+            --output "reports/historical/tasks/${{ matrix.task_id }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rainfall-task-${{ matrix.task_id }}
+          path: reports/historical/tasks/${{ matrix.task_id }}.json
+          if-no-files-found: error
+          retention-days: 90
+
+  reconstruct-imerg:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJson(needs.prepare.outputs.imerg_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          name: development-rainfall-plan
+          path: work/plan
+      - name: Verify Earthdata credentials
+        shell: bash
+        run: |
+          set -euo pipefail
           test -n "${EARTHDATA_USERNAME:-}"
           test -n "${EARTHDATA_PASSWORD:-}"
-      - name: Reconstruct real payload task
+      - name: Reconstruct IMERG real payload task
+        run: |
+          mkdir -p reports/historical/tasks
+          python scripts/reconstruct_development_rainfall_task.py \
+            --plan work/plan/development_rainfall_production_plan.json \
+            --window-manifest work/plan/development_rainfall_window_manifest.json \
+            --geometry work/plan/development_primary_subdivision_geometry.geojson \
+            --task-id "${{ matrix.task_id }}" \
+            --output "reports/historical/tasks/${{ matrix.task_id }}.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rainfall-task-${{ matrix.task_id }}
+          path: reports/historical/tasks/${{ matrix.task_id }}.json
+          if-no-files-found: error
+          retention-days: 90
+
+  reconstruct-cmorph:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJson(needs.prepare.outputs.cmorph_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          name: development-rainfall-plan
+          path: work/plan
+      - name: Reconstruct CMORPH real payload task
         run: |
           mkdir -p reports/historical/tasks
           python scripts/reconstruct_development_rainfall_task.py \
@@ -132,7 +224,7 @@ jobs:
           retention-days: 90
 
   merge:
-    needs: [prepare, reconstruct]
+    needs: [prepare, reconstruct-gsmap, reconstruct-imerg, reconstruct-cmorph]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 20
