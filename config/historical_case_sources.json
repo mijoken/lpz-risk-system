@@ -1,0 +1,64 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2A-historical-case-registry",
+  "positive_sources": [
+    {
+      "source_id": "JMA_LPZ_2023",
+      "year": 2023,
+      "url": "https://www.data.jma.go.jp/senjo_list/data/el_detected_2023.csv",
+      "authority": "Japan Meteorological Agency",
+      "label_policy": "official_published_lpz_case",
+      "available_from": "2023-05-25T13:00:00+09:00"
+    },
+    {
+      "source_id": "JMA_LPZ_2024",
+      "year": 2024,
+      "url": "https://www.data.jma.go.jp/senjo_list/data/el_detected_2024.csv",
+      "authority": "Japan Meteorological Agency",
+      "label_policy": "official_published_lpz_case"
+    },
+    {
+      "source_id": "JMA_LPZ_2025",
+      "year": 2025,
+      "url": "https://www.data.jma.go.jp/senjo_list/data/el_detected_2025.csv",
+      "authority": "Japan Meteorological Agency",
+      "label_policy": "official_published_lpz_case"
+    },
+    {
+      "source_id": "JMA_LPZ_CURRENT",
+      "year": 2026,
+      "url": "https://www.data.jma.go.jp/senjo_list/data/el_detected.csv",
+      "authority": "Japan Meteorological Agency",
+      "label_policy": "official_published_lpz_case",
+      "mutable": true
+    }
+  ],
+  "official_publication_criteria_reference": {
+    "page": "https://www.data.jma.go.jp/senjo_list/list_senjoukousuitai.html",
+    "three_hour_100mm_area_min_km2": 500,
+    "major_minor_axis_ratio_min": 2.5,
+    "three_hour_max_precip_min_mm": 150,
+    "hazard_condition_required": true,
+    "note": "The current JMA publication criteria must be versioned by event date when historical criteria change. This config records the criteria visible at Phase 2A initialization, not a timeless definition."
+  },
+  "snapshot_offsets_minutes": [-180, -120, -90, -60, -30, 0],
+  "negative_policy": {
+    "label": "HARD_NEGATIVE",
+    "principle": "Do not use fair-weather random negatives as the primary comparator. Select meteorologically challenging non-LPZ cases.",
+    "candidate_classes": [
+      "heavy_rain_without_official_lpz",
+      "moving_linear_rainband_without_lpZ_label",
+      "short_lived_organized_convection",
+      "intense_convective_cluster_without_persistence",
+      "high_environmental_favorability_without_lpz",
+      "near_miss_objective_shape_or_accumulation_case"
+    ],
+    "exclusion_rules": [
+      "exclude any interval overlapping an official positive case in the same analysis region",
+      "exclude periods with unresolved JMA-label availability or source gaps",
+      "do not select negatives using future outcome variables that would be unavailable at forecast time",
+      "keep negative-selection criteria frozen before final holdout evaluation"
+    ]
+  },
+  "risk_engine_allowed": false
+}
