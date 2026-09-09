@@ -6,9 +6,9 @@ Explainable real-time risk monitoring and research system for linear precipitati
 
 ## Current phase
 
-**Phase 1A — Canonical Data Adapter Proof**
+**Phase 1B — Scientific Evidence Engine**
 
-Phase 0 data-source audit is complete and Phase 0.5 has demonstrated real payload acquisition for all four mandatory sources from GitHub Actions.
+Phase 0 data-source audit and Phase 0.5 live acquisition proof are complete. Phase 1A established the initial canonical data adapter, and Phase 1B now converts peer-reviewed LPZ literature into machine-readable formulas, thresholds, statistical findings, limitations, and evidence-driven input-variable requirements.
 
 ### Phase 0.5 mandatory payload gate
 
@@ -21,19 +21,48 @@ Supplementary sources:
 - JMA Himawari — metadata proof complete; scientific image/channel validation pending
 - JMA WINDAS — stable machine acquisition route pending
 
-The scheduled proof remains conservative at 30-minute cadence while availability and freshness evidence accumulates.
+The scheduled proof remains conservative at 30-minute cadence while availability and scientific-decode evidence accumulates.
 
-## Current Phase 1A gates
+## Current scientific gates
 
 ```text
-mandatory transport              PASS
-AMeDAS station normalization     PASS
-radar pixel scientific decode    PENDING
-GFS LPZ-variable decode          PENDING
-risk engine allowed              NO
+mandatory transport                        PASS
+AMeDAS station normalization               PASS
+Scientific Evidence Registry               CI VALIDATED
+Evidence -> variable requirements          CI VALIDATED
+paper misuse / proxy guardrails            CI ENFORCED
+radar pixel scientific decode              PENDING
+GFS evidence-variable scientific decode    PENDING
+historical feature reconstruction          NOT STARTED
+risk engine allowed                        NO
 ```
 
-No LPZ prediction score will be introduced until the scientific decoding gates are closed.
+No LPZ prediction score will be introduced until scientific decoding, feature reconstruction, and frozen historical validation gates are closed.
+
+## Scientific Evidence Engine policy
+
+**Evidence is not an operational gate.**
+
+Published formulas and thresholds retain their original region, sample, dataset, spatial/temporal resolution, unit conventions, and limitations. A literature-derived diagnostic is not promoted into the LPZ score merely because it appeared in a paper.
+
+The initial curated evidence set covers:
+- Kato (2020): six favorable environmental conditions and formation mechanisms
+- Hirockawa et al. (2020): objective heavy-rainfall object detection/classification
+- Hirockawa & Kato (2022): improved linear-stationary identification procedures
+- Kato (2005): Kyushu-specific 850-hPa southwesterly persistence
+- Shimamura et al. (2025): 6,760-object RRJ-Conv climatology and 600-hPa orientation relationship
+- Hayashi et al. (2025): object-based forecast verification / Interest Value / SCS
+- Kumagai et al. (2026): Tohoku rainfall-threshold sensitivity
+- Tahara et al. (2026): northern-Japan 64-year climatology and 1000–900-hPa integrated water-vapor-flux diagnostics
+
+Two critical guardrails are already enforced by tests and CI:
+1. Kato's 500-m water-vapor-flux diagnostic is **not** silently replaced by a 950-hPa GFS proxy.
+2. The six favorable conditions are treated as multi-evidence diagnostics, **not** a deterministic all-six event gate.
+
+See:
+- `research/evidence/scientific_evidence_registry.json`
+- `config/scientific_variable_requirements.json`
+- `docs/architecture/SCIENTIFIC_EVIDENCE_ENGINE.md`
 
 ## v0.1 source policy
 
@@ -68,34 +97,46 @@ No LPZ prediction score will be introduced until the scientific decoding gates a
 ## Architecture
 
 ```text
-Public weather data
+Scientific literature
         |
         v
-GitHub Actions
+Scientific Evidence Registry
+        |
+        +--> formulas / thresholds / findings
+        +--> scope / limitations
+        +--> required weather variables
         |
         v
-Acquisition + validation
+Evidence-aware acquisition requirements
+        |
+        +-------------------------------+
+        |                               |
+        v                               v
+Public weather data              Historical sources
+        |                               |
+        v                               v
+GitHub Actions               Historical reconstruction
+        |                               |
+        v                               |
+Acquisition + validation               |
+        |                               |
+        v                               |
+Canonical adapters <-------------------+
         |
         v
-Canonical adapters
-  - source_health
-  - radar_frame
-  - surface_station_frame
-  - environment_frame
-        |
-        +--> historical research / backtest
+Future Scientific Feature Engine
         |
         v
-Future LPZ state / risk engine
+Frozen validation / holdout
         |
         v
-JSON / GeoJSON
+Only then: LPZ risk fusion
         |
         v
-GitHub Pages dashboard
+JSON / GeoJSON -> GitHub Pages dashboard
 ```
 
-Live and historical pipelines are intentionally separated. They converge only at canonical feature definitions.
+Live and historical pipelines remain intentionally separated. They converge at canonical variable and scientific feature definitions.
 
 ## Current evidence
 
@@ -103,13 +144,21 @@ The Phase 1A GitHub Actions proof normalized 1,286 AMeDAS stations, including 91
 
 GFS transport proof includes automatic fallback to the previous completed model cycle when a newly scheduled cycle is not yet published.
 
+The Phase 1B registry drives GFS requirements from reproducible literature needs rather than collecting variables merely because they are available. It explicitly tracks exact reproduction, pending transformations, and blocked approximations.
+
 See:
 - `docs/PHASE0_DATA_SOURCE_AUDIT.md`
 - `research/phase0/PHASE0_5_BASELINE_20260909.md`
+- `research/phase1/PHASE1B_SCIENTIFIC_EVIDENCE_BASELINE_20260909.md`
 
 ## Run locally
 
 ```bash
+python scripts/validate_scientific_evidence.py \
+  --registry research/evidence/scientific_evidence_registry.json \
+  --requirements config/scientific_variable_requirements.json \
+  --output reports/evidence/scientific_evidence_validation.json
+
 python scripts/acquisition_probe.py \
   --output reports/acquisition/acquisition_report.json
 
