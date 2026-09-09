@@ -28,10 +28,13 @@
     ]
   },
   "spatial_sampling": {
-    "status": "PENDING_PRIMARY_SUBDIVISION_GEOMETRY",
-    "rule": "Do not assign an arbitrary prefectural centroid to a JMA primary subdivision code.",
-    "temporary_retrieval_strategy": "REQUEST_MANIFEST_ONLY",
-    "future_strategy": "Sample ERA5 over a validated primary-subdivision polygon or defensible event ROI."
+    "status": "PROVEN_JMA_PRIMARY_SUBDIVISION_BBOX",
+    "geometry_registry": "research/phase2/primary_subdivision_geometry_registry_20260909.json",
+    "geometry_evidence": "58/58 primary-subdivision codes observed in official positive anchors resolved from JMA official GIS.",
+    "retrieval_strategy": "UTC_DAY_UNION_BBOX",
+    "bbox_padding_degrees": 0.5,
+    "padding_reason": "Two ERA5 0.25-degree grid cells of context around the union of active primary-subdivision bboxes.",
+    "sampling_note": "BBox inclusion is a retrieval envelope, not an assumption that every grid point inside the bbox belongs to the subdivision polygon."
   },
   "download_mode": {
     "ordinary_ci": "DRY_RUN_MANIFEST_ONLY",
