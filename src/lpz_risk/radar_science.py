@@ -118,6 +118,7 @@ def decode_jma_precipitation_png(payload: bytes) -> RadarTileDecode:
         class_index[opaque & color_match] = idx
 
     unknown_opaque = opaque & (class_index < 0)
+    class_index[unknown_opaque] = -2
 
     opaque_rgbs = tuple(
         sorted(
