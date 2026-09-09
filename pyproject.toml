@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lpz-risk-system"
-version = "0.0.1"
+version = "0.1.0"
 description = "Explainable real-time LPZ risk monitoring and research system"
 requires-python = ">=3.11"
 dependencies = []
