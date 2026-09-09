@@ -2,10 +2,6 @@ name: LPZ Free Precipitation Payload Proof
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "research/phase2/FREE_PRECIP_PAYLOAD_TRIGGER.txt"
 
 permissions:
   contents: read
