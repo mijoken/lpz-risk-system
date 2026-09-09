@@ -23,7 +23,7 @@ from eccodes import (
 )
 
 
-GFS_SECONDARY_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25b.pl"
+GFS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
 DEFAULT_BBOX = {"leftlon": 120.0, "rightlon": 150.0, "toplat": 50.0, "bottomlat": 20.0}
 LOW_LEVELS = (1000, 975, 950, 925, 900)
 
@@ -90,14 +90,14 @@ def build_science_subset_url(
     forecast_hour: int = 1,
     bbox: dict[str, float] | None = None,
 ) -> str:
-    """Build a NOMADS GFS secondary-variable subset URL for Phase 1C fields."""
+    """Build a NOMADS primary GFS 0.25-degree subset URL for Phase 1C fields."""
     box = dict(DEFAULT_BBOX if bbox is None else bbox)
     hh = cycle.strftime("%H")
     ymd = cycle.strftime("%Y%m%d")
     fff = f"{forecast_hour:03d}"
 
     params: list[tuple[str, str]] = [
-        ("file", f"gfs.t{hh}z.pgrb2b.0p25.f{fff}"),
+        ("file", f"gfs.t{hh}z.pgrb2.0p25.f{fff}"),
     ]
 
     for level in sorted(set(LOW_LEVELS + (850, 700, 600, 500)), reverse=True):
@@ -116,7 +116,7 @@ def build_science_subset_url(
             ("dir", f"/gfs.{ymd}/{hh}/atmos"),
         ]
     )
-    return f"{GFS_SECONDARY_FILTER}?{urlencode(params)}"
+    return f"{GFS_FILTER}?{urlencode(params)}"
 
 
 def _safe_int(gid: int, key: str, default: int = 0) -> int:
@@ -253,7 +253,6 @@ def wind_field_diagnostic(fields: dict[FieldKey, DecodedField], level_hpa: int) 
     if speed.size == 0:
         return {"level_hpa": level_hpa, "valid_grid_points": 0}
 
-    # Circular mean of meteorological directions.
     radians = np.radians(direction)
     mean_angle = (math.degrees(math.atan2(np.mean(np.sin(radians)), np.mean(np.cos(radians)))) + 360.0) % 360.0
     return {
