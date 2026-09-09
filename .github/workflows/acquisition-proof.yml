@@ -7,8 +7,10 @@ on:
     paths:
       - "scripts/acquisition_probe.py"
       - "scripts/build_canonical_snapshot.py"
+      - "scripts/validate_scientific_evidence.py"
       - "src/**"
       - "config/data_sources.json"
+      - "research/evidence/**"
       - "tests/**"
       - ".github/workflows/acquisition-proof.yml"
   schedule:
@@ -43,24 +45,23 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
+      - name: Validate Scientific Evidence Engine
+        run: python scripts/validate_scientific_evidence.py --registry research/evidence/scientific_evidence_registry.json --output reports/evidence/scientific_evidence_validation.json
+
       - name: Run acquisition probe
-        run: |
-          python scripts/acquisition_probe.py \
-            --output reports/acquisition/acquisition_report.json
+        run: python scripts/acquisition_probe.py --output reports/acquisition/acquisition_report.json
 
       - name: Build canonical snapshot
-        run: |
-          python scripts/build_canonical_snapshot.py \
-            --acquisition-report reports/acquisition/acquisition_report.json \
-            --output reports/canonical/canonical_snapshot.json
+        run: python scripts/build_canonical_snapshot.py --acquisition-report reports/acquisition/acquisition_report.json --output reports/canonical/canonical_snapshot.json
 
-      - name: Upload Phase 0.5 / 1A evidence
+      - name: Upload Phase 0.5 / 1A / 1B evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lpz-acquisition-canonical-${{ github.run_id }}
+          name: lpz-acquisition-canonical-evidence-${{ github.run_id }}
           path: |
             reports/acquisition/acquisition_report.json
             reports/canonical/canonical_snapshot.json
+            reports/evidence/scientific_evidence_validation.json
           if-no-files-found: warn
           retention-days: 30
