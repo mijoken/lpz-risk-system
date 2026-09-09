@@ -31,6 +31,29 @@ class ProbeHelperTests(unittest.TestCase):
         future = datetime(2026, 9, 9, 6, 5, tzinfo=timezone.utc)
         self.assertEqual(probe.age_seconds(future, now), 0)
 
+    def test_latest_compact_row_does_not_assume_sort_order(self) -> None:
+        # Regression test for the first Himawari probe: upstream metadata can be
+        # ordered oldest -> newest, so rows[0] must never be assumed current.
+        rows = [
+            {"basetime": "20260907193000", "validtime": "20260907193000"},
+            {"basetime": "20260909071500", "validtime": "20260909071500"},
+            {"basetime": "20260909072000", "validtime": "20260909072000"},
+        ]
+        latest = probe.latest_compact_row(rows)
+        self.assertEqual(latest["validtime"], "20260909072000")
+
+    def test_gfs_cycle_candidates_descend_by_six_hours(self) -> None:
+        now = datetime(2026, 9, 9, 7, 31, tzinfo=timezone.utc)
+        cycles = probe.gfs_cycle_candidates(now, count=3)
+        self.assertEqual(
+            cycles,
+            [
+                datetime(2026, 9, 9, 6, 0, tzinfo=timezone.utc),
+                datetime(2026, 9, 9, 0, 0, tzinfo=timezone.utc),
+                datetime(2026, 9, 8, 18, 0, tzinfo=timezone.utc),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
