@@ -1,0 +1,81 @@
+name: LPZ ERA5 Authenticated Proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_index:
+        description: "Frozen ERA5 manifest request index for one proof payload"
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  era5-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Verify required secret exists
+        run: |
+          if [ -z "$CDSAPI_KEY" ]; then
+            echo "CDSAPI_KEY GitHub Actions secret is not configured."
+            exit 2
+          fi
+
+      - name: Build current official positive registry
+        run: |
+          python scripts/build_historical_case_registry.py \
+            --config config/historical_case_sources.json \
+            --output reports/historical/historical_case_source_registry.json
+          python scripts/build_positive_case_registry.py \
+            --source-audit reports/historical/historical_case_source_registry.json \
+            --config config/historical_case_sources.json \
+            --output reports/historical/positive_case_registry.json
+
+      - name: Build spatially resolved ERA5 manifest
+        run: |
+          python scripts/build_era5_request_manifest.py \
+            --positive-registry reports/historical/positive_case_registry.json \
+            --config config/historical_environment_era5.json \
+            --geometry research/phase2/primary_subdivision_geometry_registry_20260909.json \
+            --output reports/historical/era5_request_manifest.json
+
+      - name: Download one ERA5 GRIB request
+        run: |
+          python scripts/era5_authenticated_probe.py \
+            --manifest reports/historical/era5_request_manifest.json \
+            --request-index "${{ inputs.request_index }}" \
+            --output-grib reports/historical/era5_probe.grib \
+            --output-report reports/historical/era5_authenticated_probe.json
+
+      - name: Scientifically decode ERA5 GRIB
+        run: |
+          python scripts/era5_scientific_decode_probe.py \
+            --input reports/historical/era5_probe.grib \
+            --output reports/historical/era5_scientific_decode.json
+
+      - name: Upload ERA5 proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lpz-era5-proof-${{ github.run_id }}
+          path: |
+            reports/historical/era5_request_manifest.json
+            reports/historical/era5_authenticated_probe.json
+            reports/historical/era5_scientific_decode.json
+          if-no-files-found: warn
+          retention-days: 30
