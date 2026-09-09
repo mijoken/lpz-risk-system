@@ -54,8 +54,8 @@ def main() -> int:
             "evidence_registry_valid": result.ok,
             "cross_file_references_valid": result.ok,
             "scientific_misuse_guardrails": result.ok,
-            "risk_engine_allowed": false
-        }
+            "risk_engine_allowed": False,
+        },
     }
 
     output = Path(args.output)
