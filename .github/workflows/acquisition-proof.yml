@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "scripts/acquisition_probe.py"
+      - "scripts/build_canonical_snapshot.py"
       - "src/**"
       - "config/data_sources.json"
       - "tests/**"
@@ -47,11 +48,19 @@ jobs:
           python scripts/acquisition_probe.py \
             --output reports/acquisition/acquisition_report.json
 
-      - name: Upload acquisition evidence
+      - name: Build canonical snapshot
+        run: |
+          python scripts/build_canonical_snapshot.py \
+            --acquisition-report reports/acquisition/acquisition_report.json \
+            --output reports/canonical/canonical_snapshot.json
+
+      - name: Upload Phase 0.5 / 1A evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase0-5-acquisition-report-${{ github.run_id }}
-          path: reports/acquisition/acquisition_report.json
+          name: lpz-acquisition-canonical-${{ github.run_id }}
+          path: |
+            reports/acquisition/acquisition_report.json
+            reports/canonical/canonical_snapshot.json
           if-no-files-found: warn
           retention-days: 30
