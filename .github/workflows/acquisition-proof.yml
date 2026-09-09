@@ -8,11 +8,13 @@ on:
       - "scripts/acquisition_probe.py"
       - "scripts/build_canonical_snapshot.py"
       - "scripts/validate_scientific_evidence.py"
+      - "scripts/gfs_scientific_decode_probe.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
       - "research/evidence/**"
       - "tests/**"
+      - "pyproject.toml"
       - ".github/workflows/acquisition-proof.yml"
   schedule:
     # Still conservative while Phase 1 scientific decoding is under validation.
@@ -42,6 +44,9 @@ jobs:
       - name: Install package
         run: python -m pip install -e .
 
+      - name: Verify ecCodes runtime
+        run: python -m eccodes selfcheck
+
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
 
@@ -63,14 +68,20 @@ jobs:
             --acquisition-report reports/acquisition/acquisition_report.json \
             --output reports/canonical/canonical_snapshot.json
 
-      - name: Upload Phase 0.5 / 1A / 1B evidence
+      - name: Run GFS scientific decode proof
+        run: |
+          python scripts/gfs_scientific_decode_probe.py \
+            --output reports/scientific/gfs_scientific_decode.json
+
+      - name: Upload Phase 0.5 / 1A / 1B / 1C evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lpz-acquisition-canonical-evidence-${{ github.run_id }}
+          name: lpz-scientific-evidence-${{ github.run_id }}
           path: |
             reports/acquisition/acquisition_report.json
             reports/canonical/canonical_snapshot.json
             reports/evidence/scientific_evidence_validation.json
+            reports/scientific/gfs_scientific_decode.json
           if-no-files-found: warn
           retention-days: 30
