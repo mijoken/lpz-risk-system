@@ -1,0 +1,55 @@
+name: LPZ GSMaP Standard v8 Payload Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/GSMAP_PAYLOAD_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  gsmap-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GSMAP_FTP_USERNAME: ${{ secrets.GSMAP_FTP_USERNAME }}
+      GSMAP_FTP_PASSWORD: ${{ secrets.GSMAP_FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Verify GSMaP secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GSMAP_FTP_USERNAME:-}"
+          test -n "${GSMAP_FTP_PASSWORD:-}"
+      - name: Run focused GSMaP real-payload proof
+        run: |
+          python scripts/gsmap_standard_v8_payload_probe.py \
+            --output reports/historical/gsmap_standard_v8_payload_probe.json
+      - name: Assert zero-cost and no raw persistence
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/gsmap_standard_v8_payload_probe.json',encoding='utf-8'))
+          assert p['zero_cost_required'] is True
+          assert p['secret_value_recorded'] is False
+          assert p['raw_payload_persisted'] is False
+          assert p['payload_gate'].startswith('PASS'), p
+          assert p['risk_score'] is None
+          assert p['risk_engine_allowed'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gsmap-standard-v8-proof-${{ github.run_id }}
+          path: reports/historical/gsmap_standard_v8_payload_probe.json
+          if-no-files-found: error
+          retention-days: 30
