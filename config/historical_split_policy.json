@@ -1,0 +1,46 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2D-positive-episode-and-temporal-split",
+  "policy_status": "FROZEN_BEFORE_HARD_NEGATIVE_PAYLOAD_AND_MODEL_EVALUATION",
+  "local_episode_grouping": {
+    "scope": "SAME_PRIMARY_SUBDIVISION_ONLY",
+    "maximum_consecutive_anchor_gap_minutes": 20,
+    "reason": "JMA detection rows are approximately 10-minute observations; 20 minutes permits one missing cycle without merging longer discontinuities.",
+    "cross_subdivision_episode_grouping": false,
+    "cross_subdivision_reason": "Do not invent spatial event linkage before a validated historical precipitation/object field is available."
+  },
+  "temporal_splits": [
+    {
+      "split": "DEVELOPMENT",
+      "start_jst": "2023-01-01T00:00:00+09:00",
+      "end_jst_exclusive": "2025-01-01T00:00:00+09:00",
+      "model_use": "feature discovery and descriptive statistics"
+    },
+    {
+      "split": "VALIDATION",
+      "start_jst": "2025-01-01T00:00:00+09:00",
+      "end_jst_exclusive": "2026-01-01T00:00:00+09:00",
+      "model_use": "frozen-rule validation only"
+    },
+    {
+      "split": "RETROSPECTIVE_TEST_NON_PRISTINE",
+      "start_jst": "2026-01-01T00:00:00+09:00",
+      "end_jst_exclusive": "2026-09-10T00:00:00+09:00",
+      "model_use": "retrospective stress test only; never call final holdout"
+    },
+    {
+      "split": "PROSPECTIVE_HOLDOUT",
+      "start_jst": "2026-09-10T00:00:00+09:00",
+      "end_jst_exclusive": null,
+      "model_use": "prospective untouched evaluation after freeze"
+    }
+  ],
+  "boundary_embargo_hours": 6,
+  "boundary_embargo_semantics": "Any anchor within +/- 6 hours of a split boundary is assigned BOUNDARY_EMBARGO and excluded from model fitting/evaluation to prevent a meteorological episode from straddling splits.",
+  "retrospective_2026_pristine": false,
+  "retrospective_2026_reason": "2026 observations and live cases have already informed system architecture and feature engineering, so pre-freeze 2026 data cannot honestly be labeled untouched final holdout.",
+  "prospective_holdout_freeze_jst": "2026-09-10T00:00:00+09:00",
+  "random_row_split_allowed": false,
+  "cross_split_local_episode_allowed": false,
+  "risk_engine_allowed": false
+}
