@@ -1,2 +1,0 @@
-One-shot trigger for focused GSMaP Standard v8 payload proof.
-MLSD discovery revision: 2
