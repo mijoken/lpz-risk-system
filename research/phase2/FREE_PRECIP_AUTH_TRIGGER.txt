@@ -1,0 +1,1 @@
+One-shot trigger for free precipitation authentication proof after user configured GitHub Secrets.
