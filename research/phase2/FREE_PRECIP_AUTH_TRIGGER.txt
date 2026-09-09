@@ -1,1 +1,2 @@
 One-shot trigger for free precipitation authentication proof after user configured GitHub Secrets.
+Rerun after correcting IMERG CMR short_name/version query.
