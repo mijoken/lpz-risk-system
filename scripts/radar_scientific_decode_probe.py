@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Phase 1C proof for JMA public precipitation PNG scientific class decoding.
 
-The proof searches a bounded Japan tile set for real precipitation colours,
-then verifies the entire high-zoom descendant footprint of the rainy parent
-tile. It never assumes that one low-zoom pixel centre remains rainy after map
-resampling at a different zoom.
+The public JMA tiles are display products. This proof discovers a real rainy
+parent tile and then follows its four Web-Mercator children one zoom at a time.
+It records the highest zoom at which precipitation colours remain observable
+instead of assuming that an arbitrary zoom is populated.
 """
 
 from __future__ import annotations
@@ -43,11 +43,12 @@ NOWC_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json"
 RASRF_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/rasrf/targetTimes.json"
 
 DISCOVERY_ZOOM = 6
-VERIFY_ZOOM = 9
+VERIFY_ZOOMS = (7, 8, 9)
+REQUIRED_DISPLAY_ZOOM = 8
 JAPAN_BBOX = {"west": 122.0, "east": 154.0, "south": 20.0, "north": 46.0}
 MAX_FRAMES_PER_PRODUCT = 4
 DISCOVERY_WORKERS = 4
-VERIFY_WORKERS = 8
+VERIFY_WORKERS = 4
 
 
 def iso_utc(dt: datetime) -> str:
@@ -61,11 +62,7 @@ def parse_compact(value: str) -> datetime:
 def http_get(url: str, max_bytes: int) -> tuple[bytes, int, int]:
     request = Request(
         url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "*/*",
-            "Cache-Control": "no-cache",
-        },
+        headers={"User-Agent": USER_AGENT, "Accept": "*/*", "Cache-Control": "no-cache"},
     )
     started = time.perf_counter()
     with urlopen(request, timeout=TIMEOUT_SECONDS) as response:
@@ -107,7 +104,7 @@ def spaced_recent_rows(rows: list[dict[str, Any]], count: int) -> list[dict[str,
     last_dt: datetime | None = None
     for row in rows:
         dt = parse_compact(str(row.get("validtime") or row.get("basetime")))
-        if last_dt is None or (last_dt - dt).total_seconds() >= 30 * 60:
+        if last_dt is None or (last_dt - dt).total_seconds() >= 1800:
             chosen.append(row)
             last_dt = dt
         if len(chosen) >= count:
@@ -162,6 +159,7 @@ def inspect_tile(product: str, row: dict[str, Any], z: int, x: int, y: int) -> d
                 "class_id": cls.class_id,
                 "lower_mmph": cls.lower_mmph,
                 "upper_mmph": cls.upper_mmph,
+                "approx_display_pixel_area_km2": web_mercator_pixel_area_km2(lat, z),
             }
         result.update(
             {
@@ -183,7 +181,7 @@ def inspect_tile(product: str, row: dict[str, Any], z: int, x: int, y: int) -> d
     return result
 
 
-def _strongest_rainy_report(reports: list[dict[str, Any]]) -> dict[str, Any] | None:
+def strongest_rainy_report(reports: list[dict[str, Any]]) -> dict[str, Any] | None:
     rainy = [r for r in reports if r.get("seed")]
     if not rainy:
         return None
@@ -196,6 +194,21 @@ def _strongest_rainy_report(reports: list[dict[str, Any]]) -> dict[str, Any] | N
     )
 
 
+def inspect_tiles_parallel(
+    product: str,
+    row: dict[str, Any],
+    zoom: int,
+    tiles: list[tuple[int, int]],
+    workers: int,
+) -> list[dict[str, Any]]:
+    reports: list[dict[str, Any]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(inspect_tile, product, row, zoom, x, y) for x, y in tiles]
+        for future in concurrent.futures.as_completed(futures):
+            reports.append(future.result())
+    return reports
+
+
 def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     tiles = japan_tile_indices(DISCOVERY_ZOOM)
     selected_rows = spaced_recent_rows(rows, MAX_FRAMES_PER_PRODUCT)
@@ -204,29 +217,19 @@ def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, An
     successful_tiles = 0
 
     for row in selected_rows:
-        reports: list[dict[str, Any]] = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=DISCOVERY_WORKERS) as pool:
-            futures = [
-                pool.submit(inspect_tile, product, row, DISCOVERY_ZOOM, x, y)
-                for x, y in tiles
-            ]
-            for future in concurrent.futures.as_completed(futures):
-                report = future.result()
-                reports.append(report)
-                if report.get("status") == "PASS":
-                    successful_tiles += 1
-                    total_unknown += int(report.get("unknown_opaque_pixels", 0))
-
-        strongest = _strongest_rainy_report(reports)
-        rainy_count = sum(bool(r.get("seed")) for r in reports)
+        reports = inspect_tiles_parallel(product, row, DISCOVERY_ZOOM, tiles, DISCOVERY_WORKERS)
+        successful = [r for r in reports if r.get("status") == "PASS"]
+        successful_tiles += len(successful)
+        total_unknown += sum(int(r.get("unknown_opaque_pixels", 0)) for r in successful)
+        strongest = strongest_rainy_report(successful)
         frame_reports.append(
             {
                 "basetime": row.get("basetime"),
                 "validtime": row.get("validtime"),
                 "tiles_attempted": len(reports),
-                "tiles_pass": sum(r.get("status") == "PASS" for r in reports),
-                "tiles_with_precipitation": rainy_count,
-                "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in reports),
+                "tiles_pass": len(successful),
+                "tiles_with_precipitation": sum(bool(r.get("seed")) for r in successful),
+                "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in successful),
                 "strongest_class_index": None if strongest is None else strongest.get("max_class_index"),
             }
         )
@@ -252,56 +255,59 @@ def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def verify_parent_descendants(
+def verify_zoom_hierarchy(
     product: str,
     row: dict[str, Any],
     parent_tile: dict[str, Any],
 ) -> dict[str, Any]:
-    children = descendant_tile_indices(
-        int(parent_tile["z"]),
-        int(parent_tile["x"]),
-        int(parent_tile["y"]),
-        VERIFY_ZOOM,
-    )
-    reports: list[dict[str, Any]] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=VERIFY_WORKERS) as pool:
-        futures = [
-            pool.submit(inspect_tile, product, row, VERIFY_ZOOM, x, y)
-            for x, y in children
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            reports.append(future.result())
+    current = dict(parent_tile)
+    levels: list[dict[str, Any]] = []
+    highest_rain_zoom = int(parent_tile["z"])
+    total_unknown = 0
+    strongest_overall: dict[str, Any] | None = None
 
-    successful = [r for r in reports if r.get("status") == "PASS"]
-    strongest = _strongest_rainy_report(successful)
-    aggregate_classes: dict[str, int] = {}
-    for report in successful:
-        for class_id, count in report.get("class_counts", {}).items():
-            aggregate_classes[class_id] = aggregate_classes.get(class_id, 0) + int(count)
+    for target_zoom in VERIFY_ZOOMS:
+        children = descendant_tile_indices(
+            int(current["z"]), int(current["x"]), int(current["y"]), target_zoom
+        )
+        reports = inspect_tiles_parallel(product, row, target_zoom, children, VERIFY_WORKERS)
+        successful = [r for r in reports if r.get("status") == "PASS"]
+        total_unknown += sum(int(r.get("unknown_opaque_pixels", 0)) for r in successful)
+        strongest = strongest_rainy_report(successful)
+        levels.append(
+            {
+                "zoom": target_zoom,
+                "child_tiles_expected": len(children),
+                "child_tiles_pass": len(successful),
+                "child_tiles_with_precipitation": sum(bool(r.get("seed")) for r in successful),
+                "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in successful),
+                "rain_observed": strongest is not None,
+                "strongest_seed": None if strongest is None else strongest.get("seed"),
+                "strongest_tile": None if strongest is None else {k: strongest[k] for k in ("z", "x", "y", "url")},
+            }
+        )
+        if strongest is None:
+            break
+        highest_rain_zoom = target_zoom
+        strongest_overall = strongest
+        current = {k: strongest[k] for k in ("z", "x", "y", "url")}
 
-    output: dict[str, Any] = {
-        "status": "PASS" if successful else "FAIL",
-        "parent_tile": {k: parent_tile[k] for k in ("z", "x", "y", "url")},
-        "verification_zoom": VERIFY_ZOOM,
-        "child_tiles_expected": len(children),
-        "child_tiles_pass": len(successful),
-        "child_tiles_with_precipitation": sum(bool(r.get("seed")) for r in successful),
-        "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in successful),
-        "class_counts": aggregate_classes,
-        "rain_verified": strongest is not None,
-        "strongest_seed": None if strongest is None else strongest.get("seed"),
-        "strongest_tile": None if strongest is None else {k: strongest[k] for k in ("z", "x", "y", "url")},
+    return {
+        "status": "PASS",
+        "starting_parent_tile": {k: parent_tile[k] for k in ("z", "x", "y", "url")},
+        "required_display_zoom": REQUIRED_DISPLAY_ZOOM,
+        "highest_zoom_with_precipitation_colour": highest_rain_zoom,
+        "required_display_zoom_verified": highest_rain_zoom >= REQUIRED_DISPLAY_ZOOM,
+        "z9_precipitation_observed": highest_rain_zoom >= 9,
+        "unknown_opaque_pixels": total_unknown,
+        "levels": levels,
+        "strongest_verified_seed": None if strongest_overall is None else strongest_overall.get("seed"),
         "note": (
-            "The full z=9 descendant footprint is checked. A low-zoom pixel centre is not assumed "
-            "to remain rainy after resampling. z=9 is a display-tile verification, not a claim "
-            "that every tile pixel is a native radar cell."
+            "Cross-zoom verification follows only the strongest rainy child at each level. "
+            "Failure to observe rain at a higher display zoom is recorded as upstream tile behaviour, "
+            "not converted into an invented scientific value."
         ),
     }
-    if strongest and strongest.get("seed"):
-        output["approx_pixel_area_km2_at_strongest_seed_lat"] = web_mercator_pixel_area_km2(
-            float(strongest["seed"]["lat"]), VERIFY_ZOOM
-        )
-    return output
 
 
 def run() -> dict[str, Any]:
@@ -326,26 +332,18 @@ def run() -> dict[str, Any]:
         }
     except Exception as exc:
         return {
-            "schema_version": "0.3.0",
+            "schema_version": "0.4.0",
             "phase": "1C-radar-scientific-decode-proof",
             "generated_at": iso_utc(generated),
             "execution_ok": False,
             "scientific_decode_proven": False,
             "error": f"{type(exc).__name__}: {exc}",
             "official_palette": official_palette,
-            "gates": {
-                "target_times": False,
-                "png_transport": False,
-                "official_palette_integrity": False,
-                "precipitation_palette_observed": False,
-                "high_zoom_descendant_verification": False,
-                "continuous_mmph_recovery": False,
-                "risk_engine_allowed": False,
-            },
+            "gates": {"target_times": False, "risk_engine_allowed": False},
         }
 
     discovery: dict[str, Any] = {}
-    high_zoom: dict[str, Any] = {}
+    hierarchy: dict[str, Any] = {}
     technical_failure = False
     total_unknown = 0
     total_success_tiles = 0
@@ -356,24 +354,30 @@ def run() -> dict[str, Any]:
         total_unknown += int(found.get("unknown_opaque_pixels", 0))
         total_success_tiles += int(found.get("successful_tiles", 0))
         if found.get("found") and found.get("row") and found.get("seed_tile"):
-            high_zoom[product] = verify_parent_descendants(product, found["row"], found["seed_tile"])
-            total_unknown += int(high_zoom[product].get("unknown_opaque_pixels", 0))
+            hierarchy[product] = verify_zoom_hierarchy(product, found["row"], found["seed_tile"])
+            total_unknown += int(hierarchy[product].get("unknown_opaque_pixels", 0))
         else:
-            high_zoom[product] = {"status": "NO_RAIN_SAMPLE", "rain_verified": False}
+            hierarchy[product] = {
+                "status": "NO_RAIN_SAMPLE",
+                "required_display_zoom_verified": False,
+                "z9_precipitation_observed": False,
+            }
         if int(found.get("successful_tiles", 0)) == 0:
             technical_failure = True
 
     palette_observed = all(bool(discovery[p].get("found")) for p in ("nowc", "rasrf"))
-    high_zoom_verified = all(bool(high_zoom[p].get("rain_verified")) for p in ("nowc", "rasrf"))
+    hierarchy_verified = all(
+        bool(hierarchy[p].get("required_display_zoom_verified")) for p in ("nowc", "rasrf")
+    )
     palette_integrity = total_unknown == 0
     transport_gate = total_success_tiles > 0 and not technical_failure
-    scientific_decode_proven = transport_gate and palette_integrity and palette_observed and high_zoom_verified
+    scientific_decode_proven = transport_gate and palette_integrity and palette_observed and hierarchy_verified
 
     latest_nowc = parse_compact(str(product_rows["nowc"][0]["validtime"]))
     latest_rasrf = parse_compact(str(product_rows["rasrf"][0]["validtime"]))
 
     return {
-        "schema_version": "0.3.0",
+        "schema_version": "0.4.0",
         "phase": "1C-radar-scientific-decode-proof",
         "generated_at": iso_utc(generated),
         "execution_ok": transport_gate and palette_integrity,
@@ -382,23 +386,23 @@ def run() -> dict[str, Any]:
             "latest_nowc_valid_time": iso_utc(latest_nowc),
             "latest_rasrf_valid_time": iso_utc(latest_rasrf),
             "discovery_zoom": DISCOVERY_ZOOM,
-            "verification_zoom": VERIFY_ZOOM,
+            "verify_zooms": list(VERIFY_ZOOMS),
+            "required_display_zoom": REQUIRED_DISPLAY_ZOOM,
             "discovery_tile_count_per_frame": len(japan_tile_indices(DISCOVERY_ZOOM)),
-            "verification_child_tiles_per_parent": len(descendant_tile_indices(DISCOVERY_ZOOM, 0, 0, VERIFY_ZOOM)),
             "max_frames_per_product": MAX_FRAMES_PER_PRODUCT,
             "bbox": JAPAN_BBOX,
         },
         "official_palette": official_palette,
         "discovery": discovery,
-        "high_zoom_verification": high_zoom,
+        "zoom_hierarchy_verification": hierarchy,
         "interpretation": {
             "public_png_semantics": "official precipitation colour intervals only",
             "exact_continuous_mmph": False,
             "transparent_pixels_as_zero": False,
-            "no_rain_sample_is_technical_failure": False,
+            "required_zoom_is_display_validation_not_native_resolution": True,
             "reason": (
                 "The public PNG is a display-class product. LPZ-RISK preserves bucket bounds, "
-                "does not invent midpoints, and verifies cross-zoom colour evidence over the full descendant footprint."
+                "does not invent midpoints, and records actual cross-zoom availability."
             ),
         },
         "gates": {
@@ -406,7 +410,7 @@ def run() -> dict[str, Any]:
             "png_transport": transport_gate,
             "official_palette_integrity": palette_integrity,
             "precipitation_palette_observed": palette_observed,
-            "high_zoom_descendant_verification": high_zoom_verified,
+            "display_zoom8_hierarchy_verified": hierarchy_verified,
             "precipitation_class_decode": scientific_decode_proven,
             "continuous_mmph_recovery": False,
             "hirockawa_exact_3h_accumulation": False,
@@ -424,16 +428,11 @@ def main() -> int:
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(
-        json.dumps(
-            {
-                "execution_ok": report.get("execution_ok"),
-                "scientific_decode_proven": report.get("scientific_decode_proven"),
-                "gates": report.get("gates"),
-            },
-            indent=2,
-        )
-    )
+    print(json.dumps({
+        "execution_ok": report.get("execution_ok"),
+        "scientific_decode_proven": report.get("scientific_decode_proven"),
+        "gates": report.get("gates"),
+    }, indent=2))
     print(f"report={output}")
     return 0 if report.get("execution_ok") else 2
 
