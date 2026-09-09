@@ -144,6 +144,59 @@ def _feature_geometry(feature: dict[str, Any], primary_subdivision_code: str) ->
     return geometry
 
 
+def _geometry_bbox(geometry: dict[str, Any]) -> tuple[float, float, float, float]:
+    """Return lon/lat bbox for Polygon/MultiPolygon/GeometryCollection."""
+    points: list[tuple[float, float]] = []
+
+    def collect(g: dict[str, Any]) -> None:
+        kind = g.get("type")
+        if kind == "GeometryCollection":
+            for child in g.get("geometries") or []:
+                collect(child)
+            return
+        if kind not in {"Polygon", "MultiPolygon"}:
+            raise ValueError(f"unsupported GeoJSON geometry type: {kind!r}")
+
+        def walk(node: Any) -> None:
+            if isinstance(node, (list, tuple)) and len(node) >= 2 and all(isinstance(x, (int, float)) for x in node[:2]):
+                points.append((float(node[0]), float(node[1])))
+                return
+            if isinstance(node, (list, tuple)):
+                for child in node:
+                    walk(child)
+
+        walk(g.get("coordinates") or [])
+
+    collect(geometry)
+    if not points:
+        raise ValueError("official polygon geometry contains no coordinate points")
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _polygon_grid_subset(
+    lon: np.ndarray,
+    lat: np.ndarray,
+    rain: np.ndarray,
+    geometry: dict[str, Any],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Bbox-prefilter a regular grid before exact centre-in-polygon masking.
+
+    The bbox is only a computational prefilter. Final membership remains the
+    frozen GRID_CELL_CENTRE_INSIDE_OFFICIAL_POLYGON rule.
+    """
+    xmin, ymin, xmax, ymax = _geometry_bbox(geometry)
+    lon_idx = np.where((lon >= xmin) & (lon <= xmax))[0]
+    lat_idx = np.where((lat >= ymin) & (lat <= ymax))[0]
+    if not lon_idx.size or not lat_idx.size:
+        raise ValueError("official polygon bbox does not intersect rainfall grid centres")
+    sub_lon = lon[lon_idx]
+    sub_lat = lat[lat_idx]
+    sub_rain = rain[np.ix_(lat_idx, lon_idx)]
+    return sub_lon, sub_lat, sub_rain
+
+
 def build_subdivision_window_descriptor(
     window: AccumulatedRainfallWindow,
     *,
@@ -160,14 +213,18 @@ def build_subdivision_window_descriptor(
     geometry = _feature_geometry(polygon_feature, primary_subdivision_code)
     lon = np.asarray(window.longitude_deg_e, dtype=float)
     lat = np.asarray(window.latitude_deg_n, dtype=float)
-    lon2d, lat2d = np.meshgrid(lon, lat)
+    rain = np.asarray(window.accumulation_mm, dtype=float)
+
+    sub_lon, sub_lat, sub_rain = _polygon_grid_subset(lon, lat, rain, geometry)
+    lon2d, lat2d = np.meshgrid(sub_lon, sub_lat)
     mask = mask_grid_centres(lat2d, lon2d, geometry)
     if not np.any(mask):
         raise ValueError("official polygon contains no grid-cell centres for this product")
 
-    area = spherical_latlon_cell_areas_km2(lat, lon)
-    rain = np.asarray(window.accumulation_mm, dtype=float)
-    region_values = rain[mask]
+    # Computing areas from the bbox-subset centres is exact for these regular
+    # source grids because cell spacing is unchanged by slicing.
+    area = spherical_latlon_cell_areas_km2(sub_lat, sub_lon)
+    region_values = sub_rain[mask]
     region_areas = area[mask]
     finite = np.isfinite(region_values)
     finite_values = region_values[finite]
@@ -189,7 +246,7 @@ def build_subdivision_window_descriptor(
         })
 
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "entity_type": "PRIMARY_SUBDIVISION_RAINFALL_WINDOW_DESCRIPTOR",
         "source_id": window.source_id,
         "product_version": window.product_version,
@@ -199,6 +256,8 @@ def build_subdivision_window_descriptor(
         "accumulation_seconds": window.accumulation_seconds,
         "native_field_count": window.native_field_count,
         "mask_semantics": "GRID_CELL_CENTRE_INSIDE_OFFICIAL_POLYGON",
+        "bbox_prefilter_only": True,
+        "bbox_prefilter_grid_shape": [int(sub_lat.size), int(sub_lon.size)],
         "polygon_grid_cell_count": int(np.count_nonzero(mask)),
         "finite_grid_cell_count": int(finite_values.size),
         "missing_grid_cell_count": int(region_values.size - finite_values.size),
