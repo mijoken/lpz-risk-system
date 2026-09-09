@@ -18,9 +18,11 @@ on:
       - "scripts/radar_genesis_geometry_report.py"
       - "scripts/radar_inflow_geometry_probe.py"
       - "scripts/build_parent_precursor_report.py"
+      - "scripts/build_historical_case_registry.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
+      - "config/historical_case_sources.json"
       - "research/evidence/**"
       - "tests/**"
       - "pyproject.toml"
@@ -65,6 +67,15 @@ jobs:
             --registry research/evidence/scientific_evidence_registry.json \
             --requirements config/scientific_variable_requirements.json \
             --output reports/evidence/scientific_evidence_validation.json
+
+      # Historical official-case CSVs change infrequently. Audit them on pushes
+      # and manual runs, not every scheduled 30-minute live probe.
+      - name: Audit official JMA historical LPZ case sources
+        if: github.event_name != 'schedule'
+        run: |
+          python scripts/build_historical_case_registry.py \
+            --config config/historical_case_sources.json \
+            --output reports/historical/historical_case_source_registry.json
 
       - name: Run acquisition probe
         run: |
@@ -149,7 +160,7 @@ jobs:
             --output reports/scientific/parent_precursor_features.json \
             --csv-output reports/scientific/parent_precursor_features.csv
 
-      - name: Upload Phase 0.5 / 1A / 1B / 1C evidence
+      - name: Upload Phase 0.5 / 1 / 2A evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -158,6 +169,7 @@ jobs:
             reports/acquisition/acquisition_report.json
             reports/canonical/canonical_snapshot.json
             reports/evidence/scientific_evidence_validation.json
+            reports/historical/historical_case_source_registry.json
             reports/scientific/gfs_scientific_decode.json
             reports/scientific/radar_scientific_decode.json
             reports/scientific/radar_morphology.json
