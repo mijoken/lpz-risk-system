@@ -1,2 +1,2 @@
-One-shot trigger for Phase 2I full DEVELOPMENT real-payload rainfall reconstruction.
+Phase 2I full DEVELOPMENT rainfall reconstruction rerun after GSMaP live-directory filename resolution fix.
 Expected: 69 tasks / 567 windows / 1503 anchor-provider mappings / 195 local-episode representatives.
