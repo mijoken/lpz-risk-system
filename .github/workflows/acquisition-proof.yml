@@ -10,6 +10,7 @@ on:
       - "scripts/validate_scientific_evidence.py"
       - "scripts/gfs_scientific_decode_probe.py"
       - "scripts/radar_scientific_decode_probe.py"
+      - "scripts/radar_morphology_probe.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
@@ -74,11 +75,23 @@ jobs:
           python scripts/gfs_scientific_decode_probe.py \
             --output reports/scientific/gfs_scientific_decode.json
 
+      # These two steps traverse multiple JMA tiles and are deliberately NOT
+      # run on the 30-minute schedule or every ordinary source/test commit.
+      # Trigger them via workflow_dispatch, or a push commit whose message
+      # contains [radar-live].
       - name: Run radar scientific decode proof
-        if: github.event_name != 'schedule'
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
         run: |
           python scripts/radar_scientific_decode_probe.py \
             --output reports/scientific/radar_scientific_decode.json
+
+      - name: Run radar morphology proof
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
+        run: |
+          if [ -f scripts/radar_morphology_probe.py ]; then
+            python scripts/radar_morphology_probe.py \
+              --output reports/scientific/radar_morphology.json
+          fi
 
       - name: Upload Phase 0.5 / 1A / 1B / 1C evidence
         if: always()
@@ -91,5 +104,6 @@ jobs:
             reports/evidence/scientific_evidence_validation.json
             reports/scientific/gfs_scientific_decode.json
             reports/scientific/radar_scientific_decode.json
+            reports/scientific/radar_morphology.json
           if-no-files-found: warn
           retention-days: 30
