@@ -1,17 +1,25 @@
-"""Explicit precipitation-source priority and disagreement policy.
+"""Explicit zero-cost precipitation-source priority and disagreement policy.
 
-This module prevents satellite backups from silently becoming equivalent to JMA 1-km
-analyzed rainfall. It performs source selection/annotation only; it never emits an LPZ
-classification or risk score.
+Paid historical media and permission-restricted datasets are never required by the
+core LPZ-RISK system. Historical precipitation uses only free sources. Source
+selection is explicit; coarse satellite/reanalysis grids are never treated as JMA
+1-km analyzed-rainfall equivalents. This module never emits LPZ classification or
+risk score.
 """
 from __future__ import annotations
 
 from typing import Any
 
 PRIORITY = (
-    "JMA_ANALYZED_RAINFALL_HISTORICAL",
-    "GSMAP_HISTORICAL",
+    "GSMAP_STANDARD_V8_HISTORICAL",
+    "NASA_IMERG_FINAL_V07",
     "NOAA_CMORPH_CDR",
+    "ERA5_LAND_TOTAL_PRECIPITATION",
+)
+
+PROHIBITED_REQUIRED_SOURCES = (
+    "JMA_ANALYZED_RAINFALL_HISTORICAL_PAID_MEDIA",
+    "DIAS_XRAIN_PERMISSION_RESTRICTED",
 )
 
 
@@ -22,8 +30,23 @@ def select_precipitation_source(availability: dict[str, bool]) -> dict[str, Any]
         "priority_order": list(PRIORITY),
         "primary_available": bool(availability.get(PRIORITY[0])),
         "backup_used": chosen is not None and chosen != PRIORITY[0],
-        "selection_semantics": "EXPLICIT_PRIORITY_NO_SILENT_EQUIVALENCE",
+        "selection_semantics": "ZERO_COST_EXPLICIT_PRIORITY_NO_SILENT_EQUIVALENCE",
+        "jma_1km_threshold_reuse_allowed": False,
         "hard_negative_label": None,
+        "risk_score": None,
+    }
+
+
+def validate_zero_cost_required_sources(required_source_ids: list[str] | tuple[str, ...]) -> dict[str, Any]:
+    required = [str(x) for x in required_source_ids]
+    prohibited = sorted(set(required) & set(PROHIBITED_REQUIRED_SOURCES))
+    unknown = sorted(set(required) - set(PRIORITY))
+    return {
+        "zero_cost_policy_pass": not prohibited and not unknown,
+        "required_source_ids": required,
+        "prohibited_required_source_ids": prohibited,
+        "unknown_required_source_ids": unknown,
+        "allowed_required_source_ids": list(PRIORITY),
         "risk_score": None,
     }
 
