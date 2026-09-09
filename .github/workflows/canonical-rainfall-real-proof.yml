@@ -2,10 +2,6 @@ name: LPZ Canonical Rainfall Real Proof
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "research/phase2/CANONICAL_RAINFALL_TRIGGER.txt"
 
 permissions:
   contents: read
