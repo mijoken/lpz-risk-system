@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lpz-risk-system"
+version = "0.0.1"
+description = "Explainable real-time LPZ risk monitoring and research system"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
