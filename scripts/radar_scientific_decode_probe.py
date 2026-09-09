@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Phase 1C proof for JMA public precipitation PNG scientific class decoding.
 
-The public JMA tiles are display products. This proof discovers a real rainy
-parent tile and then follows its four Web-Mercator children one zoom at a time.
-It records the highest zoom at which precipitation colours remain observable
-instead of assuming that an arbitrary zoom is populated.
+The public JMA tiles are display products. The proof deliberately uses a
+settled frame (not the just-announced latest target time), discovers a real
+rainy parent tile, and follows its four Web-Mercator children one zoom at a
+time. This separates scientific tile semantics from upstream generation/CDN
+latency.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import concurrent.futures
 import json
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -43,12 +44,17 @@ NOWC_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json"
 RASRF_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/rasrf/targetTimes.json"
 
 DISCOVERY_ZOOM = 6
-VERIFY_ZOOMS = (7, 8, 9)
+VERIFY_ZOOMS = (7, 8, 9, 10)
 REQUIRED_DISPLAY_ZOOM = 8
+MIN_FRAME_AGE_MINUTES = 15
 JAPAN_BBOX = {"west": 122.0, "east": 154.0, "south": 20.0, "north": 46.0}
 MAX_FRAMES_PER_PRODUCT = 4
 DISCOVERY_WORKERS = 4
 VERIFY_WORKERS = 4
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def iso_utc(dt: datetime) -> str:
@@ -99,17 +105,32 @@ def current_rows(product: str, rows: list[dict[str, Any]]) -> list[dict[str, Any
     )
 
 
-def spaced_recent_rows(rows: list[dict[str, Any]], count: int) -> list[dict[str, Any]]:
+def settled_recent_rows(
+    rows: list[dict[str, Any]],
+    count: int,
+    *,
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Choose recent frames old enough that tile-generation latency is unlikely."""
+    reference = (now or utc_now()).astimezone(timezone.utc)
+    cutoff = reference - timedelta(minutes=MIN_FRAME_AGE_MINUTES)
+    eligible = [
+        row for row in rows
+        if parse_compact(str(row.get("validtime") or row.get("basetime"))) <= cutoff
+    ]
+    if not eligible:
+        return []
+
     chosen: list[dict[str, Any]] = []
     last_dt: datetime | None = None
-    for row in rows:
+    for row in eligible:
         dt = parse_compact(str(row.get("validtime") or row.get("basetime")))
         if last_dt is None or (last_dt - dt).total_seconds() >= 1800:
             chosen.append(row)
             last_dt = dt
         if len(chosen) >= count:
             break
-    return chosen or rows[:1]
+    return chosen
 
 
 def tile_url(product: str, row: dict[str, Any], z: int, x: int, y: int) -> str:
@@ -209,14 +230,15 @@ def inspect_tiles_parallel(
     return reports
 
 
-def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def discover_rain_seed(product: str, rows: list[dict[str, Any]], now: datetime) -> dict[str, Any]:
     tiles = japan_tile_indices(DISCOVERY_ZOOM)
-    selected_rows = spaced_recent_rows(rows, MAX_FRAMES_PER_PRODUCT)
+    selected_rows = settled_recent_rows(rows, MAX_FRAMES_PER_PRODUCT, now=now)
     frame_reports: list[dict[str, Any]] = []
     total_unknown = 0
     successful_tiles = 0
 
     for row in selected_rows:
+        frame_dt = parse_compact(str(row.get("validtime") or row.get("basetime")))
         reports = inspect_tiles_parallel(product, row, DISCOVERY_ZOOM, tiles, DISCOVERY_WORKERS)
         successful = [r for r in reports if r.get("status") == "PASS"]
         successful_tiles += len(successful)
@@ -226,6 +248,7 @@ def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, An
             {
                 "basetime": row.get("basetime"),
                 "validtime": row.get("validtime"),
+                "frame_age_seconds": int((now - frame_dt).total_seconds()),
                 "tiles_attempted": len(reports),
                 "tiles_pass": len(successful),
                 "tiles_with_precipitation": sum(bool(r.get("seed")) for r in successful),
@@ -237,6 +260,7 @@ def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, An
             return {
                 "found": True,
                 "row": row,
+                "frame_age_seconds": int((now - frame_dt).total_seconds()),
                 "seed": strongest["seed"],
                 "seed_tile": {k: strongest[k] for k in ("z", "x", "y", "url")},
                 "frame_reports": frame_reports,
@@ -247,19 +271,17 @@ def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, An
     return {
         "found": False,
         "row": selected_rows[0] if selected_rows else None,
+        "frame_age_seconds": None,
         "seed": None,
         "seed_tile": None,
         "frame_reports": frame_reports,
         "successful_tiles": successful_tiles,
         "unknown_opaque_pixels": total_unknown,
+        "reason": "no settled rainy frame found" if selected_rows else "no frame old enough for settled proof",
     }
 
 
-def verify_zoom_hierarchy(
-    product: str,
-    row: dict[str, Any],
-    parent_tile: dict[str, Any],
-) -> dict[str, Any]:
+def verify_zoom_hierarchy(product: str, row: dict[str, Any], parent_tile: dict[str, Any]) -> dict[str, Any]:
     current = dict(parent_tile)
     levels: list[dict[str, Any]] = []
     highest_rain_zoom = int(parent_tile["z"])
@@ -298,20 +320,19 @@ def verify_zoom_hierarchy(
         "required_display_zoom": REQUIRED_DISPLAY_ZOOM,
         "highest_zoom_with_precipitation_colour": highest_rain_zoom,
         "required_display_zoom_verified": highest_rain_zoom >= REQUIRED_DISPLAY_ZOOM,
-        "z9_precipitation_observed": highest_rain_zoom >= 9,
+        "z10_precipitation_observed": highest_rain_zoom >= 10,
         "unknown_opaque_pixels": total_unknown,
         "levels": levels,
         "strongest_verified_seed": None if strongest_overall is None else strongest_overall.get("seed"),
         "note": (
             "Cross-zoom verification follows only the strongest rainy child at each level. "
-            "Failure to observe rain at a higher display zoom is recorded as upstream tile behaviour, "
-            "not converted into an invented scientific value."
+            "A missing higher-zoom rain tile is recorded as upstream availability behaviour."
         ),
     }
 
 
 def run() -> dict[str, Any]:
-    generated = datetime.now(timezone.utc)
+    generated = utc_now()
     official_palette = {
         str(cls.rgb): {
             "class_id": cls.class_id,
@@ -332,7 +353,7 @@ def run() -> dict[str, Any]:
         }
     except Exception as exc:
         return {
-            "schema_version": "0.4.0",
+            "schema_version": "0.5.0",
             "phase": "1C-radar-scientific-decode-proof",
             "generated_at": iso_utc(generated),
             "execution_ok": False,
@@ -349,7 +370,7 @@ def run() -> dict[str, Any]:
     total_success_tiles = 0
 
     for product in ("nowc", "rasrf"):
-        found = discover_rain_seed(product, product_rows[product])
+        found = discover_rain_seed(product, product_rows[product], generated)
         discovery[product] = found
         total_unknown += int(found.get("unknown_opaque_pixels", 0))
         total_success_tiles += int(found.get("successful_tiles", 0))
@@ -358,11 +379,11 @@ def run() -> dict[str, Any]:
             total_unknown += int(hierarchy[product].get("unknown_opaque_pixels", 0))
         else:
             hierarchy[product] = {
-                "status": "NO_RAIN_SAMPLE",
+                "status": "NO_SETTLED_RAIN_SAMPLE",
                 "required_display_zoom_verified": False,
-                "z9_precipitation_observed": False,
+                "z10_precipitation_observed": False,
             }
-        if int(found.get("successful_tiles", 0)) == 0:
+        if found.get("frame_reports") and int(found.get("successful_tiles", 0)) == 0:
             technical_failure = True
 
     palette_observed = all(bool(discovery[p].get("found")) for p in ("nowc", "rasrf"))
@@ -377,7 +398,7 @@ def run() -> dict[str, Any]:
     latest_rasrf = parse_compact(str(product_rows["rasrf"][0]["validtime"]))
 
     return {
-        "schema_version": "0.4.0",
+        "schema_version": "0.5.0",
         "phase": "1C-radar-scientific-decode-proof",
         "generated_at": iso_utc(generated),
         "execution_ok": transport_gate and palette_integrity,
@@ -385,6 +406,7 @@ def run() -> dict[str, Any]:
         "metadata": {
             "latest_nowc_valid_time": iso_utc(latest_nowc),
             "latest_rasrf_valid_time": iso_utc(latest_rasrf),
+            "minimum_settled_frame_age_minutes": MIN_FRAME_AGE_MINUTES,
             "discovery_zoom": DISCOVERY_ZOOM,
             "verify_zooms": list(VERIFY_ZOOMS),
             "required_display_zoom": REQUIRED_DISPLAY_ZOOM,
@@ -399,10 +421,11 @@ def run() -> dict[str, Any]:
             "public_png_semantics": "official precipitation colour intervals only",
             "exact_continuous_mmph": False,
             "transparent_pixels_as_zero": False,
+            "settled_frame_used_for_science_proof": True,
             "required_zoom_is_display_validation_not_native_resolution": True,
             "reason": (
-                "The public PNG is a display-class product. LPZ-RISK preserves bucket bounds, "
-                "does not invent midpoints, and records actual cross-zoom availability."
+                "The public PNG is a display-class product. The proof waits for upstream settling, "
+                "preserves bucket bounds, and records actual cross-zoom availability."
             ),
         },
         "gates": {
