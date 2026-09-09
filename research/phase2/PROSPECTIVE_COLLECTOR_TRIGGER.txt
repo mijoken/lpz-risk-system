@@ -1,0 +1,1 @@
+One-shot proof trigger for the prospective native feature collector.
