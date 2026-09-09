@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Phase 0.5 acquisition proof.
 
-This program intentionally separates:
-- PAYLOAD proof: an actual observation payload was downloaded and parsed.
-- METADATA proof: current upstream metadata was downloaded and parsed.
-- SERVICE proof: the upstream service endpoint answered, but a scientific
-  payload has not yet been validated.
+Evidence levels:
+- PASS / PAYLOAD: an actual scientific payload was downloaded and validated.
+- META_PASS / METADATA: current metadata was downloaded and parsed.
+- SERVICE_PASS / SERVICE: service availability is proven, payload validation is pending.
+- PENDING: acquisition route is intentionally not guessed yet.
 
-A source is promoted to operational CORE only after repeated evidence.
+Only repeated PAYLOAD evidence can promote a mandatory source to operational CORE.
 """
 
 from __future__ import annotations
@@ -17,10 +17,11 @@ import json
 import math
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,7 +31,7 @@ if str(SRC) not in sys.path:
 
 from lpz_risk.schemas import ProbeResult  # noqa: E402
 
-USER_AGENT = "lpz-risk-system/0.0.1 (+https://github.com/mijoken/lpz-risk-system)"
+USER_AGENT = "lpz-risk-system/0.0.2 (+https://github.com/mijoken/lpz-risk-system)"
 TIMEOUT_SECONDS = 25
 MAX_READ_BYTES = 8 * 1024 * 1024
 
@@ -40,6 +41,7 @@ JMA_AMEDAS_LATEST = "https://www.jma.go.jp/bosai/amedas/data/latest_time.txt"
 JMA_AMEDAS_MAP = "https://www.jma.go.jp/bosai/amedas/data/map/{timestamp}.json"
 JMA_HIMAWARI_TIMES = "https://www.jma.go.jp/bosai/himawari/data/satimg/targetTimes_fd.json"
 NOAA_GFS_SERVICE = "https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25"
+NOAA_GFS_FILTER = "https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl"
 
 
 def utc_now() -> datetime:
@@ -87,6 +89,18 @@ def load_json(url: str) -> tuple[Any, int, int, int]:
     return json.loads(body.decode("utf-8")), status, latency_ms, len(body)
 
 
+def latest_compact_row(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Select latest row without assuming upstream sort direction."""
+    if not rows:
+        raise ValueError("cannot select latest row from an empty list")
+
+    def compact(row: dict[str, Any]) -> str:
+        value = row.get("validtime") or row.get("basetime")
+        return str(value) if value else ""
+
+    return max(rows, key=compact)
+
+
 def error_result(
     source_id: str,
     source_name: str,
@@ -121,25 +135,21 @@ def lonlat_to_xyz(lon: float, lat: float, zoom: int) -> tuple[int, int, int]:
 def probe_jma_nowc() -> ProbeResult:
     checked = iso_utc()
     try:
-        rows, status, latency, size = load_json(JMA_NOWC_TIMES)
+        rows, metadata_status, metadata_latency, metadata_size = load_json(JMA_NOWC_TIMES)
         if not isinstance(rows, list) or not rows:
             raise ValueError("targetTimes_N1.json was empty or not a list")
-        current = rows[0]
+        current = latest_compact_row(rows)
         basetime = str(current["basetime"])
         validtime = str(current["validtime"])
-        elements = current.get("elements", [])
         data_dt = parse_jma_compact(validtime)
 
-        # Sample one tile near central Japan. This is an acquisition proof only;
-        # scientific processing will later request the complete ROI tile set.
         z, x, y = lonlat_to_xyz(135.0, 35.0, 6)
         tile_url = (
             "https://www.jma.go.jp/bosai/jmatile/data/nowc/"
             f"{basetime}/none/{validtime}/surf/hrpns/{z}/{x}/{y}.png"
         )
         tile_body, tile_status, tile_latency = http_get(tile_url, max_bytes=2 * 1024 * 1024)
-        png_ok = tile_body.startswith(b"\x89PNG\r\n\x1a\n")
-        if not png_ok:
+        if not tile_body.startswith(b"\x89PNG\r\n\x1a\n"):
             raise ValueError("sample nowcast tile did not contain a PNG signature")
 
         return ProbeResult(
@@ -151,79 +161,103 @@ def probe_jma_nowc() -> ProbeResult:
             url=tile_url,
             http_status=tile_status,
             bytes_received=len(tile_body),
-            latency_ms=latency + tile_latency,
+            latency_ms=metadata_latency + tile_latency,
             data_time=iso_utc(data_dt),
             data_age_seconds=age_seconds(data_dt),
             parse_status="PASS",
             records=1,
             details={
-                "metadata_http_status": status,
-                "metadata_bytes": size,
-                "metadata_latency_ms": latency,
+                "metadata_http_status": metadata_status,
+                "metadata_bytes": metadata_size,
+                "metadata_latency_ms": metadata_latency,
                 "basetime": basetime,
                 "validtime": validtime,
-                "elements": elements,
+                "elements": current.get("elements", []),
                 "sample_tile": {"z": z, "x": x, "y": y},
             },
         )
     except (HTTPError, URLError, TimeoutError, ValueError, KeyError, json.JSONDecodeError) as exc:
-        return error_result(
-            "jma_nowc",
-            "JMA High-Resolution Precipitation Nowcast",
-            "PAYLOAD",
-            checked,
-            JMA_NOWC_TIMES,
-            exc,
-        )
+        return error_result("jma_nowc", "JMA High-Resolution Precipitation Nowcast", "PAYLOAD", checked, JMA_NOWC_TIMES, exc)
 
 
 def probe_jma_rasrf() -> ProbeResult:
     checked = iso_utc()
     try:
-        rows, status, latency, size = load_json(JMA_RASRF_TIMES)
+        rows, metadata_status, metadata_latency, metadata_size = load_json(JMA_RASRF_TIMES)
         if not isinstance(rows, list) or not rows:
             raise ValueError("rasrf targetTimes.json was empty or not a list")
 
         candidates = [
-            row
-            for row in rows
+            row for row in rows
             if str(row.get("validtime", "")) == str(row.get("basetime", ""))
             and "rasrf" in row.get("elements", [])
         ]
-        current = candidates[0] if candidates else rows[0]
+        current = latest_compact_row(candidates if candidates else rows)
+        basetime = str(current["basetime"])
         validtime = str(current["validtime"])
+        member = str(current.get("member") or "none")
         data_dt = parse_jma_compact(validtime)
+
+        z, x, y = lonlat_to_xyz(135.0, 35.0, 6)
+        tile_url = (
+            "https://www.jma.go.jp/bosai/jmatile/data/rasrf/"
+            f"{basetime}/{member}/{validtime}/surf/rasrf/{z}/{x}/{y}.png"
+        )
+        try:
+            tile_body, tile_status, tile_latency = http_get(tile_url, max_bytes=2 * 1024 * 1024)
+            if not tile_body.startswith(b"\x89PNG\r\n\x1a\n"):
+                raise ValueError("sample rasrf tile did not contain a PNG signature")
+        except (HTTPError, URLError, TimeoutError, ValueError) as tile_exc:
+            return ProbeResult(
+                source_id="jma_rasrf",
+                source_name="JMA analyzed precipitation",
+                status="META_PASS",
+                probe_type="METADATA",
+                checked_at=checked,
+                url=JMA_RASRF_TIMES,
+                http_status=metadata_status,
+                bytes_received=metadata_size,
+                latency_ms=metadata_latency,
+                data_time=iso_utc(data_dt),
+                data_age_seconds=age_seconds(data_dt),
+                parse_status="PASS",
+                records=len(rows),
+                details={
+                    "basetime": basetime,
+                    "validtime": validtime,
+                    "member": member,
+                    "elements": current.get("elements", []),
+                    "sample_tile_attempt": tile_url,
+                    "payload_error": f"{type(tile_exc).__name__}: {tile_exc}",
+                },
+            )
+
         return ProbeResult(
             source_id="jma_rasrf",
-            source_name="JMA analyzed precipitation / precipitation metadata",
-            status="META_PASS",
-            probe_type="METADATA",
+            source_name="JMA analyzed precipitation",
+            status="PASS",
+            probe_type="PAYLOAD",
             checked_at=checked,
-            url=JMA_RASRF_TIMES,
-            http_status=status,
-            bytes_received=size,
-            latency_ms=latency,
+            url=tile_url,
+            http_status=tile_status,
+            bytes_received=len(tile_body),
+            latency_ms=metadata_latency + tile_latency,
             data_time=iso_utc(data_dt),
             data_age_seconds=age_seconds(data_dt),
             parse_status="PASS",
-            records=len(rows),
+            records=1,
             details={
-                "basetime": current.get("basetime"),
-                "validtime": current.get("validtime"),
-                "member": current.get("member"),
+                "metadata_http_status": metadata_status,
+                "metadata_bytes": metadata_size,
+                "basetime": basetime,
+                "validtime": validtime,
+                "member": member,
                 "elements": current.get("elements", []),
-                "note": "Scientific raster payload validation remains pending.",
+                "sample_tile": {"z": z, "x": x, "y": y},
             },
         )
     except (HTTPError, URLError, TimeoutError, ValueError, KeyError, json.JSONDecodeError) as exc:
-        return error_result(
-            "jma_rasrf",
-            "JMA analyzed precipitation / precipitation metadata",
-            "METADATA",
-            checked,
-            JMA_RASRF_TIMES,
-            exc,
-        )
+        return error_result("jma_rasrf", "JMA analyzed precipitation", "METADATA", checked, JMA_RASRF_TIMES, exc)
 
 
 def probe_jma_amedas() -> ProbeResult:
@@ -234,11 +268,9 @@ def probe_jma_amedas() -> ProbeResult:
         latest_dt = datetime.fromisoformat(latest_text)
         stamp = latest_dt.strftime("%Y%m%d%H%M00")
         map_url = JMA_AMEDAS_MAP.format(timestamp=stamp)
-
         payload, map_status, map_latency, map_size = load_json(map_url)
         if not isinstance(payload, dict) or not payload:
             raise ValueError("AMeDAS map payload was empty or not an object")
-
         return ProbeResult(
             source_id="jma_amedas",
             source_name="JMA AMeDAS",
@@ -253,25 +285,13 @@ def probe_jma_amedas() -> ProbeResult:
             data_age_seconds=age_seconds(latest_dt),
             parse_status="PASS",
             records=len(payload),
-            details={
-                "latest_time_http_status": latest_status,
-                "latest_time": latest_text,
-            },
+            details={"latest_time_http_status": latest_status, "latest_time": latest_text},
         )
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
-        return error_result(
-            "jma_amedas",
-            "JMA AMeDAS",
-            "PAYLOAD",
-            checked,
-            JMA_AMEDAS_LATEST,
-            exc,
-        )
+        return error_result("jma_amedas", "JMA AMeDAS", "PAYLOAD", checked, JMA_AMEDAS_LATEST, exc)
 
 
 def probe_jma_windas() -> ProbeResult:
-    # The official product is accepted as a candidate, but the stable machine
-    # acquisition route must be separately verified before we automate it.
     return ProbeResult(
         source_id="jma_windas",
         source_name="JMA WINDAS / wind profiler",
@@ -281,9 +301,7 @@ def probe_jma_windas() -> ProbeResult:
         parse_status="NOT_ATTEMPTED",
         details={
             "reason": (
-                "Candidate retained as LIVE_SUPPLEMENTARY. "
-                "Stable machine-readable acquisition endpoint is intentionally "
-                "not guessed; it will be verified from official delivery assets."
+                "Candidate retained as LIVE_SUPPLEMENTARY. Stable machine-readable acquisition endpoint is intentionally not guessed; it will be verified from official delivery assets."
             )
         },
     )
@@ -295,7 +313,7 @@ def probe_jma_himawari() -> ProbeResult:
         rows, status, latency, size = load_json(JMA_HIMAWARI_TIMES)
         if not isinstance(rows, list) or not rows:
             raise ValueError("Himawari targetTimes metadata was empty or not a list")
-        current = rows[0]
+        current = latest_compact_row(rows)
         validtime = str(current.get("validtime") or current.get("basetime"))
         data_dt = parse_jma_compact(validtime)
         return ProbeResult(
@@ -319,23 +337,72 @@ def probe_jma_himawari() -> ProbeResult:
             },
         )
     except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
-        return error_result(
-            "jma_himawari",
-            "JMA Himawari imagery",
-            "METADATA",
-            checked,
-            JMA_HIMAWARI_TIMES,
-            exc,
-        )
+        return error_result("jma_himawari", "JMA Himawari imagery", "METADATA", checked, JMA_HIMAWARI_TIMES, exc)
+
+
+def gfs_cycle_candidates(now: datetime | None = None, count: int = 8) -> list[datetime]:
+    ref = (now or utc_now()).astimezone(timezone.utc)
+    floored = ref.replace(hour=(ref.hour // 6) * 6, minute=0, second=0, microsecond=0)
+    return [floored - timedelta(hours=6 * i) for i in range(count)]
+
+
+def gfs_sample_url(cycle: datetime) -> str:
+    hh = cycle.strftime("%H")
+    ymd = cycle.strftime("%Y%m%d")
+    params = [
+        ("file", f"gfs.t{hh}z.pgrb2.0p25.f000"),
+        ("lev_mean_sea_level", "on"),
+        ("var_PRMSL", "on"),
+        ("subregion", ""),
+        ("leftlon", "120"),
+        ("rightlon", "150"),
+        ("toplat", "50"),
+        ("bottomlat", "20"),
+        ("dir", f"/gfs.{ymd}/{hh}/atmos"),
+    ]
+    return f"{NOAA_GFS_FILTER}?{urlencode(params)}"
 
 
 def probe_noaa_gfs() -> ProbeResult:
     checked = iso_utc()
+    attempts: list[dict[str, Any]] = []
+    for cycle in gfs_cycle_candidates():
+        url = gfs_sample_url(cycle)
+        try:
+            body, status, latency = http_get(url, max_bytes=4 * 1024 * 1024)
+            if body.startswith(b"GRIB"):
+                return ProbeResult(
+                    source_id="noaa_gfs",
+                    source_name="NOAA/NCEP GFS 0.25 degree",
+                    status="PASS",
+                    probe_type="PAYLOAD",
+                    checked_at=checked,
+                    url=url,
+                    http_status=status,
+                    bytes_received=len(body),
+                    latency_ms=latency,
+                    data_time=iso_utc(cycle),
+                    data_age_seconds=age_seconds(cycle),
+                    parse_status="PASS",
+                    records=1,
+                    details={
+                        "cycle": iso_utc(cycle),
+                        "sample_variable": "PRMSL",
+                        "sample_level": "mean_sea_level",
+                        "sample_region": {"leftlon": 120, "rightlon": 150, "toplat": 50, "bottomlat": 20},
+                        "grib_signature": "GRIB",
+                        "attempts_before_success": attempts,
+                        "note": "Payload transport is proven. LPZ feature variables (PWAT/CAPE/SPFH/winds/etc.) are validated separately.",
+                    },
+                )
+            attempts.append({"cycle": iso_utc(cycle), "http_status": status, "bytes": len(body), "signature": body[:16].hex()})
+        except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+            attempts.append({"cycle": iso_utc(cycle), "error": f"{type(exc).__name__}: {exc}"})
+
     try:
         body, status, latency = http_get(NOAA_GFS_SERVICE, max_bytes=3 * 1024 * 1024)
         text = body.decode("utf-8", errors="replace")
-        markers = ("NCEP GFS Forecasts", "0.25 degree grid")
-        if not all(marker in text for marker in markers):
+        if "NCEP GFS Forecasts" not in text or "0.25 degree grid" not in text:
             raise ValueError("GFS grib-filter service markers were not found")
         return ProbeResult(
             source_id="noaa_gfs",
@@ -348,58 +415,33 @@ def probe_noaa_gfs() -> ProbeResult:
             bytes_received=len(body),
             latency_ms=latency,
             parse_status="PASS",
-            details={
-                "note": (
-                    "Service availability confirmed. Actual Japan-subset GRIB2 "
-                    "download and variable/level validation remain pending."
-                )
-            },
+            details={"payload_attempts": attempts, "note": "Service is available but sample GRIB2 payload proof failed."},
         )
     except (HTTPError, URLError, TimeoutError, ValueError) as exc:
-        return error_result(
-            "noaa_gfs",
-            "NOAA/NCEP GFS 0.25 degree",
-            "SERVICE",
-            checked,
-            NOAA_GFS_SERVICE,
-            exc,
-        )
+        return error_result("noaa_gfs", "NOAA/NCEP GFS 0.25 degree", "PAYLOAD", checked, NOAA_GFS_SERVICE, exc)
 
 
 def build_summary(results: list[ProbeResult]) -> dict[str, Any]:
     counts: dict[str, int] = {}
     for result in results:
         counts[result.status] = counts.get(result.status, 0) + 1
-
     mandatory_ids = {"jma_nowc", "jma_rasrf", "jma_amedas", "noaa_gfs"}
     mandatory = [r for r in results if r.source_id in mandatory_ids]
     mandatory_payload_pass = sum(r.status == "PASS" for r in mandatory)
-
     return {
         "counts": counts,
         "mandatory_sources": len(mandatory),
         "mandatory_payload_pass": mandatory_payload_pass,
         "phase0_5_complete": all(r.status == "PASS" for r in mandatory),
-        "interpretation": (
-            "Phase 0.5 is complete only when every mandatory source has an "
-            "actual scientific payload proof. META_PASS and SERVICE_PASS are "
-            "useful evidence but are not equivalent to payload acceptance."
-        ),
+        "interpretation": "Phase 0.5 is complete only when every mandatory source has an actual scientific payload proof. META_PASS and SERVICE_PASS are useful evidence but are not equivalent to payload acceptance.",
     }
 
 
 def run() -> dict[str, Any]:
-    results = [
-        probe_jma_nowc(),
-        probe_jma_rasrf(),
-        probe_jma_amedas(),
-        probe_jma_windas(),
-        probe_jma_himawari(),
-        probe_noaa_gfs(),
-    ]
+    results = [probe_jma_nowc(), probe_jma_rasrf(), probe_jma_amedas(), probe_jma_windas(), probe_jma_himawari(), probe_noaa_gfs()]
     return {
         "schema_version": "0.1.0",
-        "system_version": "0.0.1",
+        "system_version": "0.0.2",
         "phase": "0.5-data-acquisition-proof",
         "generated_at": iso_utc(),
         "results": [result.to_dict() for result in results],
@@ -409,23 +451,14 @@ def run() -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output",
-        default="reports/acquisition/acquisition_report.json",
-        help="Output JSON path",
-    )
+    parser.add_argument("--output", default="reports/acquisition/acquisition_report.json", help="Output JSON path")
     args = parser.parse_args()
-
     report = run()
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
     print(f"report={output}")
-
     has_fail = any(row["status"] == "FAIL" for row in report["results"])
     return 1 if has_fail else 0
 
