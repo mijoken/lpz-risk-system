@@ -26,8 +26,6 @@ def _validate_lonlat_bbox(bbox: list[float]) -> None:
     xmin, ymin, xmax, ymax = bbox
     if xmin > xmax or ymin > ymax:
         raise ValueError(f"invalid bbox ordering: {bbox}")
-    # Japan including remote islands. This intentionally rejects projected
-    # coordinates masquerading as degrees.
     if not (118.0 <= xmin <= 156.0 and 118.0 <= xmax <= 156.0 and 18.0 <= ymin <= 50.0 and 18.0 <= ymax <= 50.0):
         raise ValueError(f"bbox does not look like geographic JGD2011 lon/lat degrees: {bbox}")
 
@@ -45,6 +43,20 @@ def _reader_from_members(zf: zipfile.ZipFile, base: str, encoding: str) -> shape
     if shx_name in names:
         kwargs["shx"] = io.BytesIO(zf.read(shx_name))
     return shapefile.Reader(**kwargs)
+
+
+def _open_reader_with_detected_encoding(zf: zipfile.ZipFile, base: str) -> tuple[shapefile.Reader, str]:
+    last_error: Exception | None = None
+    for enc in ("utf-8", "utf-8-sig", "cp932", "shift_jis"):
+        try:
+            reader = _reader_from_members(zf, base, enc)
+            # Force field-name and complete record decoding before accepting.
+            _ = [f[0] for f in reader.fields[1:]]
+            _ = list(reader.iterRecords())
+            return reader, enc
+        except Exception as exc:  # pyshp raises dbfFileException, not UnicodeDecodeError.
+            last_error = exc
+    raise ValueError(f"could not decode DBF for {base}: {type(last_error).__name__}: {last_error}")
 
 
 def _candidate_code_fields(reader: shapefile.Reader, required_codes: set[str]) -> list[str]:
@@ -68,6 +80,7 @@ def build_primary_subdivision_registry(zip_bytes: bytes, required_codes: set[str
     registry: dict[str, dict[str, Any]] = {}
     inspected_bases: list[str] = []
     matched_fields: list[dict[str, str]] = []
+    detected_encodings: list[dict[str, str]] = []
 
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         bases = sorted({name[:-4] for name in zf.namelist() if name.lower().endswith(".shp")})
@@ -75,19 +88,10 @@ def build_primary_subdivision_registry(zip_bytes: bytes, required_codes: set[str
             raise ValueError("archive contains no shapefile")
 
         for base in bases:
-            reader = None
-            for enc in ("cp932", "shift_jis", "utf-8"):
-                try:
-                    reader = _reader_from_members(zf, base, enc)
-                    # Force DBF decode now so a bad encoding fails here.
-                    _ = list(reader.iterRecords())[:1]
-                    break
-                except UnicodeDecodeError:
-                    reader = None
-            if reader is None:
-                raise ValueError(f"could not decode DBF for {base}")
-
+            reader, encoding = _open_reader_with_detected_encoding(zf, base)
             inspected_bases.append(base)
+            detected_encodings.append({"shapefile": base, "dbf_encoding": encoding})
+
             fields = _candidate_code_fields(reader, required_codes)
             if not fields:
                 continue
@@ -123,6 +127,7 @@ def build_primary_subdivision_registry(zip_bytes: bytes, required_codes: set[str
         "resolved_code_count": len(registry),
         "missing_required_codes": missing,
         "inspected_shapefiles": inspected_bases,
+        "detected_dbf_encodings": detected_encodings,
         "matched_code_fields": matched_fields,
         "regions": [registry[k] for k in sorted(registry)],
         "geometry_complete_for_required_codes": not missing,
