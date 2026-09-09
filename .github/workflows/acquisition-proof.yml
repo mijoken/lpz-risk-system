@@ -21,18 +21,19 @@ on:
       - "scripts/build_parent_precursor_report.py"
       - "scripts/build_historical_case_registry.py"
       - "scripts/build_positive_case_registry.py"
+      - "scripts/build_era5_request_manifest.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
       - "config/historical_case_sources.json"
       - "config/historical_reconstruction_matrix.json"
       - "config/hard_negative_policy.json"
+      - "config/historical_environment_era5.json"
       - "research/evidence/**"
       - "tests/**"
       - "pyproject.toml"
       - ".github/workflows/acquisition-proof.yml"
   schedule:
-    # Still conservative while Phase 1 scientific decoding is under validation.
     - cron: "17,47 * * * *"
 
 permissions:
@@ -79,8 +80,6 @@ jobs:
             --negative-policy config/hard_negative_policy.json \
             --output reports/historical/historical_policy_validation.json
 
-      # Historical official-case CSVs change infrequently. Audit them on pushes
-      # and manual runs, not every scheduled 30-minute live probe.
       - name: Audit official JMA historical LPZ case sources
         if: github.event_name != 'schedule'
         run: |
@@ -95,6 +94,14 @@ jobs:
             --source-audit reports/historical/historical_case_source_registry.json \
             --config config/historical_case_sources.json \
             --output reports/historical/positive_case_registry.json
+
+      - name: Build ERA5 historical request manifest
+        if: github.event_name != 'schedule'
+        run: |
+          python scripts/build_era5_request_manifest.py \
+            --positive-registry reports/historical/positive_case_registry.json \
+            --config config/historical_environment_era5.json \
+            --output reports/historical/era5_request_manifest.json
 
       - name: Run acquisition probe
         run: |
@@ -112,9 +119,6 @@ jobs:
           python scripts/gfs_scientific_decode_probe.py \
             --output reports/scientific/gfs_scientific_decode.json
 
-      # These live radar steps traverse multiple JMA tiles and are deliberately
-      # NOT run on the 30-minute schedule or every ordinary source/test commit.
-      # Trigger via workflow_dispatch, or a push commit containing [radar-live].
       - name: Run radar scientific decode proof
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[radar-live]'))
         run: |
@@ -179,7 +183,7 @@ jobs:
             --output reports/scientific/parent_precursor_features.json \
             --csv-output reports/scientific/parent_precursor_features.csv
 
-      - name: Upload Phase 0.5 / 1 / 2A evidence
+      - name: Upload Phase 0.5 / 1 / 2 evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -191,6 +195,7 @@ jobs:
             reports/historical/historical_policy_validation.json
             reports/historical/historical_case_source_registry.json
             reports/historical/positive_case_registry.json
+            reports/historical/era5_request_manifest.json
             reports/scientific/gfs_scientific_decode.json
             reports/scientific/radar_scientific_decode.json
             reports/scientific/radar_morphology.json
