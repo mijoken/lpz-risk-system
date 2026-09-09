@@ -1,0 +1,64 @@
+name: LPZ Historical Spatial Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_primary_subdivision_geometry.py"
+      - "src/lpz_risk/historical_spatial.py"
+      - "config/jma_primary_subdivision_gis.json"
+      - "tests/test_historical_spatial.py"
+      - ".github/workflows/historical-spatial-proof.yml"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+
+jobs:
+  spatial-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Run spatial unit tests
+        run: python -m unittest tests.test_historical_spatial -v
+
+      - name: Build current positive registry prerequisites
+        run: |
+          python scripts/build_historical_case_registry.py \
+            --config config/historical_case_sources.json \
+            --output reports/historical/historical_case_source_registry.json
+          python scripts/build_positive_case_registry.py \
+            --source-audit reports/historical/historical_case_source_registry.json \
+            --config config/historical_case_sources.json \
+            --output reports/historical/positive_case_registry.json
+
+      - name: Build official JMA primary subdivision geometry registry
+        run: |
+          python scripts/build_primary_subdivision_geometry.py \
+            --positive-registry reports/historical/positive_case_registry.json \
+            --config config/jma_primary_subdivision_gis.json \
+            --output reports/historical/primary_subdivision_geometry.json
+
+      - name: Upload spatial evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lpz-historical-spatial-${{ github.run_id }}
+          path: |
+            reports/historical/historical_case_source_registry.json
+            reports/historical/positive_case_registry.json
+            reports/historical/primary_subdivision_geometry.json
+          if-no-files-found: warn
+          retention-days: 30
