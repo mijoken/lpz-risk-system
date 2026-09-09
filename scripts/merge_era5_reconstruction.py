@@ -27,14 +27,22 @@ def main() -> int:
     p.add_argument("--manifest", required=True)
     p.add_argument("--descriptor-root", required=True)
     p.add_argument("--output", default="reports/historical/era5_positive_snapshot_feature_table.json")
+    p.add_argument("--summary-output", default="reports/historical/era5_positive_snapshot_feature_summary.json")
     a = p.parse_args()
 
     manifest = json.loads(Path(a.manifest).read_text(encoding="utf-8"))
     descriptors = load_request_descriptors(Path(a.descriptor_root))
     result = build_era5_snapshot_feature_table(manifest, descriptors)
+
     output = Path(a.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    summary = {k: v for k, v in result.items() if k != "snapshot_features"}
+    summary["output"] = str(output)
+    summary_output = Path(a.summary_output)
+    summary_output.parent.mkdir(parents=True, exist_ok=True)
+    summary_output.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     print(json.dumps({
         "request_descriptor_count": result["request_descriptor_count"],
@@ -46,6 +54,7 @@ def main() -> int:
         "historical_environment_reconstruction_complete": result["historical_environment_reconstruction_complete"],
         "risk_engine_allowed": result["risk_engine_allowed"],
         "output": str(output),
+        "summary_output": str(summary_output),
     }, ensure_ascii=False, indent=2))
     return 0 if result["historical_environment_reconstruction_complete"] else 2
 
