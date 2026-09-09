@@ -1,7 +1,11 @@
-"""Build a compact primary-subdivision geometry registry from official JMA GIS.
+"""Build compact primary-subdivision geometry from official JMA GIS.
 
-Only small derived metadata (bbox/representative center/provenance) are retained.
-The large source archive is never committed.
+The large official archive is never committed. Two derived products are
+supported:
+
+- bbox registry for ERA5 request subsetting;
+- GeoJSON FeatureCollection for exact primary-subdivision polygon masking of
+  historical rainfall grids.
 """
 
 from __future__ import annotations
@@ -50,11 +54,10 @@ def _open_reader_with_detected_encoding(zf: zipfile.ZipFile, base: str) -> tuple
     for enc in ("utf-8", "utf-8-sig", "cp932", "shift_jis"):
         try:
             reader = _reader_from_members(zf, base, enc)
-            # Force field-name and complete record decoding before accepting.
             _ = [f[0] for f in reader.fields[1:]]
             _ = list(reader.iterRecords())
             return reader, enc
-        except Exception as exc:  # pyshp raises dbfFileException, not UnicodeDecodeError.
+        except Exception as exc:
             last_error = exc
     raise ValueError(f"could not decode DBF for {base}: {type(last_error).__name__}: {last_error}")
 
@@ -73,33 +76,20 @@ def _candidate_code_fields(reader: shapefile.Reader, required_codes: set[str]) -
     return [name for _, name in matches]
 
 
-def build_primary_subdivision_registry(zip_bytes: bytes, required_codes: set[str]) -> dict[str, Any]:
-    if not zip_bytes:
-        raise ValueError("empty JMA GIS archive")
-
-    registry: dict[str, dict[str, Any]] = {}
-    inspected_bases: list[str] = []
-    matched_fields: list[dict[str, str]] = []
-    detected_encodings: list[dict[str, str]] = []
-
+def _iter_matching_shape_records(zip_bytes: bytes, required_codes: set[str]):
+    """Yield (code, shape, base, encoding, code_field) from the official archive."""
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         bases = sorted({name[:-4] for name in zf.namelist() if name.lower().endswith(".shp")})
         if not bases:
             raise ValueError("archive contains no shapefile")
-
         for base in bases:
             reader, encoding = _open_reader_with_detected_encoding(zf, base)
-            inspected_bases.append(base)
-            detected_encodings.append({"shapefile": base, "dbf_encoding": encoding})
-
             fields = _candidate_code_fields(reader, required_codes)
             if not fields:
                 continue
             code_field = fields[0]
-            matched_fields.append({"shapefile": base, "code_field": code_field})
             field_names = [f[0] for f in reader.fields[1:]]
             code_idx = field_names.index(code_field)
-
             for sr in reader.iterShapeRecords():
                 code = str(sr.record[code_idx]).strip()
                 if not _CODE_RE.fullmatch(code):
@@ -108,9 +98,26 @@ def build_primary_subdivision_registry(zip_bytes: bytes, required_codes: set[str
                     continue
                 bbox = list(map(float, sr.shape.bbox))
                 _validate_lonlat_bbox(bbox)
-                entry = registry.setdefault(code, {"primary_subdivision_code": code, "bbox": None, "source_parts": 0})
-                entry["bbox"] = _merge_bbox(entry["bbox"], bbox)
-                entry["source_parts"] += 1
+                yield code, sr.shape, base, encoding, code_field
+
+
+def build_primary_subdivision_registry(zip_bytes: bytes, required_codes: set[str]) -> dict[str, Any]:
+    if not zip_bytes:
+        raise ValueError("empty JMA GIS archive")
+
+    registry: dict[str, dict[str, Any]] = {}
+    inspected: set[str] = set()
+    encoding_by_base: dict[str, str] = {}
+    field_by_base: dict[str, str] = {}
+
+    for code, shape, base, encoding, code_field in _iter_matching_shape_records(zip_bytes, required_codes):
+        inspected.add(base)
+        encoding_by_base[base] = encoding
+        field_by_base[base] = code_field
+        bbox = list(map(float, shape.bbox))
+        entry = registry.setdefault(code, {"primary_subdivision_code": code, "bbox": None, "source_parts": 0})
+        entry["bbox"] = _merge_bbox(entry["bbox"], bbox)
+        entry["source_parts"] += 1
 
     for entry in registry.values():
         xmin, ymin, xmax, ymax = entry["bbox"]
@@ -121,15 +128,71 @@ def build_primary_subdivision_registry(zip_bytes: bytes, required_codes: set[str
 
     missing = sorted(required_codes - set(registry))
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "phase": "2B-primary-subdivision-geometry",
         "required_code_count": len(required_codes),
         "resolved_code_count": len(registry),
         "missing_required_codes": missing,
-        "inspected_shapefiles": inspected_bases,
-        "detected_dbf_encodings": detected_encodings,
-        "matched_code_fields": matched_fields,
+        "inspected_shapefiles": sorted(inspected),
+        "detected_dbf_encodings": [{"shapefile": b, "dbf_encoding": encoding_by_base[b]} for b in sorted(encoding_by_base)],
+        "matched_code_fields": [{"shapefile": b, "code_field": field_by_base[b]} for b in sorted(field_by_base)],
         "regions": [registry[k] for k in sorted(registry)],
         "geometry_complete_for_required_codes": not missing,
+        "risk_engine_allowed": False,
+    }
+
+
+def build_primary_subdivision_geojson(zip_bytes: bytes, required_codes: set[str]) -> dict[str, Any]:
+    """Derive a compact GeoJSON FeatureCollection for only required codes.
+
+    Multiple official shape records for one code are preserved as a
+    GeometryCollection rather than dissolved. This avoids topology-changing
+    approximations and naturally retains islands/multipart geometries. The
+    source coordinate system is JGD2011 geographic lon/lat as documented by JMA.
+    """
+    if not zip_bytes:
+        raise ValueError("empty JMA GIS archive")
+
+    geometries: dict[str, list[dict[str, Any]]] = {}
+    provenance: dict[str, list[dict[str, str]]] = {}
+    for code, shape, base, encoding, code_field in _iter_matching_shape_records(zip_bytes, required_codes):
+        geo = shape.__geo_interface__
+        if geo.get("type") not in {"Polygon", "MultiPolygon"}:
+            raise ValueError(f"unexpected primary-subdivision geometry type for {code}: {geo.get('type')}")
+        geometries.setdefault(code, []).append(geo)
+        provenance.setdefault(code, []).append({
+            "shapefile": base,
+            "dbf_encoding": encoding,
+            "code_field": code_field,
+        })
+
+    missing = sorted(required_codes - set(geometries))
+    features: list[dict[str, Any]] = []
+    for code in sorted(geometries):
+        parts = geometries[code]
+        geometry = parts[0] if len(parts) == 1 else {"type": "GeometryCollection", "geometries": parts}
+        features.append({
+            "type": "Feature",
+            "id": code,
+            "properties": {
+                "primary_subdivision_code": code,
+                "source_part_count": len(parts),
+                "source_authority": "Japan Meteorological Agency",
+                "source_crs": "JGD2011 geographic lon/lat",
+                "provenance": provenance[code],
+                "mask_semantics": "GRID_CELL_CENTRE_INSIDE_OFFICIAL_POLYGON",
+            },
+            "geometry": geometry,
+        })
+
+    return {
+        "type": "FeatureCollection",
+        "schema_version": "0.1.0",
+        "phase": "2C-primary-subdivision-polygon-geometry",
+        "required_code_count": len(required_codes),
+        "resolved_code_count": len(features),
+        "missing_required_codes": missing,
+        "geometry_complete_for_required_codes": not missing,
+        "features": features,
         "risk_engine_allowed": False,
     }
