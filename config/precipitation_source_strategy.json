@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.3.0",
+  "schema_version": "0.3.1",
   "phase": "2F-zero-cost-historical-precipitation-payload-proof",
   "project_cost_policy": "ZERO_COST_EXTERNAL_DATA_REQUIRED",
   "sources": [
@@ -20,10 +20,12 @@
       "access_cost": "FREE",
       "registration_may_be_required": true,
       "access_proof_status": "PASS_REAL_FILE_ACQUIRED_FORMAT_DECODE_PENDING",
-      "proof_run_id": 34407808498,
-      "proof_artifact_id": 10126348766,
+      "proof_run_id": 34408806066,
+      "proof_artifact_id": 10126411800,
+      "proof_discovery_method": "MLSD_WITH_CONSERVATIVE_NLST_FALLBACK",
       "proof_payload": "gsmap_gauge.20230101.0000.v8.0000.0.dat.gz",
       "proof_payload_bytes": 2321026,
+      "proof_payload_sha256_prefix": "49dd4de502785b94",
       "official_directory": "/standard/v8/hourly_G/YYYY/MM/DD/",
       "exact_substitute_for_jma_1km": false,
       "jma_1km_thresholds_may_be_reused_directly": false,
