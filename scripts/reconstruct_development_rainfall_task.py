@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import urllib.request
 
 from lpz_risk.cmorph_v1 import decode_cmorph_cdr_v1_bytes
@@ -19,6 +20,8 @@ from lpz_risk.imerg_v07 import decode_imerg_final_v07_file
 UTC = timezone.utc
 CMORPH_BASE = "https://www.ncei.noaa.gov/data/cmorph-high-resolution-global-precipitation-estimates/access/30min/8km"
 GSMAP_BASE = "/standard/v8/hourly_G"
+GSMAP_FTP_HOST = "hokusai.eorc.jaxa.jp"
+GSMAP_RETRY_DELAYS_SECONDS = (0, 3, 8, 15, 30)
 
 
 def _parse(value: str) -> datetime:
@@ -65,12 +68,16 @@ def _expected_field_rows(plan: dict, task: dict) -> list[dict]:
 def _select_gsmap_filename(names: list[str], dt: datetime) -> str:
     """Resolve one Gauge v8 hourly file from the provider's live directory listing.
 
-    JAXA may change the processing/revision suffix after ``.v8.``.  The timestamp,
+    JAXA may change the processing/revision suffix after ``.v8.``. The timestamp,
     product family, version and gzip/binary format are invariant for this adapter;
-    therefore we discover the actual suffix instead of fabricating it.
+    therefore the actual suffix is discovered instead of fabricated.
     """
     prefix = f"gsmap_gauge.{dt:%Y%m%d}.{dt:%H}00.v8."
-    candidates = sorted({Path(str(n)).name for n in names if Path(str(n)).name.startswith(prefix) and Path(str(n)).name.endswith(".dat.gz")})
+    candidates = sorted({
+        Path(str(n)).name
+        for n in names
+        if Path(str(n)).name.startswith(prefix) and Path(str(n)).name.endswith(".dat.gz")
+    })
     if not candidates:
         raise FileNotFoundError(
             f"GSMaP Gauge v8 file not present for {_iso(dt)}; directory listing contained {len(names)} entries"
@@ -80,12 +87,20 @@ def _select_gsmap_filename(names: list[str], dt: datetime) -> str:
     return candidates[0]
 
 
-def _collect_fields_gsmap(task: dict, plan: dict, td: Path) -> dict[str, object]:
+def _is_transient_ftp_error(exc: BaseException) -> bool:
+    text = str(exc).lower()
+    return isinstance(exc, (ftplib.error_temp, TimeoutError, OSError)) or any(
+        token in text for token in ("530 login incorrect", "421 ", "timed out", "connection reset", "eoferror")
+    )
+
+
+def _collect_fields_gsmap_once(task: dict, plan: dict, td: Path) -> dict[str, object]:
     rows = _expected_field_rows(plan, task)
     by_time = {r["valid_start_utc"]: r for r in rows}
-    result = {}
+    result: dict[str, object] = {}
     listing_cache: dict[str, list[str]] = {}
-    with ftplib.FTP("hokusai.eorc.jaxa.jp", timeout=120) as ftp:
+    ftp = ftplib.FTP(GSMAP_FTP_HOST, timeout=120)
+    try:
         ftp.login(os.environ["GSMAP_FTP_USERNAME"], os.environ["GSMAP_FTP_PASSWORD"])
         for iso, row in sorted(by_time.items()):
             dt = _parse(iso)
@@ -94,7 +109,11 @@ def _collect_fields_gsmap(task: dict, plan: dict, td: Path) -> dict[str, object]
                 try:
                     listing_cache[directory] = ftp.nlst(directory)
                 except ftplib.error_perm as exc:
-                    raise FileNotFoundError(f"GSMaP directory unavailable: {directory}: {exc}") from exc
+                    # A true 550 here means the dated provider directory is absent.
+                    # Authentication/rate errors must remain retryable and distinct.
+                    if str(exc).startswith("550"):
+                        raise FileNotFoundError(f"GSMaP directory unavailable: {directory}: {exc}") from exc
+                    raise
             name = _select_gsmap_filename(listing_cache[directory], dt)
             remote = f"{directory}/{name}"
             local = td / name
@@ -102,13 +121,42 @@ def _collect_fields_gsmap(task: dict, plan: dict, td: Path) -> dict[str, object]
                 ftp.retrbinary(f"RETR {remote}", f.write)
             field = decode_gsmap_gauge_v8_file(local)
             if _iso(field.valid_start_utc) != iso:
-                raise ValueError(f"GSMaP valid time mismatch for {name}: expected={iso} actual={_iso(field.valid_start_utc)}")
+                raise ValueError(
+                    f"GSMaP valid time mismatch for {name}: expected={iso} actual={_iso(field.valid_start_utc)}"
+                )
             result[row["field_id"]] = field
             local.unlink(missing_ok=True)
+    finally:
+        try:
+            ftp.quit()
+        except Exception:
+            try:
+                ftp.close()
+            except Exception:
+                pass
+
     missing = sorted(set(r["field_id"] for r in rows) - set(result))
     if missing:
         raise RuntimeError(f"GSMaP missing expected native fields: {missing[:5]} count={len(missing)}")
     return result
+
+
+def _collect_fields_gsmap(task: dict, plan: dict, td: Path) -> dict[str, object]:
+    last_exc: BaseException | None = None
+    for attempt, delay in enumerate(GSMAP_RETRY_DELAYS_SECONDS, start=1):
+        if delay:
+            time.sleep(delay)
+        try:
+            return _collect_fields_gsmap_once(task, plan, td)
+        except FileNotFoundError:
+            # Provider directory/file absence is not cured by hammering FTP.
+            raise
+        except Exception as exc:
+            last_exc = exc
+            if not _is_transient_ftp_error(exc) or attempt == len(GSMAP_RETRY_DELAYS_SECONDS):
+                raise
+    assert last_exc is not None
+    raise last_exc
 
 
 def _collect_fields_imerg(task: dict, plan: dict, td: Path) -> dict[str, object]:
@@ -222,7 +270,7 @@ def run_task(plan: dict, manifest: dict, geometry_path: Path, task_id: str) -> d
     if len(descriptors) != task["window_count"]:
         raise AssertionError("task did not reconstruct every requested window")
     return {
-        "schema_version": "0.2.0",
+        "schema_version": "0.3.0",
         "phase": "2I-development-real-rainfall-reconstruction-task",
         "split": "DEVELOPMENT",
         "task_id": task_id,
@@ -235,6 +283,7 @@ def run_task(plan: dict, manifest: dict, geometry_path: Path, task_id: str) -> d
         "expected_payload_count": task["payload_count"],
         "window_descriptors": descriptors,
         "gsmap_resolution_policy": "LIVE_DIRECTORY_LISTING_TIMESTAMP_AND_PRODUCT_MATCH_NO_FABRICATED_REVISION_SUFFIX",
+        "gsmap_transport_policy": "SERIAL_PROVIDER_EXECUTION_PLUS_BOUNDED_RETRY_BACKOFF",
         "raw_payloads_persisted": False,
         "temporal_resampling_performed": False,
         "cross_source_accumulation_performed": False,
@@ -261,7 +310,7 @@ def main() -> int:
         ok = True
     except Exception as exc:
         report = {
-            "schema_version": "0.2.0",
+            "schema_version": "0.3.0",
             "phase": "2I-development-real-rainfall-reconstruction-task",
             "task_id": a.task_id,
             "gate": "FAIL_TASK_REAL_PAYLOAD_RECONSTRUCTION",
