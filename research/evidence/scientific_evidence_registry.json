@@ -1,0 +1,310 @@
+{
+  "schema_version": "0.1.0",
+  "registry_id": "LPZ-SCI-EVIDENCE-v0.1",
+  "status": "INITIAL_CURATED_SET",
+  "policy": {
+    "purpose": "Store reproducible scientific evidence for LPZ feature engineering, threshold testing, and forecast verification.",
+    "rules": [
+      "A paper-derived threshold is evidence, not an automatic operational gate.",
+      "Region-, season-, dataset-, and resolution-specific limitations must be preserved.",
+      "A feature may be implemented only if its required variables and unit conventions are explicit.",
+      "JMA official LPZ predictions remain benchmark-only and are not features in the independent risk score."
+    ]
+  },
+  "papers": [
+    {
+      "paper_id": "KATO2020_JMSJ",
+      "year": 2020,
+      "title": "Quasi-Stationary Band-Shaped Precipitation Systems, Named Senjo-Kousuitai, Causing Localized Heavy Rainfall in Japan",
+      "authors": ["Teruyuki Kato"],
+      "doi": "10.2151/jmsj.2020-029",
+      "journal": "Journal of the Meteorological Society of Japan",
+      "scope": "Japan; review plus diagnostic-condition construction from previous localized heavy-rainfall events",
+      "primary_use": ["environmental_diagnostics", "formation_mechanism", "back_building"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    },
+    {
+      "paper_id": "HIROCKAWA2020_JMSJ",
+      "year": 2020,
+      "title": "Identification and Classification of Heavy Rainfall Areas and Their Characteristic Features in Japan",
+      "authors": ["Yasutaka Hirockawa", "Teruyuki Kato", "Hiroshige Tsuguti", "Naoko Seino"],
+      "doi": "10.2151/jmsj.2020-043",
+      "journal": "Journal of the Meteorological Society of Japan",
+      "scope": "Japan; warm seasons 2009-2018 for the main HRA statistics",
+      "primary_use": ["object_detection", "morphology", "stationarity"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    },
+    {
+      "paper_id": "HIROCKAWA_KATO2022_SOLA",
+      "year": 2022,
+      "title": "Improvements of Procedures for Identifying and Classifying Heavy Rainfall Areas of Linear-Stationary Type",
+      "authors": ["Yasutaka Hirockawa", "Teruyuki Kato"],
+      "doi": "10.2151/sola.2022-027",
+      "journal": "SOLA",
+      "scope": "Japan; refinement of linear-stationary HRA extraction and suspect-case exclusion",
+      "primary_use": ["object_detection", "quality_control"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    },
+    {
+      "paper_id": "KATO2005_JMSJ",
+      "year": 2005,
+      "title": "Statistical Study of Band-Shaped Rainfall Systems, the Koshikijima and Nagasaki Lines, Observed around Kyushu Island, Japan",
+      "authors": ["Teruyuki Kato"],
+      "doi": "10.2151/jmsj.83.943",
+      "journal": "Journal of the Meteorological Society of Japan",
+      "scope": "Kyushu; Koshikijima and Nagasaki line rainbands",
+      "primary_use": ["regional_environmental_diagnostics"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    },
+    {
+      "paper_id": "SHIMAMURA2025_SOLA",
+      "year": 2025,
+      "title": "A Statistical Study on Senjo-Kousuitai in a Regional Reanalysis for Japan (RRJ-Conv)",
+      "authors": ["Yusaku Shimamura", "Junshi Ito", "Shin Fukui", "Yasutaka Hirockawa"],
+      "doi": "10.2151/sola.21A-003",
+      "journal": "SOLA",
+      "scope": "Japan and surrounding area; RRJ-Conv 1976-2020, 5 km, hourly",
+      "sample_size": 6760,
+      "primary_use": ["orientation", "climatology", "environmental_statistics"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    },
+    {
+      "paper_id": "HAYASHI2025_SOLA",
+      "year": 2025,
+      "title": "An Object-Based Approach for Quantitative Verification of Quasi-Stationary Band-Shaped Precipitation Systems, Senjo-Kousuitai, Forecasts",
+      "authors": ["Syugo Hayashi", "Yasutaka Hirockawa", "Shun-ichi I. Watanabe", "Akihiro Hashimoto"],
+      "doi": "10.2151/sola.21A-001",
+      "journal": "SOLA",
+      "scope": "Japan and coastal areas; June-September 2024",
+      "sample_size_observed": 41,
+      "sample_size_forecast_objects": 157,
+      "primary_use": ["object_verification", "forecast_scoring"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    },
+    {
+      "paper_id": "KUMAGAI2026_SOLA",
+      "year": 2026,
+      "title": "Characteristics of Quasi-stationary Band-shaped Precipitation in the Tohoku Region Detected under Varying Rainfall Thresholds",
+      "authors": ["Makoto Kumagai", "Junshi Ito", "Yasutaka Hirockawa"],
+      "doi": "10.1007/s44393-026-00036-w",
+      "journal": "SOLA",
+      "scope": "Tohoku; radar/raingauge-analyzed precipitation, April-October 2000-2024",
+      "primary_use": ["regional_thresholds", "detection_sensitivity"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    },
+    {
+      "paper_id": "TAHARA2026_SOLA",
+      "year": 2026,
+      "title": "Line-shaped Mesoscale Convective Systems in Northern Japan: Climatology and Predictive Diagnostics",
+      "authors": ["Ryotaro Tahara", "Yusuke Hiraga", "Ryota Ohara", "Junshi Ito"],
+      "doi": "10.1007/s44393-026-00035-x",
+      "journal": "SOLA",
+      "scope": "Northern Japan (six Tohoku prefectures and Niigata); RRJ-Conv 1959-2022, 5 km, hourly",
+      "sample_size": 361,
+      "primary_use": ["environmental_diagnostics", "regional_thresholds", "moisture_flux_convergence"],
+      "evidence_level": "PEER_REVIEWED_PRIMARY"
+    }
+  ],
+  "evidence_items": [
+    {
+      "evidence_id": "KATO2020_FLWV500",
+      "paper_id": "KATO2020_JMSJ",
+      "kind": "FEATURE_THRESHOLD",
+      "feature_id": "flwv_500m",
+      "formula": "rho * qv * sqrt(u^2 + v^2)",
+      "threshold": {"operator": ">", "value": 150.0, "unit": "g m-2 s-1"},
+      "required_variables": ["air_density_500m", "water_vapor_mixing_ratio_500m", "u_wind_500m", "v_wind_500m"],
+      "implementation_status": "BLOCKED_EXACT_500M_INPUT",
+      "notes": "Use as evidence/diagnostic condition. Pressure-level substitution such as 950 hPa is not treated as exact reproduction."
+    },
+    {
+      "evidence_id": "KATO2020_DLFC",
+      "paper_id": "KATO2020_JMSJ",
+      "kind": "FEATURE_THRESHOLD",
+      "feature_id": "dlfc_from_500m",
+      "formula": "height_LFC - 500 m",
+      "threshold": {"operator": "<", "value": 1000.0, "unit": "m"},
+      "required_variables": ["temperature_profile", "humidity_profile", "pressure_profile", "surface_pressure", "surface_temperature", "surface_humidity"],
+      "implementation_status": "PENDING_THERMODYNAMIC_PROFILE"
+    },
+    {
+      "evidence_id": "KATO2020_MID_RH",
+      "paper_id": "KATO2020_JMSJ",
+      "kind": "MULTI_THRESHOLD",
+      "feature_id": "midlevel_relative_humidity",
+      "thresholds": [
+        {"variable": "relative_humidity_700hpa", "operator": ">", "value": 60.0, "unit": "%"},
+        {"variable": "relative_humidity_500hpa", "operator": ">", "value": 60.0, "unit": "%"}
+      ],
+      "required_variables": ["relative_humidity_700hpa", "relative_humidity_500hpa"],
+      "implementation_status": "READY_AFTER_GFS_DECODE"
+    },
+    {
+      "evidence_id": "KATO2020_SREH03",
+      "paper_id": "KATO2020_JMSJ",
+      "kind": "FEATURE_THRESHOLD",
+      "feature_id": "sreh_0_3km",
+      "formula": "integral_0^3km[(V - C) dot horizontal_vorticity] dz; max of storm motions estimated by Maddox (1976) and Bunkers et al. (2000)",
+      "threshold": {"operator": ">", "value": 100.0, "unit": "m2 s-2"},
+      "required_variables": ["u_wind_vertical_profile", "v_wind_vertical_profile", "storm_motion_vector"],
+      "implementation_status": "PENDING_VERTICAL_PROFILE_AND_STORM_MOTION"
+    },
+    {
+      "evidence_id": "KATO2020_ASCENT700",
+      "paper_id": "KATO2020_JMSJ",
+      "kind": "FEATURE_THRESHOLD",
+      "feature_id": "large_scale_ascent_700hpa",
+      "formula": "approximately 400 km spatial mean of 700 hPa vertical motion",
+      "threshold": {"operator": ">", "value": 0.0, "unit": "m s-1", "sign_convention": "upward_positive"},
+      "required_variables": ["vertical_motion_700hpa"],
+      "implementation_status": "PENDING_SIGN_CONVENTION_VALIDATION"
+    },
+    {
+      "evidence_id": "KATO2020_EL",
+      "paper_id": "KATO2020_JMSJ",
+      "kind": "FEATURE_THRESHOLD",
+      "feature_id": "equilibrium_level_height",
+      "threshold": {"operator": ">", "value": 3000.0, "unit": "m"},
+      "required_variables": ["temperature_profile", "humidity_profile", "pressure_profile"],
+      "implementation_status": "PENDING_THERMODYNAMIC_PROFILE"
+    },
+    {
+      "evidence_id": "HIROCKAWA2020_HRA_CANDIDATE",
+      "paper_id": "HIROCKAWA2020_JMSJ",
+      "kind": "OBJECT_DETECTION",
+      "feature_id": "hra_candidate",
+      "criteria": [
+        "3 h accumulated precipitation contour >= 80 mm",
+        "contiguous candidate area >= 500 km2",
+        "candidate contains at least one grid >= 100 mm / 3 h",
+        "candidate is within the study target land/coastal area"
+      ],
+      "implementation_status": "PENDING_RADAR_SCIENTIFIC_DECODE"
+    },
+    {
+      "evidence_id": "HIROCKAWA2020_LINEAR_STATIONARY",
+      "paper_id": "HIROCKAWA2020_JMSJ",
+      "kind": "OBJECT_CLASSIFICATION",
+      "feature_id": "linear_stationary_hra",
+      "criteria": {
+        "aspect_ratio_min": 2.5,
+        "area_km2_min": 625.0,
+        "area_km2_max": 12500.0,
+        "overlap_ratio_min": 0.5,
+        "persistent_hours_min": 5.0
+      },
+      "implementation_status": "PENDING_RADAR_SCIENTIFIC_DECODE",
+      "limitations": ["Paper notes persistence can be overestimated when using 3-hour accumulated precipitation."]
+    },
+    {
+      "evidence_id": "KATO2005_KYUSHU_850WIND",
+      "paper_id": "KATO2005_JMSJ",
+      "kind": "REGIONAL_THRESHOLD",
+      "feature_id": "kyushu_850hpa_southwesterly_persistence",
+      "criteria": {
+        "wind_direction": "southwesterly",
+        "wind_speed_min_mps": 5.0,
+        "wind_speed_max_mps": 25.0,
+        "persistence_hours_min": 12.0
+      },
+      "implementation_status": "READY_AFTER_GFS_DECODE",
+      "limitations": ["Region-specific result for Koshikijima and Nagasaki line rainbands; must not be generalized nationally without validation."]
+    },
+    {
+      "evidence_id": "SHIMAMURA2025_ORIENTATION600",
+      "paper_id": "SHIMAMURA2025_SOLA",
+      "kind": "STATISTICAL_RELATION",
+      "feature_id": "rainband_vs_600hpa_wind_orientation",
+      "finding": "Among environmental wind levels examined, Senjo-Kousuitai orientation had the strongest correlation with 600 hPa wind direction, with a slight clockwise deviation.",
+      "required_variables": ["rainband_major_axis_orientation", "u_wind_600hpa", "v_wind_600hpa"],
+      "implementation_status": "READY_AFTER_RADAR_AND_GFS_DECODE"
+    },
+    {
+      "evidence_id": "HAYASHI2025_IV",
+      "paper_id": "HAYASHI2025_SOLA",
+      "kind": "VERIFICATION_METRIC",
+      "feature_id": "interest_value",
+      "formula": "mean of 10 equally weighted normalized similarity components (10% each), clipped so errors beyond normalization range contribute zero similarity",
+      "components": {
+        "max_precip_error_mm": 200.0,
+        "mean_precip_error_mm": 60.0,
+        "max_precip_location_error_km": 200.0,
+        "centroid_error_km": 200.0,
+        "area_error_km2": 7000.0,
+        "major_axis_length_error_km": 150.0,
+        "duration_error_h": 3.0,
+        "duration_overlap_ratio": 1.0,
+        "orientation_error_deg": 90.0,
+        "aspect_ratio_error": 5.0
+      },
+      "implementation_status": "READY_FOR_HISTORICAL_VERIFICATION",
+      "limitations": ["Normalization ranges were provisional and selected for the preliminary 2024 study."]
+    },
+    {
+      "evidence_id": "HAYASHI2025_MATCH_AND_SCS",
+      "paper_id": "HAYASHI2025_SOLA",
+      "kind": "VERIFICATION_FRAMEWORK",
+      "feature_id": "object_match_and_scs",
+      "hit_criteria": {
+        "distance_error_km_max": 200.0,
+        "overlap_period_h_min": 3.0,
+        "interest_value_min": 0.5
+      },
+      "scs_formula": "sum_i(observed_area_i * interest_value_i) / total_area",
+      "total_area_definition": "sum of observed area from hits and misses plus unmatched forecast area from false alarms",
+      "implementation_status": "READY_FOR_HISTORICAL_VERIFICATION"
+    },
+    {
+      "evidence_id": "KUMAGAI2026_TOHOKU_THRESHOLD_SENSITIVITY",
+      "paper_id": "KUMAGAI2026_SOLA",
+      "kind": "REGIONAL_SENSITIVITY",
+      "feature_id": "tohoku_rainfall_threshold_regime",
+      "finding": "Original HK80-100 detected 34 events in 2000-2024; RLX60-80 detected 90. Relaxation changes object composition rather than simply adding weaker versions of the same events.",
+      "implementation_status": "RESEARCH_ONLY",
+      "policy_implication": "Do not freeze one national rainfall threshold before regional holdout testing."
+    },
+    {
+      "evidence_id": "TAHARA2026_IWVF_1000_900",
+      "paper_id": "TAHARA2026_SOLA",
+      "kind": "FEATURE_FORMULA",
+      "feature_id": "iwvf_1000_900hpa",
+      "formula": "(1/g) * integral_1000hPa^900hPa(q * V dp)",
+      "required_variables": ["specific_humidity_or_mixing_ratio_1000_900hpa", "u_wind_1000_900hpa", "v_wind_1000_900hpa", "pressure_levels"],
+      "implementation_status": "READY_AFTER_GFS_DECODE"
+    },
+    {
+      "evidence_id": "TAHARA2026_IWVF_DIV",
+      "paper_id": "TAHARA2026_SOLA",
+      "kind": "FEATURE_FORMULA",
+      "feature_id": "iwvf_divergence_1000_900hpa",
+      "formula": "(1/g) * integral_1000hPa^900hPa[d(q*u)/dx + d(q*v)/dy] dp",
+      "derived_feature": "moisture_flux_convergence = -iwvf_divergence_1000_900hpa",
+      "required_variables": ["specific_humidity_or_mixing_ratio_1000_900hpa", "u_wind_1000_900hpa", "v_wind_1000_900hpa", "pressure_levels", "grid_spacing"],
+      "implementation_status": "READY_AFTER_GFS_DECODE"
+    },
+    {
+      "evidence_id": "TAHARA2026_SIX_CONDITION_COVERAGE",
+      "paper_id": "TAHARA2026_SOLA",
+      "kind": "STATISTICAL_CAUTION",
+      "feature_id": "six_condition_count",
+      "finding": "About 30% of events satisfied all six conditions 12 h before initiation and 53.7% at initiation under the study's representative-class definition.",
+      "sample_size": 361,
+      "implementation_status": "RESEARCH_ONLY",
+      "policy_implication": "Use the six conditions as continuous/multi-evidence diagnostics, not a mandatory all-six binary gate."
+    }
+  ],
+  "required_variable_registry": [
+    {"canonical_variable": "relative_humidity_500hpa", "preferred_source": "GFS", "evidence_ids": ["KATO2020_MID_RH"]},
+    {"canonical_variable": "relative_humidity_700hpa", "preferred_source": "GFS", "evidence_ids": ["KATO2020_MID_RH"]},
+    {"canonical_variable": "u_wind_600hpa", "preferred_source": "GFS", "evidence_ids": ["SHIMAMURA2025_ORIENTATION600"]},
+    {"canonical_variable": "v_wind_600hpa", "preferred_source": "GFS", "evidence_ids": ["SHIMAMURA2025_ORIENTATION600"]},
+    {"canonical_variable": "u_wind_1000_900hpa", "preferred_source": "GFS", "evidence_ids": ["TAHARA2026_IWVF_1000_900", "TAHARA2026_IWVF_DIV"]},
+    {"canonical_variable": "v_wind_1000_900hpa", "preferred_source": "GFS", "evidence_ids": ["TAHARA2026_IWVF_1000_900", "TAHARA2026_IWVF_DIV"]},
+    {"canonical_variable": "specific_humidity_or_mixing_ratio_1000_900hpa", "preferred_source": "GFS", "evidence_ids": ["TAHARA2026_IWVF_1000_900", "TAHARA2026_IWVF_DIV"]},
+    {"canonical_variable": "vertical_motion_700hpa", "preferred_source": "GFS", "evidence_ids": ["KATO2020_ASCENT700"]},
+    {"canonical_variable": "temperature_profile", "preferred_source": "GFS", "evidence_ids": ["KATO2020_DLFC", "KATO2020_EL"]},
+    {"canonical_variable": "humidity_profile", "preferred_source": "GFS", "evidence_ids": ["KATO2020_DLFC", "KATO2020_EL"]},
+    {"canonical_variable": "rainband_major_axis_orientation", "preferred_source": "JMA_RADAR_DERIVED", "evidence_ids": ["SHIMAMURA2025_ORIENTATION600"]},
+    {"canonical_variable": "three_hour_precipitation_raster", "preferred_source": "JMA_RASRF_OR_DERIVED", "evidence_ids": ["HIROCKAWA2020_HRA_CANDIDATE", "HIROCKAWA2020_LINEAR_STATIONARY"]}
+  ]
+}
