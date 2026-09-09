@@ -1,2 +1,0 @@
-One-shot authenticated ERA5 proof trigger created 2026-09-09.
-This file exists only to trigger the authenticated proof workflow and will be removed after verification.
