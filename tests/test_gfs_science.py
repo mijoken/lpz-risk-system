@@ -23,7 +23,8 @@ class GfsScienceTests(unittest.TestCase):
         url = build_science_subset_url(cycle, forecast_hour=1)
         parsed = urlparse(url)
         query = parse_qs(parsed.query, keep_blank_values=True)
-        self.assertEqual(query["file"], ["gfs.t00z.pgrb2b.0p25.f001"])
+        self.assertEqual(parsed.path, "/cgi-bin/filter_gfs_0p25.pl")
+        self.assertEqual(query["file"], ["gfs.t00z.pgrb2.0p25.f001"])
         for variable in ("RH", "SPFH", "UGRD", "VGRD"):
             self.assertEqual(query[f"var_{variable}"], ["on"])
         for level in (*LOW_LEVELS, 850, 700, 600, 500):
