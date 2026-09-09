@@ -2,10 +2,6 @@ name: LPZ Prospective Native Feature Collector
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "research/phase2/PROSPECTIVE_COLLECTOR_TRIGGER.txt"
   schedule:
     - cron: "2,17,32,47 * * * *"
 
