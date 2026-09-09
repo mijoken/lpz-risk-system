@@ -21,6 +21,13 @@ ERA5_REQUIRED_KEYS = {
     FieldKey("q", 850),
 }
 
+# ERA5 pressure-level relative humidity is defined with respect to mixed phase and
+# may legitimately exceed 100% in supersaturated conditions. Therefore 100/101%
+# must never be used as a hard validity cap. These are intentionally broad
+# transport-sanity bounds, not scientific clipping bounds.
+ERA5_RH_SANITY_MIN_PCT = -20.0
+ERA5_RH_SANITY_MAX_PCT = 200.0
+
 
 def decode_era5_pressure_fields(path: str | Path) -> dict[FieldKey, DecodedField]:
     return decode_pressure_fields(path)
@@ -32,6 +39,9 @@ def validate_era5_required_fields(fields: dict[FieldKey, DecodedField]) -> dict[
     )
     field_summaries: list[dict[str, Any]] = []
     invalid: list[str] = []
+    rh_supersaturated_point_count = 0
+    rh_total_point_count = 0
+
     for key in sorted(ERA5_REQUIRED_KEYS, key=lambda k: (k.level_hpa, k.short_name)):
         if key not in fields:
             continue
@@ -39,8 +49,11 @@ def validate_era5_required_fields(fields: dict[FieldKey, DecodedField]) -> dict[
         finite = field.finite_values()
         if finite.size != field.values.size:
             invalid.append(f"{key.short_name}@{key.level_hpa}:non_finite")
-        if key.short_name == "r" and finite.size and (np.min(finite) < -1.0 or np.max(finite) > 101.0):
-            invalid.append(f"{key.short_name}@{key.level_hpa}:rh_range")
+        if key.short_name == "r" and finite.size:
+            rh_total_point_count += int(finite.size)
+            rh_supersaturated_point_count += int(np.count_nonzero(finite > 100.0))
+            if np.min(finite) < ERA5_RH_SANITY_MIN_PCT or np.max(finite) > ERA5_RH_SANITY_MAX_PCT:
+                invalid.append(f"{key.short_name}@{key.level_hpa}:rh_transport_sanity_range")
         if key.short_name == "q" and finite.size and (np.min(finite) < 0.0 or np.max(finite) >= 1.0):
             invalid.append(f"{key.short_name}@{key.level_hpa}:q_range")
         field_summaries.append(field.summary())
@@ -53,6 +66,10 @@ def validate_era5_required_fields(fields: dict[FieldKey, DecodedField]) -> dict[
         "missing_required_fields": missing,
         "invalid_required_fields": invalid,
         "required_fields_pass": not missing and not invalid,
+        "era5_rh_supersaturation_allowed": True,
+        "rh_supersaturated_point_count": rh_supersaturated_point_count,
+        "rh_total_point_count": rh_total_point_count,
+        "rh_transport_sanity_range_pct": [ERA5_RH_SANITY_MIN_PCT, ERA5_RH_SANITY_MAX_PCT],
         "field_summaries": field_summaries,
         "risk_engine_allowed": False,
     }
@@ -85,6 +102,7 @@ def era5_environment_descriptors(fields: dict[FieldKey, DecodedField]) -> dict[s
         "rh500_mean_pct": float(np.mean(rh500)),
         "rh700_mean_pct": float(np.mean(rh700)),
         "rh500_rh700_gt60_fraction": float(np.mean((rh500 > 60.0) & (rh700 > 60.0))),
+        "rh_supersaturation_note": "ERA5 pressure-level RH may exceed 100% because it is defined with respect to mixed phase; values are not clipped.",
         "wind600_speed_mean_mps": float(np.mean(wind_speed(u600, v600))),
         "wind600_from_direction_median_deg": float(np.median(meteorological_wind_direction_deg(u600, v600))),
         "wind850_speed_mean_mps": float(np.mean(wind_speed(u850, v850))),
