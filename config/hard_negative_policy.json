@@ -1,0 +1,70 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2A-hard-negative-policy",
+  "label": "HARD_NEGATIVE",
+  "purpose": "Construct challenging non-LPZ comparators without contaminating the label with trivial fair-weather periods or future information.",
+  "selection_unit": "candidate_anchor_time_x_primary_subdivision",
+  "candidate_classes": [
+    {
+      "class_id": "HEAVY_RAIN_NO_OFFICIAL_LPZ",
+      "description": "Strong analyzed rainfall in a primary subdivision/time window with no overlapping JMA realized-positive anchor."
+    },
+    {
+      "class_id": "MOVING_LINEAR_RAINBAND_NO_LPZ",
+      "description": "High-resolution radar morphology is elongated/organized but translates rather than satisfying a future frozen persistence/stationarity comparator definition.",
+      "gate": "BLOCKED_PENDING_HIGH_RES_HISTORICAL_RADAR"
+    },
+    {
+      "class_id": "SHORT_LIVED_ORGANIZED_CONVECTION",
+      "description": "Organized high-resolution precipitation object that dissipates before a future frozen persistence criterion.",
+      "gate": "BLOCKED_PENDING_HIGH_RES_HISTORICAL_RADAR"
+    },
+    {
+      "class_id": "INTENSE_CONVECTIVE_CLUSTER_NO_PERSISTENCE",
+      "description": "Embedded 50/80 mm/h cores occur but parent lineage fails a future frozen temporal comparator definition.",
+      "gate": "BLOCKED_PENDING_HIGH_RES_HISTORICAL_RADAR"
+    },
+    {
+      "class_id": "HIGH_ENVIRONMENTAL_FAVORABILITY_NO_LPZ",
+      "description": "Retrospective environmental diagnostics are favorable but no official realized-positive anchor occurs in the protected spatiotemporal window."
+    },
+    {
+      "class_id": "NEAR_MISS_OBJECTIVE_RAINFALL_CASE",
+      "description": "Heavy-rain accumulation approaches a future frozen objective threshold without becoming an official realized-positive case."
+    }
+  ],
+  "protected_positive_window": {
+    "time_before_minutes": 180,
+    "time_after_minutes": 180,
+    "spatial_key": "primary_subdivision_code",
+    "policy": "A candidate sharing a protected primary subdivision and falling inside the protected time window of a realized-positive anchor is excluded from HARD_NEGATIVE labeling. Cross-subdivision adjacency is retained as a future spatial-buffer audit rather than guessed here."
+  },
+  "mandatory_exclusions": [
+    "official_realized_positive_overlap",
+    "unresolved_label_source_gap",
+    "historical_precipitation_source_gap",
+    "candidate_time_after_outcome_peeking",
+    "manual_selection_based_on_model_feature_values",
+    "duplicate_candidate_anchor",
+    "final_holdout_rule_revision"
+  ],
+  "future_information_policy": {
+    "candidate_generation_may_use_outcome_rainfall_for_label_construction": true,
+    "predictor_features_must_use_only_information_available_at_snapshot_time": true,
+    "negative_selection_must_not_condition_on_future_model_score_or_future_predictor_feature_values": true
+  },
+  "class_balance_policy": {
+    "fixed_ratio": null,
+    "rule": "Do not force 1:1 class balance before observing available case counts. Preserve the natural candidate pool and use analysis weights/resampling only inside development experiments if later justified."
+  },
+  "split_policy": {
+    "principle": "Temporal split before feature selection. All rows belonging to the same eventual episode/group must stay in one split.",
+    "development": "TBD_AFTER_CASE_COUNTS",
+    "validation": "TBD_AFTER_CASE_COUNTS",
+    "final_holdout": "TBD_AFTER_CASE_COUNTS_AND_THEN_FROZEN",
+    "no_random_row_split": true
+  },
+  "selection_status": "POLICY_FROZEN_SCHEMA_ONLY",
+  "negative_registry_built": false,
+  "risk_engine_allowed": false
+}
