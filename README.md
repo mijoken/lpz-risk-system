@@ -6,9 +6,9 @@ Explainable real-time risk monitoring and research system for linear precipitati
 
 ## Current phase
 
-**Phase 1B — Scientific Evidence Engine**
+**Phase 1C — Scientific Feature Engine**
 
-Phase 0 data-source audit and Phase 0.5 live acquisition proof are complete. Phase 1A established the initial canonical data adapter, and Phase 1B now converts peer-reviewed LPZ literature into machine-readable formulas, thresholds, statistical findings, limitations, and evidence-driven input-variable requirements.
+Phase 0 data-source audit, Phase 0.5 live acquisition proof, Phase 1A canonical adapters, and the initial Phase 1B Scientific Evidence Engine are complete. Phase 1C is now reproducing paper-derived scientific quantities from live weather data under explicit exactness/proxy guardrails.
 
 ### Phase 0.5 mandatory payload gate
 
@@ -21,23 +21,32 @@ Supplementary sources:
 - JMA Himawari — metadata proof complete; scientific image/channel validation pending
 - JMA WINDAS — stable machine acquisition route pending
 
-The scheduled proof remains conservative at 30-minute cadence while availability and scientific-decode evidence accumulates.
+The scheduled proof remains conservative at 30-minute cadence while scientific-decode and failure-behavior evidence accumulates.
 
 ## Current scientific gates
 
 ```text
-mandatory transport                        PASS
-AMeDAS station normalization               PASS
-Scientific Evidence Registry               CI VALIDATED
-Evidence -> variable requirements          CI VALIDATED
-paper misuse / proxy guardrails            CI ENFORCED
-radar pixel scientific decode              PENDING
-GFS evidence-variable scientific decode    PENDING
-historical feature reconstruction          NOT STARTED
-risk engine allowed                        NO
+mandatory transport                         PASS
+AMeDAS station normalization                PASS
+Scientific Evidence Registry                CI VALIDATED
+Evidence -> variable requirements           CI VALIDATED
+paper misuse / proxy guardrails             CI ENFORCED
+ECMWF ecCodes runtime                       PASS
+GFS low-ambiguity 21-field decode           PASS
+Kato RH500/RH700 calculation                PASS
+600-hPa U/V wind decode                     PASS
+850-hPa U/V wind decode                     PASS
+Tahara 1000–900-hPa q/u/v raw stack        PASS
+Tahara IWVF formula                         PENDING
+Kato exact 500-m FLWV                       BLOCKED
+Kato SREH / LFC / EL / W700                 PENDING
+radar pixel scientific decode               PENDING
+rainband object extraction                  PENDING
+historical feature reconstruction           NOT STARTED
+risk engine allowed                         NO
 ```
 
-No LPZ prediction score will be introduced until scientific decoding, feature reconstruction, and frozen historical validation gates are closed.
+No LPZ prediction score will be introduced until scientific decoding, historical reconstruction, and frozen validation gates are closed.
 
 ## Scientific Evidence Engine policy
 
@@ -55,14 +64,33 @@ The initial curated evidence set covers:
 - Kumagai et al. (2026): Tohoku rainfall-threshold sensitivity
 - Tahara et al. (2026): northern-Japan 64-year climatology and 1000–900-hPa integrated water-vapor-flux diagnostics
 
-Two critical guardrails are already enforced by tests and CI:
+Critical guardrails enforced by tests and CI include:
 1. Kato's 500-m water-vapor-flux diagnostic is **not** silently replaced by a 950-hPa GFS proxy.
 2. The six favorable conditions are treated as multi-evidence diagnostics, **not** a deterministic all-six event gate.
+3. GFS precomputed helicity is **not** assumed to be the same SREH construction used by Kato.
+4. GFS pressure vertical velocity is **not** compared directly with Kato's geometric upward-velocity threshold before conversion and sign validation.
+5. Tahara's IWVF input stack can be decoded, but the pressure-integral formula remains closed until its numerical sign/integration convention is explicitly verified.
 
 See:
 - `research/evidence/scientific_evidence_registry.json`
 - `config/scientific_variable_requirements.json`
 - `docs/architecture/SCIENTIFIC_EVIDENCE_ENGINE.md`
+
+## Phase 1C live scientific proof
+
+GitHub Actions has successfully downloaded and decoded a live evidence-driven GFS subset using ECMWF ecCodes.
+
+Initial low-ambiguity proof fields:
+- RH at 500 and 700 hPa
+- U/V wind at 600 hPa
+- U/V wind at 850 hPa
+- specific humidity and U/V wind at 1000/975/950/925/900 hPa
+
+The proof contained all 21 expected fields on a common 14,641-point Japan-domain grid, with finite values in every required field. The first Kato RH500/RH700 threshold calculation and the raw Tahara low-level moisture stack were executed successfully.
+
+These are scientific feature/decode proofs, **not probabilities of LPZ occurrence**.
+
+See `research/phase1/PHASE1C_GFS_SCIENTIFIC_DECODE_BASELINE_20260909.md`.
 
 ## v0.1 source policy
 
@@ -124,7 +152,7 @@ Acquisition + validation               |
 Canonical adapters <-------------------+
         |
         v
-Future Scientific Feature Engine
+Scientific Feature Engine
         |
         v
 Frozen validation / holdout
@@ -140,16 +168,17 @@ Live and historical pipelines remain intentionally separated. They converge at c
 
 ## Current evidence
 
-The Phase 1A GitHub Actions proof normalized 1,286 AMeDAS stations, including 915 stations with wind observations and 841 with humidity observations. Station latitude/longitude metadata and meteorological wind vectors are normalized into the canonical schema.
+The Phase 1A GitHub Actions proof normalized 1,286 AMeDAS stations, with roughly 915 stations carrying wind observations and roughly 840+ carrying humidity depending on the current observation frame. Station latitude/longitude metadata and meteorological wind vectors are normalized into the canonical schema.
 
-GFS transport proof includes automatic fallback to the previous completed model cycle when a newly scheduled cycle is not yet published.
+GFS transport proof includes automatic fallback to a previous completed model cycle when a newly scheduled cycle is not yet published.
 
-The Phase 1B registry drives GFS requirements from reproducible literature needs rather than collecting variables merely because they are available. It explicitly tracks exact reproduction, pending transformations, and blocked approximations.
+The Phase 1B registry drives GFS requirements from reproducible literature needs rather than collecting variables merely because they are available. Phase 1C then attempts live reproduction while keeping blocked transformations blocked.
 
 See:
 - `docs/PHASE0_DATA_SOURCE_AUDIT.md`
 - `research/phase0/PHASE0_5_BASELINE_20260909.md`
 - `research/phase1/PHASE1B_SCIENTIFIC_EVIDENCE_BASELINE_20260909.md`
+- `research/phase1/PHASE1C_GFS_SCIENTIFIC_DECODE_BASELINE_20260909.md`
 
 ## Run locally
 
@@ -165,6 +194,9 @@ python scripts/acquisition_probe.py \
 python scripts/build_canonical_snapshot.py \
   --acquisition-report reports/acquisition/acquisition_report.json \
   --output reports/canonical/canonical_snapshot.json
+
+python scripts/gfs_scientific_decode_probe.py \
+  --output reports/scientific/gfs_scientific_decode.json
 ```
 
 No paid API or LLM API is required for the current phase.
