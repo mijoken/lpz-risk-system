@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 import cdsapi
+import requests
 
 CDS_URL = "https://cds.climate.copernicus.eu/api"
 
@@ -32,6 +33,29 @@ def build_cds_request(row: dict) -> dict:
     }
 
 
+def _write_report(path: Path, report: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _classify_http_error(exc: requests.HTTPError) -> tuple[str, str]:
+    text = str(exc)
+    response_text = ""
+    if getattr(exc, "response", None) is not None:
+        try:
+            response_text = exc.response.text or ""
+        except Exception:
+            response_text = ""
+    combined = f"{text}\n{response_text}".lower()
+    if "required licences not accepted" in combined or "licence" in combined and "not accepted" in combined:
+        return "BLOCKED_PENDING_DATASET_LICENCE_ACCEPTANCE", "CDS credentials were presented, but required ERA5 dataset licence(s) are not yet accepted."
+    if "401" in combined or "unauthorized" in combined or "invalid token" in combined or "invalid key" in combined:
+        return "BLOCKED_INVALID_CDS_CREDENTIAL", "CDS rejected the supplied API credential."
+    if "403" in combined or "forbidden" in combined:
+        return "BLOCKED_CDS_FORBIDDEN_OTHER", "CDS returned HTTP 403 for a reason other than the recognized licence gate."
+    return "BLOCKED_CDS_HTTP_ERROR", "CDS request failed with an HTTP error."
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--manifest", default="reports/historical/era5_request_manifest.json")
@@ -41,31 +65,34 @@ def main() -> int:
     a = p.parse_args()
 
     key = os.environ.get("CDSAPI_KEY", "").strip()
+    report_path = Path(a.output_report)
     if not key:
-        raise SystemExit("CDSAPI_KEY is required for this manual proof")
+        _write_report(report_path, {
+            "schema_version": "0.1.0",
+            "phase": "2B-era5-authenticated-proof",
+            "execution_ok": False,
+            "gate": "BLOCKED_MISSING_CDS_CREDENTIAL",
+            "credential_present": False,
+            "credential_value_recorded": False,
+            "risk_engine_allowed": False,
+        })
+        return 2
 
     manifest = json.loads(Path(a.manifest).read_text(encoding="utf-8"))
-    requests = manifest.get("requests", [])
-    if not requests:
+    requests_list = manifest.get("requests", [])
+    if not requests_list:
         raise SystemExit("ERA5 manifest contains no requests")
-    if not 0 <= a.request_index < len(requests):
+    if not 0 <= a.request_index < len(requests_list):
         raise SystemExit(f"request index out of range: {a.request_index}")
 
-    selected = requests[a.request_index]
+    selected = requests_list[a.request_index]
     cds_request = build_cds_request(selected)
     output = Path(a.output_grib)
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    client = cdsapi.Client(url=CDS_URL, key=key, quiet=False)
-    client.retrieve(manifest["dataset"], cds_request, str(output))
-    size = output.stat().st_size if output.exists() else 0
-    if size <= 0:
-        raise RuntimeError("CDS request completed without a non-empty GRIB file")
-
-    report = {
+    base_report = {
         "schema_version": "0.1.0",
         "phase": "2B-era5-authenticated-proof",
-        "execution_ok": True,
         "dataset": manifest["dataset"],
         "request_index": a.request_index,
         "date": selected["date"],
@@ -74,15 +101,59 @@ def main() -> int:
         "pressure_levels_hpa": selected["pressure_levels_hpa"],
         "variables": selected["variables"],
         "cds_area_north_west_south_east": selected["cds_area_north_west_south_east"],
-        "downloaded_bytes": size,
         "credential_present": True,
         "credential_value_recorded": False,
         "scientific_decode_complete": False,
         "risk_engine_allowed": False,
     }
-    report_path = Path(a.output_report)
-    report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    client = cdsapi.Client(url=CDS_URL, key=key, quiet=False)
+    try:
+        client.retrieve(manifest["dataset"], cds_request, str(output))
+    except requests.HTTPError as exc:
+        gate, reason = _classify_http_error(exc)
+        report = {
+            **base_report,
+            "execution_ok": False,
+            "gate": gate,
+            "reason": reason,
+            "http_status": getattr(getattr(exc, "response", None), "status_code", None),
+            "downloaded_bytes": 0,
+        }
+        _write_report(report_path, report)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 3
+    except Exception as exc:
+        report = {
+            **base_report,
+            "execution_ok": False,
+            "gate": "BLOCKED_CDS_UNCLASSIFIED_ERROR",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "downloaded_bytes": 0,
+        }
+        _write_report(report_path, report)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 4
+
+    size = output.stat().st_size if output.exists() else 0
+    if size <= 0:
+        report = {
+            **base_report,
+            "execution_ok": False,
+            "gate": "BLOCKED_EMPTY_ERA5_PAYLOAD",
+            "downloaded_bytes": size,
+        }
+        _write_report(report_path, report)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 5
+
+    report = {
+        **base_report,
+        "execution_ok": True,
+        "gate": "ERA5_PAYLOAD_DOWNLOADED",
+        "downloaded_bytes": size,
+    }
+    _write_report(report_path, report)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0
 
