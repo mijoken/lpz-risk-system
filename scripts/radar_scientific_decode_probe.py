@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Phase 1C proof for JMA public precipitation PNG scientific class decoding.
 
-The proof first searches a bounded Japan tile set for an actually rainy pixel,
-then verifies that seed again at a higher Web-Mercator zoom. This avoids false
-failures caused by hard-coded sample points landing in dry tiles.
+The proof searches a bounded Japan tile set for real precipitation colours,
+then verifies the entire high-zoom descendant footprint of the rainy parent
+tile. It never assumes that one low-zoom pixel centre remains rainy after map
+resampling at a different zoom.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ if str(SRC) not in sys.path:
 from lpz_risk.radar_science import (  # noqa: E402
     JMA_PRECIPITATION_CLASSES,
     decode_jma_precipitation_png,
+    descendant_tile_indices,
     lonlat_to_xyz,
     tile_pixel_center_lonlat,
     web_mercator_pixel_area_km2,
@@ -40,15 +42,12 @@ MAX_TILE_BYTES = 2 * 1024 * 1024
 NOWC_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json"
 RASRF_TIMES = "https://www.jma.go.jp/bosai/jmatile/data/rasrf/targetTimes.json"
 
-# The discovery pass deliberately uses a modest zoom and bounded national box.
-# A discovered rainy pixel is then re-fetched at z=9, whose Web-Mercator pixel
-# ground spacing is roughly 250 m near 35 N. This does NOT assert that the JMA
-# display tile itself is a native 250-m scientific raster everywhere.
 DISCOVERY_ZOOM = 6
 VERIFY_ZOOM = 9
 JAPAN_BBOX = {"west": 122.0, "east": 154.0, "south": 20.0, "north": 46.0}
 MAX_FRAMES_PER_PRODUCT = 4
 DISCOVERY_WORKERS = 4
+VERIFY_WORKERS = 8
 
 
 def iso_utc(dt: datetime) -> str:
@@ -104,7 +103,6 @@ def current_rows(product: str, rows: list[dict[str, Any]]) -> list[dict[str, Any
 
 
 def spaced_recent_rows(rows: list[dict[str, Any]], count: int) -> list[dict[str, Any]]:
-    """Select recent rows separated by about 30 minutes when possible."""
     chosen: list[dict[str, Any]] = []
     last_dt: datetime | None = None
     for row in rows:
@@ -146,19 +144,21 @@ def inspect_tile(product: str, row: dict[str, Any], z: int, x: int, y: int) -> d
     try:
         payload, status, latency = http_get(url, MAX_TILE_BYTES)
         decoded = decode_jma_precipitation_png(payload)
-        known = np.argwhere(decoded.class_index >= 0)
+        precip_mask = decoded.class_index >= 0
+        known_count = int(np.count_nonzero(precip_mask))
         seed = None
-        if known.size:
-            py, px = map(int, known[0])
+        max_class_index = None
+        if known_count:
+            max_class_index = int(np.max(decoded.class_index[precip_mask]))
+            py, px = map(int, np.argwhere(decoded.class_index == max_class_index)[0])
             lon, lat = tile_pixel_center_lonlat(z, x, y, px, py)
-            class_idx = int(decoded.class_index[py, px])
-            cls = JMA_PRECIPITATION_CLASSES[class_idx]
+            cls = JMA_PRECIPITATION_CLASSES[max_class_index]
             seed = {
                 "pixel_x": px,
                 "pixel_y": py,
                 "lon": lon,
                 "lat": lat,
-                "class_index": class_idx,
+                "class_index": max_class_index,
                 "class_id": cls.class_id,
                 "lower_mmph": cls.lower_mmph,
                 "upper_mmph": cls.upper_mmph,
@@ -169,9 +169,10 @@ def inspect_tile(product: str, row: dict[str, Any], z: int, x: int, y: int) -> d
                 "http_status": status,
                 "latency_ms": latency,
                 "bytes": len(payload),
-                "known_precipitation_pixels": int(known.shape[0]) if known.ndim == 2 else 0,
+                "known_precipitation_pixels": known_count,
                 "unknown_opaque_pixels": decoded.unknown_opaque_pixel_count,
                 "class_counts": decoded.class_counts(),
+                "max_class_index": max_class_index,
                 "seed": seed,
             }
         )
@@ -180,6 +181,19 @@ def inspect_tile(product: str, row: dict[str, Any], z: int, x: int, y: int) -> d
     except (URLError, TimeoutError, ValueError, OSError) as exc:
         result.update({"status": "FAIL", "error": f"{type(exc).__name__}: {exc}"})
     return result
+
+
+def _strongest_rainy_report(reports: list[dict[str, Any]]) -> dict[str, Any] | None:
+    rainy = [r for r in reports if r.get("seed")]
+    if not rainy:
+        return None
+    return max(
+        rainy,
+        key=lambda r: (
+            int(r.get("max_class_index") if r.get("max_class_index") is not None else -1),
+            int(r.get("known_precipitation_pixels", 0)),
+        ),
+    )
 
 
 def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -203,23 +217,25 @@ def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, An
                     successful_tiles += 1
                     total_unknown += int(report.get("unknown_opaque_pixels", 0))
 
-        rainy = [r for r in reports if r.get("seed")]
-        frame_report = {
-            "basetime": row.get("basetime"),
-            "validtime": row.get("validtime"),
-            "tiles_attempted": len(reports),
-            "tiles_pass": sum(r.get("status") == "PASS" for r in reports),
-            "tiles_with_precipitation": len(rainy),
-            "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in reports),
-        }
-        frame_reports.append(frame_report)
-        if rainy:
-            seed_tile = rainy[0]
+        strongest = _strongest_rainy_report(reports)
+        rainy_count = sum(bool(r.get("seed")) for r in reports)
+        frame_reports.append(
+            {
+                "basetime": row.get("basetime"),
+                "validtime": row.get("validtime"),
+                "tiles_attempted": len(reports),
+                "tiles_pass": sum(r.get("status") == "PASS" for r in reports),
+                "tiles_with_precipitation": rainy_count,
+                "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in reports),
+                "strongest_class_index": None if strongest is None else strongest.get("max_class_index"),
+            }
+        )
+        if strongest is not None:
             return {
                 "found": True,
                 "row": row,
-                "seed": seed_tile["seed"],
-                "seed_tile": {k: seed_tile[k] for k in ("z", "x", "y", "url")},
+                "seed": strongest["seed"],
+                "seed_tile": {k: strongest[k] for k in ("z", "x", "y", "url")},
                 "frame_reports": frame_reports,
                 "successful_tiles": successful_tiles,
                 "unknown_opaque_pixels": total_unknown,
@@ -236,17 +252,56 @@ def discover_rain_seed(product: str, rows: list[dict[str, Any]]) -> dict[str, An
     }
 
 
-def verify_seed_at_high_zoom(product: str, row: dict[str, Any], seed: dict[str, Any]) -> dict[str, Any]:
-    z, x, y = lonlat_to_xyz(float(seed["lon"]), float(seed["lat"]), VERIFY_ZOOM)
-    report = inspect_tile(product, row, z, x, y)
-    report["approx_pixel_area_km2_at_seed_lat"] = web_mercator_pixel_area_km2(
-        float(seed["lat"]), VERIFY_ZOOM
+def verify_parent_descendants(
+    product: str,
+    row: dict[str, Any],
+    parent_tile: dict[str, Any],
+) -> dict[str, Any]:
+    children = descendant_tile_indices(
+        int(parent_tile["z"]),
+        int(parent_tile["x"]),
+        int(parent_tile["y"]),
+        VERIFY_ZOOM,
     )
-    report["note"] = (
-        "z=9 Web-Mercator ground spacing is approximately 250 m near central Japan; "
-        "this is a display-tile verification and not a claim that every tile pixel is a native radar grid cell."
-    )
-    return report
+    reports: list[dict[str, Any]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=VERIFY_WORKERS) as pool:
+        futures = [
+            pool.submit(inspect_tile, product, row, VERIFY_ZOOM, x, y)
+            for x, y in children
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            reports.append(future.result())
+
+    successful = [r for r in reports if r.get("status") == "PASS"]
+    strongest = _strongest_rainy_report(successful)
+    aggregate_classes: dict[str, int] = {}
+    for report in successful:
+        for class_id, count in report.get("class_counts", {}).items():
+            aggregate_classes[class_id] = aggregate_classes.get(class_id, 0) + int(count)
+
+    output: dict[str, Any] = {
+        "status": "PASS" if successful else "FAIL",
+        "parent_tile": {k: parent_tile[k] for k in ("z", "x", "y", "url")},
+        "verification_zoom": VERIFY_ZOOM,
+        "child_tiles_expected": len(children),
+        "child_tiles_pass": len(successful),
+        "child_tiles_with_precipitation": sum(bool(r.get("seed")) for r in successful),
+        "unknown_opaque_pixels": sum(int(r.get("unknown_opaque_pixels", 0)) for r in successful),
+        "class_counts": aggregate_classes,
+        "rain_verified": strongest is not None,
+        "strongest_seed": None if strongest is None else strongest.get("seed"),
+        "strongest_tile": None if strongest is None else {k: strongest[k] for k in ("z", "x", "y", "url")},
+        "note": (
+            "The full z=9 descendant footprint is checked. A low-zoom pixel centre is not assumed "
+            "to remain rainy after resampling. z=9 is a display-tile verification, not a claim "
+            "that every tile pixel is a native radar cell."
+        ),
+    }
+    if strongest and strongest.get("seed"):
+        output["approx_pixel_area_km2_at_strongest_seed_lat"] = web_mercator_pixel_area_km2(
+            float(strongest["seed"]["lat"]), VERIFY_ZOOM
+        )
+    return output
 
 
 def run() -> dict[str, Any]:
@@ -271,7 +326,7 @@ def run() -> dict[str, Any]:
         }
     except Exception as exc:
         return {
-            "schema_version": "0.2.0",
+            "schema_version": "0.3.0",
             "phase": "1C-radar-scientific-decode-proof",
             "generated_at": iso_utc(generated),
             "execution_ok": False,
@@ -283,7 +338,7 @@ def run() -> dict[str, Any]:
                 "png_transport": False,
                 "official_palette_integrity": False,
                 "precipitation_palette_observed": False,
-                "high_zoom_seed_verification": False,
+                "high_zoom_descendant_verification": False,
                 "continuous_mmph_recovery": False,
                 "risk_engine_allowed": False,
             },
@@ -300,19 +355,16 @@ def run() -> dict[str, Any]:
         discovery[product] = found
         total_unknown += int(found.get("unknown_opaque_pixels", 0))
         total_success_tiles += int(found.get("successful_tiles", 0))
-        if found.get("found") and found.get("row") and found.get("seed"):
-            high_zoom[product] = verify_seed_at_high_zoom(product, found["row"], found["seed"])
+        if found.get("found") and found.get("row") and found.get("seed_tile"):
+            high_zoom[product] = verify_parent_descendants(product, found["row"], found["seed_tile"])
             total_unknown += int(high_zoom[product].get("unknown_opaque_pixels", 0))
         else:
-            high_zoom[product] = {"status": "NO_RAIN_SAMPLE"}
+            high_zoom[product] = {"status": "NO_RAIN_SAMPLE", "rain_verified": False}
         if int(found.get("successful_tiles", 0)) == 0:
             technical_failure = True
 
-    palette_observed = any(bool(discovery[p].get("found")) for p in discovery)
-    high_zoom_verified = any(
-        high_zoom[p].get("status") == "PASS" and high_zoom[p].get("seed")
-        for p in high_zoom
-    )
+    palette_observed = all(bool(discovery[p].get("found")) for p in ("nowc", "rasrf"))
+    high_zoom_verified = all(bool(high_zoom[p].get("rain_verified")) for p in ("nowc", "rasrf"))
     palette_integrity = total_unknown == 0
     transport_gate = total_success_tiles > 0 and not technical_failure
     scientific_decode_proven = transport_gate and palette_integrity and palette_observed and high_zoom_verified
@@ -321,7 +373,7 @@ def run() -> dict[str, Any]:
     latest_rasrf = parse_compact(str(product_rows["rasrf"][0]["validtime"]))
 
     return {
-        "schema_version": "0.2.0",
+        "schema_version": "0.3.0",
         "phase": "1C-radar-scientific-decode-proof",
         "generated_at": iso_utc(generated),
         "execution_ok": transport_gate and palette_integrity,
@@ -332,6 +384,7 @@ def run() -> dict[str, Any]:
             "discovery_zoom": DISCOVERY_ZOOM,
             "verification_zoom": VERIFY_ZOOM,
             "discovery_tile_count_per_frame": len(japan_tile_indices(DISCOVERY_ZOOM)),
+            "verification_child_tiles_per_parent": len(descendant_tile_indices(DISCOVERY_ZOOM, 0, 0, VERIFY_ZOOM)),
             "max_frames_per_product": MAX_FRAMES_PER_PRODUCT,
             "bbox": JAPAN_BBOX,
         },
@@ -345,7 +398,7 @@ def run() -> dict[str, Any]:
             "no_rain_sample_is_technical_failure": False,
             "reason": (
                 "The public PNG is a display-class product. LPZ-RISK preserves bucket bounds, "
-                "does not invent midpoints, and does not turn natural dry conditions into CI failures."
+                "does not invent midpoints, and verifies cross-zoom colour evidence over the full descendant footprint."
             ),
         },
         "gates": {
@@ -353,7 +406,7 @@ def run() -> dict[str, Any]:
             "png_transport": transport_gate,
             "official_palette_integrity": palette_integrity,
             "precipitation_palette_observed": palette_observed,
-            "high_zoom_seed_verification": high_zoom_verified,
+            "high_zoom_descendant_verification": high_zoom_verified,
             "precipitation_class_decode": scientific_decode_proven,
             "continuous_mmph_recovery": False,
             "hirockawa_exact_3h_accumulation": False,
@@ -364,10 +417,7 @@ def run() -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output",
-        default="reports/scientific/radar_scientific_decode.json",
-    )
+    parser.add_argument("--output", default="reports/scientific/radar_scientific_decode.json")
     args = parser.parse_args()
 
     report = run()
@@ -385,7 +435,6 @@ def main() -> int:
         )
     )
     print(f"report={output}")
-    # A naturally dry sample does not fail CI. Technical transport/palette errors do.
     return 0 if report.get("execution_ok") else 2
 
 
