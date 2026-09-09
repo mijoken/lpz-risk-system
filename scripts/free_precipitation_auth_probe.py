@@ -61,6 +61,8 @@ def _imerg_probe() -> dict:
             "secret_value_recorded": False,
         }
 
+    short_name = "GPM_3IMERGHH"
+    version = "07"
     try:
         import earthaccess
 
@@ -69,7 +71,8 @@ def _imerg_probe() -> dict:
             raise RuntimeError("earthaccess authentication returned authenticated=False")
 
         granules = earthaccess.search_data(
-            short_name="GPM_3IMERGHH_07",
+            short_name=short_name,
+            version=version,
             bounding_box=(129.0, 30.0, 146.0, 46.0),
             temporal=("2025-07-01T00:00:00Z", "2025-07-01T01:00:00Z"),
             count=1,
@@ -80,7 +83,8 @@ def _imerg_probe() -> dict:
             "credential_present": True,
             "authenticated": True,
             "granule_count": len(granules),
-            "short_name": "GPM_3IMERGHH_07",
+            "short_name": short_name,
+            "version": version,
             "secret_value_recorded": False,
         }
     except Exception as exc:
@@ -89,6 +93,8 @@ def _imerg_probe() -> dict:
             "gate": "BLOCKED_EARTHDATA_AUTH_OR_IMERG_SEARCH",
             "credential_present": True,
             "authenticated": False,
+            "short_name": short_name,
+            "version": version,
             "error_type": type(exc).__name__,
             "error": str(exc)[:500],
             "secret_value_recorded": False,
@@ -101,7 +107,7 @@ def main() -> int:
     args = p.parse_args()
 
     report = {
-        "schema_version": "0.1.0",
+        "schema_version": "0.1.1",
         "phase": "2E-zero-cost-precip-auth",
         "zero_cost_required": True,
         "providers": [_gsmap_probe(), _imerg_probe()],
