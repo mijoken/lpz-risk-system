@@ -1,0 +1,58 @@
+{
+  "schema_version": "0.1.0",
+  "policy": {
+    "independent_score": "JMA LPZ predictions and Kikikuru are excluded from predictor inputs.",
+    "raw_data": "Do not commit large raw weather payloads to Git.",
+    "freshness": "Operational risk output must be suspended if mandatory inputs are stale."
+  },
+  "sources": [
+    {
+      "id": "jma_nowc",
+      "name": "JMA High-Resolution Precipitation Nowcast",
+      "role": "LIVE_MANDATORY",
+      "probe": "METADATA_AND_SAMPLE_TILE",
+      "metadata_url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json",
+      "official_reference": "https://www.data.jma.go.jp/developer/weatherdataguide/appendix/2-1-b.html"
+    },
+    {
+      "id": "jma_rasrf",
+      "name": "JMA analyzed precipitation / forecast precipitation metadata",
+      "role": "LIVE_MANDATORY",
+      "probe": "METADATA",
+      "metadata_url": "https://www.jma.go.jp/bosai/jmatile/data/rasrf/targetTimes.json",
+      "official_reference": "https://www.data.jma.go.jp/developer/weatherdataguide/appendix/1-1-d.html"
+    },
+    {
+      "id": "jma_amedas",
+      "name": "JMA AMeDAS",
+      "role": "LIVE_MANDATORY",
+      "probe": "PAYLOAD",
+      "latest_time_url": "https://www.jma.go.jp/bosai/amedas/data/latest_time.txt",
+      "map_url_template": "https://www.jma.go.jp/bosai/amedas/data/map/{timestamp}.json",
+      "official_reference": "https://www.data.jma.go.jp/developer/weatherdataguide/appendix/1-1-a.html"
+    },
+    {
+      "id": "jma_windas",
+      "name": "JMA WINDAS / wind profiler",
+      "role": "LIVE_SUPPLEMENTARY",
+      "probe": "DISCOVERY_PENDING",
+      "official_reference": "https://www.data.jma.go.jp/developer/weatherdataguide/appendix/1-2-a.html"
+    },
+    {
+      "id": "jma_himawari",
+      "name": "JMA Himawari imagery",
+      "role": "LIVE_SUPPLEMENTARY",
+      "probe": "METADATA",
+      "metadata_url": "https://www.jma.go.jp/bosai/himawari/data/satimg/targetTimes_fd.json",
+      "official_reference": "https://www.data.jma.go.jp/developer/weatherdataguide/appendix/1-5-a.html"
+    },
+    {
+      "id": "noaa_gfs",
+      "name": "NOAA/NCEP GFS 0.25 degree",
+      "role": "LIVE_MANDATORY",
+      "probe": "SERVICE",
+      "service_url": "https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25",
+      "official_reference": "https://nomads.ncep.noaa.gov/gribfilter.php?ds=gfs_0p25"
+    }
+  ]
+}
