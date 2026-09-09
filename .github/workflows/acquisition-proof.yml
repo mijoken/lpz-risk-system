@@ -9,6 +9,7 @@ on:
       - "scripts/build_canonical_snapshot.py"
       - "scripts/validate_scientific_evidence.py"
       - "scripts/gfs_scientific_decode_probe.py"
+      - "scripts/radar_scientific_decode_probe.py"
       - "src/**"
       - "config/data_sources.json"
       - "config/scientific_variable_requirements.json"
@@ -73,6 +74,11 @@ jobs:
           python scripts/gfs_scientific_decode_probe.py \
             --output reports/scientific/gfs_scientific_decode.json
 
+      - name: Run radar scientific decode proof
+        run: |
+          python scripts/radar_scientific_decode_probe.py \
+            --output reports/scientific/radar_scientific_decode.json
+
       - name: Upload Phase 0.5 / 1A / 1B / 1C evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -83,5 +89,6 @@ jobs:
             reports/canonical/canonical_snapshot.json
             reports/evidence/scientific_evidence_validation.json
             reports/scientific/gfs_scientific_decode.json
+            reports/scientific/radar_scientific_decode.json
           if-no-files-found: warn
           retention-days: 30
