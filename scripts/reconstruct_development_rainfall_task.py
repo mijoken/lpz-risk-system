@@ -8,6 +8,7 @@ import ftplib
 import json
 import os
 from pathlib import Path
+import shutil
 import tempfile
 import time
 import urllib.request
@@ -22,6 +23,7 @@ CMORPH_BASE = "https://www.ncei.noaa.gov/data/cmorph-high-resolution-global-prec
 GSMAP_BASE = "/standard/v8/hourly_G"
 GSMAP_FTP_HOST = "hokusai.eorc.jaxa.jp"
 GSMAP_RETRY_DELAYS_SECONDS = (0, 3, 8, 15, 30)
+IMERG_RETRY_DELAYS_SECONDS = (0, 5, 15, 30)
 
 
 def _parse(value: str) -> datetime:
@@ -109,8 +111,6 @@ def _collect_fields_gsmap_once(task: dict, plan: dict, td: Path) -> dict[str, ob
                 try:
                     listing_cache[directory] = ftp.nlst(directory)
                 except ftplib.error_perm as exc:
-                    # A true 550 here means the dated provider directory is absent.
-                    # Authentication/rate errors must remain retryable and distinct.
                     if str(exc).startswith("550"):
                         raise FileNotFoundError(f"GSMaP directory unavailable: {directory}: {exc}") from exc
                     raise
@@ -149,7 +149,6 @@ def _collect_fields_gsmap(task: dict, plan: dict, td: Path) -> dict[str, object]
         try:
             return _collect_fields_gsmap_once(task, plan, td)
         except FileNotFoundError:
-            # Provider directory/file absence is not cured by hammering FTP.
             raise
         except Exception as exc:
             last_exc = exc
@@ -159,7 +158,27 @@ def _collect_fields_gsmap(task: dict, plan: dict, td: Path) -> dict[str, object]
     raise last_exc
 
 
-def _collect_fields_imerg(task: dict, plan: dict, td: Path) -> dict[str, object]:
+def _is_transient_imerg_error(exc: BaseException) -> bool:
+    text = str(exc).lower()
+    if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
+        return True
+    return any(token in text for token in (
+        "network is unreachable",
+        "failed to establish a new connection",
+        "connection aborted",
+        "connection reset",
+        "connection refused",
+        "max retries exceeded",
+        "read timed out",
+        "connect timeout",
+        "temporary failure in name resolution",
+        "service unavailable",
+        "bad gateway",
+        "gateway timeout",
+    ))
+
+
+def _collect_fields_imerg_once(task: dict, plan: dict, td: Path, attempt: int) -> dict[str, object]:
     import earthaccess
 
     rows = sorted(_expected_field_rows(plan, task), key=lambda r: r["valid_start_utc"])
@@ -176,7 +195,9 @@ def _collect_fields_imerg(task: dict, plan: dict, td: Path) -> dict[str, object]
     )
     if not granules:
         raise RuntimeError("IMERG search returned no granules")
-    dl = td / "imerg"
+    dl = td / f"imerg-attempt-{attempt}"
+    shutil.rmtree(dl, ignore_errors=True)
+    dl.mkdir(parents=True, exist_ok=True)
     paths = earthaccess.download(granules, str(dl), threads=2)
     result = {}
     for raw in paths:
@@ -191,6 +212,29 @@ def _collect_fields_imerg(task: dict, plan: dict, td: Path) -> dict[str, object]
     if missing:
         raise RuntimeError(f"IMERG missing expected native fields: {missing[:5]} count={len(missing)}")
     return result
+
+
+def _collect_fields_imerg(task: dict, plan: dict, td: Path) -> dict[str, object]:
+    last_exc: BaseException | None = None
+    for attempt, delay in enumerate(IMERG_RETRY_DELAYS_SECONDS, start=1):
+        if delay:
+            time.sleep(delay)
+        try:
+            return _collect_fields_imerg_once(task, plan, td, attempt)
+        except RuntimeError as exc:
+            # Empty provider search or missing decoded native fields are scientific/data
+            # completeness failures, not transport failures. Do not hide them with retry.
+            if str(exc).startswith("IMERG search returned no granules") or str(exc).startswith("IMERG missing expected native fields"):
+                raise
+            last_exc = exc
+            if not _is_transient_imerg_error(exc) or attempt == len(IMERG_RETRY_DELAYS_SECONDS):
+                raise
+        except Exception as exc:
+            last_exc = exc
+            if not _is_transient_imerg_error(exc) or attempt == len(IMERG_RETRY_DELAYS_SECONDS):
+                raise
+    assert last_exc is not None
+    raise last_exc
 
 
 def _collect_fields_cmorph(task: dict, plan: dict, td: Path) -> dict[str, object]:
@@ -270,7 +314,7 @@ def run_task(plan: dict, manifest: dict, geometry_path: Path, task_id: str) -> d
     if len(descriptors) != task["window_count"]:
         raise AssertionError("task did not reconstruct every requested window")
     return {
-        "schema_version": "0.3.0",
+        "schema_version": "0.4.0",
         "phase": "2I-development-real-rainfall-reconstruction-task",
         "split": "DEVELOPMENT",
         "task_id": task_id,
@@ -284,6 +328,7 @@ def run_task(plan: dict, manifest: dict, geometry_path: Path, task_id: str) -> d
         "window_descriptors": descriptors,
         "gsmap_resolution_policy": "LIVE_DIRECTORY_LISTING_TIMESTAMP_AND_PRODUCT_MATCH_NO_FABRICATED_REVISION_SUFFIX",
         "gsmap_transport_policy": "SERIAL_PROVIDER_EXECUTION_PLUS_BOUNDED_RETRY_BACKOFF",
+        "imerg_transport_policy": "BOUNDED_RETRY_FOR_TRANSIENT_NETWORK_FAILURES_ONLY",
         "raw_payloads_persisted": False,
         "temporal_resampling_performed": False,
         "cross_source_accumulation_performed": False,
@@ -310,7 +355,7 @@ def main() -> int:
         ok = True
     except Exception as exc:
         report = {
-            "schema_version": "0.3.0",
+            "schema_version": "0.4.0",
             "phase": "2I-development-real-rainfall-reconstruction-task",
             "task_id": a.task_id,
             "gate": "FAIL_TASK_REAL_PAYLOAD_RECONSTRUCTION",
