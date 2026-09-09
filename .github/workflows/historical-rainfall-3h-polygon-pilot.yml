@@ -2,10 +2,6 @@ name: LPZ Historical Rainfall 3H Polygon Pilot
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "research/phase2/HISTORICAL_RAINFALL_3H_TRIGGER.txt"
 
 permissions:
   contents: read
