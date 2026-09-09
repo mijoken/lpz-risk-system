@@ -44,6 +44,22 @@ class Era5ScienceTest(unittest.TestCase):
         self.assertFalse(result["required_fields_pass"])
         self.assertIn("q@925", result["missing_required_fields"])
 
+    def test_documented_rh_supersaturation_is_not_rejected(self):
+        fields = _complete_fields()
+        fields[FieldKey("r", 500)] = _field("r", 500, [99.0, 106.7, 101.5])
+        fields[FieldKey("r", 700)] = _field("r", 700, [100.2, 106.9, 95.0])
+        result = validate_era5_required_fields(fields)
+        self.assertTrue(result["required_fields_pass"])
+        self.assertTrue(result["era5_rh_supersaturation_allowed"])
+        self.assertEqual(result["rh_supersaturated_point_count"], 4)
+
+    def test_extreme_rh_transport_value_still_fails(self):
+        fields = _complete_fields()
+        fields[FieldKey("r", 500)] = _field("r", 500, [70.0, 250.0, 80.0])
+        result = validate_era5_required_fields(fields)
+        self.assertFalse(result["required_fields_pass"])
+        self.assertIn("r@500:rh_transport_sanity_range", result["invalid_required_fields"])
+
     def test_environment_descriptor_keeps_proxy_semantics(self):
         desc = era5_environment_descriptors(_complete_fields())
         self.assertEqual(desc["source"], "ERA5")
