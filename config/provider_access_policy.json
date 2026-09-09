@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2I-provider-access-guardrails",
+  "cost_policy": "ZERO_COST_EXTERNAL_DATA_REQUIRED",
+  "providers": {
+    "NASA_IMERG_FINAL_V07": {
+      "access_backend": "NASA_GES_DISC_EARTHDATA",
+      "official_observed_guidance": {
+        "general_concurrent_granule_limit": 3,
+        "imerg_specific_recommended_max_concurrent_downloads": 2,
+        "cmr_rate_limit_signal": "HTTP_429_WITH_RETRY_AFTER",
+        "concurrent_limit_signals": [
+          "Concurrent Connection Limit Reached",
+          "HTTP_429",
+          "HTTP_503_SERVICE_TEMPORARILY_UNAVAILABLE"
+        ]
+      },
+      "lpz_operational_limit": {
+        "max_parallel_jobs": 1,
+        "max_download_threads_per_job": 2,
+        "max_effective_download_concurrency": 2,
+        "retry_after_header_must_be_honored": true,
+        "bounded_transport_retry_only": true
+      },
+      "classification": {
+        "errno_101_network_is_unreachable": "TRANSPORT_ROUTE_FAILURE_NOT_RATE_LIMIT_EVIDENCE",
+        "http_429": "RATE_LIMIT",
+        "concurrent_connection_limit_reached": "CONCURRENCY_LIMIT",
+        "http_503": "POSSIBLE_SERVER_LOAD_OR_CONCURRENCY_LIMIT",
+        "empty_granule_search": "DATA_AVAILABILITY_OR_QUERY_FAILURE_NOT_TRANSPORT_RETRY"
+      }
+    },
+    "GSMAP_STANDARD_V8_HISTORICAL": {
+      "access_backend": "JAXA_EORC_GSMAP_FTP",
+      "official_observed_guidance": {
+        "published_numeric_connection_limit": null,
+        "correct_credentials_but_no_access_may_indicate_ip_block": true,
+        "manual_client_recommended": ["FileZilla", "WinSCP"],
+        "temporary_network_congestion_or_server_trouble_possible": true
+      },
+      "lpz_operational_limit": {
+        "max_parallel_jobs": 1,
+        "max_simultaneous_ftp_sessions": 1,
+        "target_long_lived_session": true,
+        "bounded_retry_only": true,
+        "do_not_probe_aggressively": true
+      },
+      "classification": {
+        "ftp_530_login_incorrect_with_known_good_credentials": "AUTH_OR_IP_BLOCK_OR_PROVIDER_SESSION_CONTROL_UNRESOLVED",
+        "ftp_550": "SOURCE_PATH_OR_FILE_ABSENCE",
+        "ftp_421": "TRANSIENT_SERVER_OR_CONNECTION_LIMIT"
+      },
+      "manual_diagnostic_required_before_escalating_bulk_access": true,
+      "fallback": {
+        "provider": "JAXA_G_PORTAL",
+        "same_scientific_product_family": "GSMaP_MVK_Gauge_HDF",
+        "requires_separate_user_registration": true,
+        "status": "OPTIONAL_FALLBACK_NOT_CORE_REQUIRED"
+      }
+    }
+  },
+  "risk_engine_allowed": false,
+  "candidate_threshold_selected": false,
+  "validation_data_used": false
+}
