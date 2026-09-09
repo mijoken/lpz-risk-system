@@ -184,6 +184,23 @@ def lonlat_to_xyz(lon: float, lat: float, zoom: int) -> tuple[int, int, int]:
     return zoom, x, y
 
 
+def descendant_tile_indices(
+    parent_zoom: int,
+    parent_x: int,
+    parent_y: int,
+    child_zoom: int,
+) -> list[tuple[int, int]]:
+    """Return all Web-Mercator child tiles covering one parent tile exactly."""
+    if child_zoom < parent_zoom:
+        raise ValueError("child_zoom must be >= parent_zoom")
+    scale = 2 ** (child_zoom - parent_zoom)
+    return [
+        (parent_x * scale + dx, parent_y * scale + dy)
+        for dy in range(scale)
+        for dx in range(scale)
+    ]
+
+
 def tile_pixel_center_lonlat(
     zoom: int,
     tile_x: int,
