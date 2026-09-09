@@ -1,0 +1,1 @@
+One-shot trigger for Phase 2H NOAA/NCEI CMORPH CDR real payload proof.
