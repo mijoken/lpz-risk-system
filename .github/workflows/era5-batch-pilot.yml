@@ -11,9 +11,6 @@ on:
         description: "Number of requests for pilot"
         required: false
         default: "3"
-  push:
-    paths:
-      - "research/phase2/ERA5_MULTITIME_PILOT_TRIGGER.txt"
 
 permissions:
   contents: read
@@ -40,10 +37,7 @@ jobs:
           python scripts/build_era5_request_manifest.py --positive-registry reports/historical/positive_case_registry.json --config config/historical_environment_era5.json --geometry research/phase2/primary_subdivision_geometry_registry_20260909.json --output reports/historical/era5_request_manifest.json
       - name: Run checkpointed batch pilot
         run: |
-          START="${{ inputs.start_index }}"; COUNT="${{ inputs.count }}"
-          if [ -z "$START" ]; then START=0; fi
-          if [ -z "$COUNT" ]; then COUNT=3; fi
-          python scripts/era5_batch_reconstruction_pilot.py --manifest reports/historical/era5_request_manifest.json --start-index "$START" --count "$COUNT"
+          python scripts/era5_batch_reconstruction_pilot.py --manifest reports/historical/era5_request_manifest.json --start-index "${{ inputs.start_index }}" --count "${{ inputs.count }}"
       - name: Upload batch evidence
         if: always()
         uses: actions/upload-artifact@v4
