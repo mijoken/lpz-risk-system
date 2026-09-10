@@ -1,4 +1,4 @@
-name: LPZ Phase 2L CPC Monthly Daily Payload Proof
+name: LPZ Phase 2L Dual Daily Payload Proof
 
 on:
   workflow_dispatch:
@@ -25,18 +25,18 @@ jobs:
           python-version: "3.12"
       - name: Install package
         run: python -m pip install -e .
-      - name: Probe IMERG daily plus CMORPH CPC monthly-tar daily
+      - name: Probe IMERG daily plus CMORPH public-S3 daily
         run: |
           python scripts/phase2l_daily_screening_payload_probe.py \
             --date 2023-07-10 \
-            --output reports/historical/phase2l_cpc_monthly_daily_payload_proof.json
+            --output reports/historical/phase2l_dual_daily_payload_proof.json
       - name: Assert research guardrails
         run: |
           python - <<'PY'
           import json
-          p=json.load(open('reports/historical/phase2l_cpc_monthly_daily_payload_proof.json',encoding='utf-8'))
+          p=json.load(open('reports/historical/phase2l_dual_daily_payload_proof.json',encoding='utf-8'))
           assert p['gate']=='PASS_DUAL_DAILY_SCREENING_PAYLOAD_PROOF', p
-          assert p['cmorph']['distribution']=='CPC_CDR_CMORPH_MONTHLY_TAR', p
+          assert p['cmorph']['distribution']=='NOAA_PUBLIC_S3_DAILY_0P25DEG', p
           assert p['threshold_selected'] is False, p
           assert p['candidate_generated'] is False, p
           assert p['hard_negative_label'] is None, p
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: phase2l-cpc-monthly-daily-proof-${{ github.run_id }}
-          path: reports/historical/phase2l_cpc_monthly_daily_payload_proof.json
+          name: phase2l-dual-daily-payload-proof-${{ github.run_id }}
+          path: reports/historical/phase2l_dual_daily_payload_proof.json
           if-no-files-found: error
           retention-days: 90
