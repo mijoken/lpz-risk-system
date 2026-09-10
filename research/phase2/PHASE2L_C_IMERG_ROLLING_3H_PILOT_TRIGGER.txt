@@ -1,0 +1,4 @@
+trigger: phase2l-imerg-rolling-3h-pilot
+requested_at_utc: 2026-09-10T13:20:00Z
+scope: Development 2023-2024 only; fixed-date exact six-slot IMERG half-hourly rolling 3h refinement pilot
+candidate_membership_source: frozen CMORPH reservoir Run 34469303188
