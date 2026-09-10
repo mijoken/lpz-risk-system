@@ -14,20 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: List bounded CMORPH 0.25deg daily hierarchy
+      - name: List bounded CMORPH 2023 daily hierarchy
         run: |
           set -euo pipefail
           mkdir -p reports/historical
-          {
-            echo '=== 0.25deg daily root ==='
-            aws s3api list-objects-v2 --no-sign-request \
-              --bucket noaa-cdr-precip-cmorph-pds \
-              --prefix 'data/daily/0.25deg/' --delimiter '/' --max-keys 50 --output json
-            echo '=== 2023 candidates under 0.25deg daily ==='
-            aws s3api list-objects-v2 --no-sign-request \
-              --bucket noaa-cdr-precip-cmorph-pds \
-              --prefix 'data/daily/0.25deg/2023' --delimiter '/' --max-keys 50 --output json
-          } | tee reports/historical/phase2l_cmorph_s3_daily_hierarchy.json.txt
+          aws s3api list-objects-v2 --no-sign-request \
+            --bucket noaa-cdr-precip-cmorph-pds \
+            --prefix 'data/daily/0.25deg/2023/' \
+            --delimiter '/' --max-keys 100 --output json \
+            | tee reports/historical/phase2l_cmorph_s3_daily_hierarchy.json.txt
       - uses: actions/upload-artifact@v4
         with:
           name: phase2l-cmorph-s3-prefix-${{ github.run_id }}
