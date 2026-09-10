@@ -25,9 +25,12 @@ jobs:
           python-version: "3.12"
       - name: Install package
         run: python -m pip install -e .
-      - name: Inspect official CMORPH public S3 root
+      - name: Inspect official CMORPH public S3 hierarchy
         run: |
-          aws s3 ls --no-sign-request s3://noaa-cdr-precip-cmorph-pds/ | head -100
+          echo '=== data root ==='
+          aws s3 ls --no-sign-request s3://noaa-cdr-precip-cmorph-pds/data/ | head -100
+          echo '=== exact 20230710 candidates ==='
+          aws s3 ls --no-sign-request s3://noaa-cdr-precip-cmorph-pds/data/ --recursive | grep '20230710' | head -100 || true
       - name: Run dual daily payload probe
         run: |
           python scripts/phase2l_daily_screening_payload_probe.py \
