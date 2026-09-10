@@ -1,0 +1,13 @@
+Phase 2L GSMaP v8 NetCDF single-file FTP proof
+Date: 2026-09-10 JST
+Scope: Development-era single-file access only
+Parallel connections: 1
+Broad traversal: OFF
+Threshold selection: OFF
+Candidate generation: OFF
+Hard-negative labeling: OFF
+Source fusion: OFF
+Validation 2025: UNUSED
+Retrospective 2026: UNUSED
+Prospective holdout: UNUSED
+Risk Engine: OFF
