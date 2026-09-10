@@ -1,0 +1,4 @@
+Phase 2L bounded CMORPH S3 API prefix proof
+Date: 2026-09-10 JST
+ListObjectsV2 with delimiter and max-keys only.
+No thresholds, candidates, labels, Validation, or risk scoring.
