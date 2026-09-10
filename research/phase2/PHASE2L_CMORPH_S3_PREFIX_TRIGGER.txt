@@ -1,0 +1,4 @@
+Phase 2L CMORPH S3 data-root prefix proof
+Date: 2026-09-10 JST
+Read-only provider-distribution discovery.
+No thresholds, candidates, labels, Validation, or risk scoring.
