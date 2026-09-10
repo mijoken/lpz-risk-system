@@ -1,0 +1,17 @@
+Phase 2L GSMaP v8 NetCDF 24-hour sequential FTP proof
+Date: 2026-09-10 JST
+Scope: one Development-era day only (2023-07-10)
+Control sessions: 1
+Parallel connections: 1
+Pause between transfers: 1 second
+Automatic reconnect/retry storm: OFF
+Broad traversal: OFF
+Raw persistence: OFF
+Threshold selection: OFF
+Candidate generation: OFF
+Hard-negative labeling: OFF
+Source fusion: OFF
+Validation 2025: UNUSED
+Retrospective 2026: UNUSED
+Prospective holdout: UNUSED
+Risk Engine: OFF
