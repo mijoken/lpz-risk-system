@@ -6,7 +6,7 @@ Raw daily payloads are deleted after extracting Japan-domain source-native summa
 """
 from __future__ import annotations
 
-import argparse, calendar, json, os, shutil, tempfile, time
+import argparse, calendar, json, shutil, tempfile, time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -43,9 +43,7 @@ def _summary(path: Path, preferred: str) -> dict:
         v,vn=_rain_var(ds,preferred)
         a=np.ma.asarray(v[:]).squeeze()
         if a.ndim!=2:
-            # squeeze singleton time then require 2-D
             raise ValueError(f"unexpected rain shape {a.shape} for {vn}")
-        # infer orientation from dimensions/shape
         if a.shape==(lon.size,lat.size):
             a=a.T
         elif a.shape!=(lat.size,lon.size):
@@ -57,7 +55,6 @@ def _summary(path: Path, preferred: str) -> dict:
         sub=np.ma.asarray(a[np.ix_(lm,xm)])
         vals=np.asarray(sub.compressed(),dtype=float)
         vals=vals[np.isfinite(vals)]
-        # negative values are non-physical/fill-like for daily accumulation/rate summaries
         vals=vals[vals>=0]
         if vals.size<100:
             raise ValueError(f"too few valid Japan-domain cells: {vals.size}")
@@ -86,6 +83,22 @@ def _get(url: str, dst: Path, tries=3):
     raise RuntimeError(f"download failed {url}: {type(last).__name__}: {last}")
 
 
+def _earthdata_login(tries: int=5):
+    """Retry only the external login handshake; never reinterpret auth failure as data."""
+    import earthaccess
+    last=None
+    for i in range(tries):
+        try:
+            return earthaccess.login(strategy='environment')
+        except Exception as exc:
+            last=exc
+            if i+1<tries:
+                time.sleep(10*(i+1))
+    raise RuntimeError(
+        f"Earthdata login failed after {tries} attempts: {type(last).__name__}: {last}"
+    ) from last
+
+
 def _imerg(day: datetime, work: Path) -> tuple[Path,str]:
     import earthaccess
     gran=earthaccess.search_data(short_name='GPM_3IMERGDF',version='07',
@@ -107,7 +120,7 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--month',required=True); ap.add_argument('--output',required=True); a=ap.parse_args()
     y,m=map(int,a.month.split('-'))
     if y not in (2023,2024): raise ValueError('Development only: 2023-2024')
-    import earthaccess; earthaccess.login(strategy='environment')
+    _earthdata_login()
     rows=[]; failures=[]
     with tempfile.TemporaryDirectory() as td:
         work=Path(td)
@@ -125,8 +138,9 @@ def main():
                     if p and p.exists(): p.unlink()
     expected=calendar.monthrange(y,m)[1]*2
     report={
-      'schema_version':'1.0.0','phase':'2L-A-monthly-daily-rainfall-census','split':'DEVELOPMENT','month':a.month,
+      'schema_version':'1.1.0','phase':'2L-A-monthly-daily-rainfall-census','split':'DEVELOPMENT','month':a.month,
       'bbox_wsen':list(BBOX),'spatial_semantics':'JAPAN_DOMAIN_RETRIEVAL_ENVELOPE_NOT_JMA_SUBDIVISION_POLYGON',
+      'earthdata_login_retry':{'max_attempts':5,'backoff_seconds':[10,20,30,40]},
       'expected_row_count':expected,'row_count':len(rows),'failure_count':len(failures),'rows':rows,'failures':failures,
       'source_fusion_used':False,'threshold_selected':False,'candidate_generated':False,'hard_negative_label':None,
       'validation_data_used':False,'retrospective_2026_used':False,'prospective_holdout_used':False,'risk_engine_allowed':False,
