@@ -1,0 +1,61 @@
+name: LPZ Phase 2L-C CMORPH Candidate Reservoir
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/PHASE2L_C_CANDIDATE_RESERVOIR_TRIGGER.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-reservoir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download complete CMORPH matched-window census
+        uses: actions/download-artifact@v4
+        with:
+          name: phase2l-cmorph-matched-window-census-34467829960
+          path: work/census
+          repository: ${{ github.repository }}
+          run-id: 34467829960
+          github-token: ${{ github.token }}
+      - name: Build frozen high-recall candidate reservoir
+        run: |
+          python scripts/phase2l_cmorph_candidate_reservoir.py \
+            --census work/census/phase2l_cmorph_matched_window_region_day_census.csv \
+            --positive-positions work/census/phase2l_cmorph_positive_region_day_positions.csv \
+            --output-dir reports/historical/phase2l_cmorph_candidate_reservoir
+      - name: Assert guardrails and recall
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/phase2l_cmorph_candidate_reservoir/phase2l_cmorph_candidate_reservoir_report.json',encoding='utf-8'))
+          assert p['gate']=='PASS_CMORPH_HIGH_RECALL_RESERVOIR', p
+          assert p['positive_direct_utc_date_recall_count']==65, p
+          assert p['hard_negative_label'] is None
+          assert p['environment_variables_used_for_selection'] is False
+          assert p['source_fusion_used'] is False
+          assert p['imerg_used_for_selection'] is False
+          assert p['gsmap_used_for_discovery'] is False
+          assert p['validation_data_used'] is False
+          assert p['retrospective_2026_used'] is False
+          assert p['prospective_holdout_used'] is False
+          assert p['risk_engine_allowed'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2l-cmorph-candidate-reservoir-${{ github.run_id }}
+          path: reports/historical/phase2l_cmorph_candidate_reservoir
+          if-no-files-found: error
+          retention-days: 90
