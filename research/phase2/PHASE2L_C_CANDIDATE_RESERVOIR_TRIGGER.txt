@@ -1,0 +1,4 @@
+trigger: phase2l-cmorph-candidate-reservoir
+requested_at_utc: 2026-09-10T11:00:00Z
+scope: Development 2023-2024 only; frozen CMORPH high-recall rainfall candidate reservoir
+rule_id: CMORPH_REGION_ANNUAL_P80_INTERSECTION_MAX_P90_P95_V1
