@@ -1,0 +1,148 @@
+name: LPZ Phase 2L-C IMERG Rolling 3h Full
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/PHASE2L_C_IMERG_ROLLING_3H_FULL_TRIGGER.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  monthly:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        month:
+          - 2023-01
+          - 2023-02
+          - 2023-03
+          - 2023-04
+          - 2023-05
+          - 2023-06
+          - 2023-07
+          - 2023-08
+          - 2023-09
+          - 2023-10
+          - 2023-11
+          - 2023-12
+          - 2024-01
+          - 2024-02
+          - 2024-03
+          - 2024-04
+          - 2024-05
+          - 2024-06
+          - 2024-07
+          - 2024-08
+          - 2024-09
+          - 2024-10
+          - 2024-11
+          - 2024-12
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      EARTHDATA_USERNAME: ${{ secrets.EARTHDATA_USERNAME }}
+      EARTHDATA_PASSWORD: ${{ secrets.EARTHDATA_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Verify Earthdata secrets
+        run: |
+          set -euo pipefail
+          test -n "${EARTHDATA_USERNAME:-}"
+          test -n "${EARTHDATA_PASSWORD:-}"
+      - name: Download frozen CMORPH candidate reservoir
+        uses: actions/download-artifact@v4
+        with:
+          name: phase2l-cmorph-candidate-reservoir-34469303188
+          path: work/reservoir
+          repository: ${{ github.repository }}
+          run-id: 34469303188
+          github-token: ${{ github.token }}
+      - name: Reconstruct monthly exact rolling 3h maxima
+        run: |
+          python scripts/phase2l_imerg_rolling_3h_month.py \
+            --reservoir work/reservoir/phase2l_cmorph_candidate_reservoir.csv \
+            --month "${{ matrix.month }}" \
+            --output-dir "reports/historical/phase2l_imerg_rolling_3h/${{ matrix.month }}"
+      - name: Assert monthly guardrails
+        run: |
+          python - <<'PY'
+          import glob,json
+          p=json.load(open(glob.glob('reports/historical/phase2l_imerg_rolling_3h/*/phase2l_imerg_rolling_3h_*.json')[0],encoding='utf-8'))
+          assert p['gate']=='PASS_IMERG_ROLLING_3H_MONTH', p
+          assert p['candidate_region_day_count']==p['refined_region_day_count']
+          assert p['rolling_window_count_per_region_day']==53
+          assert p['boundary_crossing_windows_included'] is True
+          assert p['missing_slot_interpolation'] is False
+          assert p['candidate_membership_changed'] is False
+          assert p['source_fusion_used'] is False
+          assert p['environment_variables_used'] is False
+          assert p['hard_negative_label'] is None
+          assert p['validation_data_used'] is False
+          assert p['retrospective_2026_used'] is False
+          assert p['prospective_holdout_used'] is False
+          assert p['risk_engine_allowed'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase2l-imerg-rolling-3h-${{ matrix.month }}
+          path: reports/historical/phase2l_imerg_rolling_3h/${{ matrix.month }}
+          if-no-files-found: error
+          retention-days: 90
+
+  merge:
+    needs: monthly
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download monthly rolling 3h shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: phase2l-imerg-rolling-3h-*
+          path: work/shards
+          merge-multiple: false
+      - name: Merge and audit exact rolling 3h refinement
+        run: |
+          python scripts/phase2l_merge_imerg_rolling_3h.py \
+            --shards-dir work/shards \
+            --output-dir reports/historical/phase2l_imerg_rolling_3h_full
+      - name: Assert final guardrails
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/phase2l_imerg_rolling_3h_full/phase2l_imerg_rolling_3h_full.json',encoding='utf-8'))
+          assert p['gate']=='PASS_COMPLETE_IMERG_ROLLING_3H_REFINEMENT_5943_REGION_DAYS', p
+          assert p['refined_region_day_count']==5943
+          assert p['unique_utc_day_count']==449
+          assert p['rolling_window_count_per_region_day']==53
+          assert p['candidate_membership_changed'] is False
+          assert p['source_fusion_used'] is False
+          assert p['environment_variables_used'] is False
+          assert p['hard_negative_label'] is None
+          assert p['validation_data_used'] is False
+          assert p['retrospective_2026_used'] is False
+          assert p['prospective_holdout_used'] is False
+          assert p['risk_engine_allowed'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2l-imerg-rolling-3h-full-${{ github.run_id }}
+          path: reports/historical/phase2l_imerg_rolling_3h_full
+          if-no-files-found: error
+          retention-days: 90
