@@ -1,4 +1,4 @@
-Phase 2L CMORPH S3 data-root prefix proof
+Phase 2L CMORPH daily hierarchy proof
 Date: 2026-09-10 JST
-Read-only provider-distribution discovery.
+Attempt: 2 - bounded daily root and 2023 prefix.
 No thresholds, candidates, labels, Validation, or risk scoring.
