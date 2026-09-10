@@ -1,0 +1,33 @@
+name: LPZ Phase 2L CMORPH S3 API Prefix Proof
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/PHASE2L_CMORPH_S3_API_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Bounded ListObjectsV2 for CMORPH data root
+        run: |
+          set -euo pipefail
+          mkdir -p reports/historical
+          aws s3api list-objects-v2 \
+            --no-sign-request \
+            --bucket noaa-cdr-precip-cmorph-pds \
+            --prefix 'data/' \
+            --delimiter '/' \
+            --max-keys 50 \
+            --output json | tee reports/historical/phase2l_cmorph_s3_api_root.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2l-cmorph-s3-api-prefix-${{ github.run_id }}
+          path: reports/historical/phase2l_cmorph_s3_api_root.json
+          if-no-files-found: error
+          retention-days: 30
