@@ -76,8 +76,12 @@ jobs:
       - name: Assert monthly guardrails
         run: |
           python - <<'PY'
-          import glob,json
-          p=json.load(open(glob.glob('reports/historical/phase2l_imerg_rolling_3h/*/phase2l_imerg_rolling_3h_*.json')[0],encoding='utf-8'))
+          import json, os
+          month = os.environ['MATRIX_MONTH']
+          path = f'reports/historical/phase2l_imerg_rolling_3h/{month}/phase2l_imerg_rolling_3h_{month}.json'
+          p = json.load(open(path, encoding='utf-8'))
+          assert isinstance(p, dict), type(p)
+          assert p['month'] == month, p
           assert p['gate']=='PASS_IMERG_ROLLING_3H_MONTH', p
           assert p['candidate_region_day_count']==p['refined_region_day_count']
           assert p['rolling_window_count_per_region_day']==53
@@ -92,6 +96,8 @@ jobs:
           assert p['prospective_holdout_used'] is False
           assert p['risk_engine_allowed'] is False
           PY
+        env:
+          MATRIX_MONTH: ${{ matrix.month }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
