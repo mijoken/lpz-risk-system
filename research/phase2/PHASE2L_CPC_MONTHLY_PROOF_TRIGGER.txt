@@ -1,0 +1,8 @@
+Phase 2L isolated CPC monthly daily payload proof
+Date: 2026-09-10 JST
+Scope: Development screening infrastructure only
+Threshold selection: OFF
+Candidate generation: OFF
+Hard-negative labeling: OFF
+Validation 2025: UNUSED
+Risk Engine: OFF
