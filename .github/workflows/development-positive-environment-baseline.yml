@@ -1,0 +1,106 @@
+name: LPZ Development Positive Environmental Baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/POSITIVE_ENVIRONMENT_BASELINE_TRIGGER.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: lpz-development-positive-environment-baseline
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Run focused scientific unit tests
+        run: python -m unittest -q tests.test_positive_environment_baseline
+
+      - name: Download frozen Phase 2I plan
+        uses: actions/download-artifact@v4
+        with:
+          name: development-rainfall-plan
+          path: work/plan
+          repository: ${{ github.repository }}
+          run-id: 34416417535
+          github-token: ${{ github.token }}
+
+      - name: Download original Phase 2I task reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rainfall-task-*
+          path: work/tasks/original
+          merge-multiple: false
+          repository: ${{ github.repository }}
+          run-id: 34416417535
+          github-token: ${{ github.token }}
+
+      - name: Download IMERG recovery reports
+        uses: actions/download-artifact@v4
+        with:
+          name: imerg-recovery-34421287940
+          path: work/tasks/recovery
+          repository: ${{ github.repository }}
+          run-id: 34421287940
+          github-token: ${{ github.token }}
+
+      - name: Download finalized ERA5 positive snapshot table
+        uses: actions/download-artifact@v4
+        with:
+          name: era5-positive-snapshot-feature-table-finalized-34370550473
+          path: work/era5
+          repository: ${{ github.repository }}
+          run-id: 34370550473
+          github-token: ${{ github.token }}
+
+      - name: Build Development positive environmental baseline
+        run: |
+          python scripts/analyze_development_positive_environment.py \
+            --plan work/plan/development_rainfall_production_plan.json \
+            --window-manifest work/plan/development_rainfall_window_manifest.json \
+            --episode-registry work/plan/positive_episode_registry.json \
+            --task-dir work/tasks \
+            --era5-table work/era5/era5_positive_snapshot_feature_table.json \
+            --output reports/historical/development_positive_environment_baseline.json
+
+      - name: Assert Phase 2K descriptive-only gate
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/development_positive_environment_baseline.json',encoding='utf-8'))
+          assert p['gate']=='PASS_COMPLETE_DEVELOPMENT_POSITIVE_ENVIRONMENT_BASELINE', p
+          assert p['split']=='DEVELOPMENT', p
+          assert p['episode_count']==65, p
+          assert p['era5_snapshot_count']==390, p
+          assert p['snapshot_offsets_minutes']==[-180,-120,-90,-60,-30,0], p
+          assert p['source_fusion_used'] is False, p
+          assert p['gsmap_used'] is False, p
+          assert p['convergence_inferred'] is False, p
+          assert p['candidate_threshold_selected'] is False, p
+          assert p['hard_negative_label'] is None, p
+          assert p['validation_data_used'] is False, p
+          assert p['retrospective_test_data_used'] is False, p
+          assert p['prospective_holdout_data_used'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: development-positive-environment-baseline-${{ github.run_id }}
+          path: reports/historical/development_positive_environment_baseline.json
+          if-no-files-found: error
+          retention-days: 90
