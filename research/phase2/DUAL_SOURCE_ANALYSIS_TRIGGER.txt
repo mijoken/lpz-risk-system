@@ -1,0 +1,8 @@
+Phase 2J IMERG + CMORPH Development descriptive source-disagreement proof.
+Frozen source plan run: 34416417535
+IMERG recovery run: 34421287940
+Expected paired local episodes: 65
+GSMaP/JAXA is parked and excluded from this analysis.
+Candidate threshold selection: disabled.
+Hard-negative labeling: disabled.
+Risk engine: off.
