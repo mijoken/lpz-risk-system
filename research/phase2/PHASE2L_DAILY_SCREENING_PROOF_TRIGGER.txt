@@ -1,6 +1,6 @@
 Phase 2L daily screening payload proof trigger
 Date: 2026-09-10 JST
-Attempt: 3 - inspect official CMORPH data hierarchy and exact 20230710 key
+Attempt: 4 - use official CPC monthly CDR tar resolution
 Scope: Development-only screening infrastructure proof
 Threshold selection: OFF
 Candidate generation: OFF
