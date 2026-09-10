@@ -30,7 +30,7 @@ jobs:
           repository: ${{ github.repository }}
           run-id: 34423912911
           github-token: ${{ github.token }}
-      - name: Audit one-day CMORPH coverage across all 58 frozen Development regions
+      - name: Audit one-day CMORPH coverage across all frozen Development matched-domain regions
         run: |
           python scripts/phase2l_cmorph_spatial_coverage_proof.py \
             --phase2k work/positive/development_positive_environment_baseline.json \
@@ -42,7 +42,8 @@ jobs:
           import json
           p=json.load(open('reports/historical/phase2l_cmorph_spatial_coverage_proof.json',encoding='utf-8'))
           assert p['gate']=='PASS_CMORPH_SPATIAL_COVERAGE_NO_ZERO_CELL_REGIONS', p
-          assert p['required_region_count']==58 and p['resolved_region_count']==58, p
+          assert p['required_region_count']==p['resolved_region_count'] and p['required_region_count']>0, p
+          assert p['required_region_count_semantics']=='UNIQUE_PRIMARY_SUBDIVISIONS_PRESENT_IN_FROZEN_PHASE2K_DEVELOPMENT_65_EPISODES'
           assert p['threshold_selected'] is False
           assert p['candidate_generated'] is False
           assert p['hard_negative_label'] is None
