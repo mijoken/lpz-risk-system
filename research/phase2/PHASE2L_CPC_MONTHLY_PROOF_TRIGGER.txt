@@ -1,5 +1,6 @@
-Phase 2L isolated CPC monthly daily payload proof
+Phase 2L dual daily payload proof trigger
 Date: 2026-09-10 JST
+Attempt: 2 - IMERG Final V07 daily plus official CMORPH public-S3 daily 0.25deg.
 Scope: Development screening infrastructure only
 Threshold selection: OFF
 Candidate generation: OFF
