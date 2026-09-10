@@ -1,0 +1,9 @@
+Phase 2I IMERG-only recovery trigger.
+Source run: 34416417535
+Target tasks only:
+- RAINPROD-38e450d1d3e0bc
+- RAINPROD-b1e485f3919159
+GSMaP/JAXA access is parked and MUST NOT be invoked by this workflow.
+Candidate threshold selection: disabled.
+Hard-negative labeling: disabled.
+Risk engine: off.
