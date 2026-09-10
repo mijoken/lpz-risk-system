@@ -1,0 +1,64 @@
+name: LPZ GSMaP v8 NetCDF Single File FTP Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/PHASE2L_GSMAP_V8_NETCDF_SINGLE_FILE_TRIGGER.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GSMAP_FTP_USERNAME: ${{ secrets.GSMAP_FTP_USERNAME }}
+      GSMAP_FTP_PASSWORD: ${{ secrets.GSMAP_FTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Verify GSMaP credentials are configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${GSMAP_FTP_USERNAME:-}"
+          test -n "${GSMAP_FTP_PASSWORD:-}"
+      - name: Acquire exactly one Development-era GSMaP v8 NetCDF
+        run: |
+          python scripts/gsmap_v8_netcdf_single_file_proof.py \
+            --date 2023-07-10 \
+            --output reports/historical/phase2l_gsmap_v8_netcdf_single_file_proof.json
+      - name: Assert minimal-access research guardrails
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/phase2l_gsmap_v8_netcdf_single_file_proof.json',encoding='utf-8'))
+          assert p['gate']=='PASS_GSMAP_V8_NETCDF_SINGLE_FILE_FTP_PROOF', p
+          assert p['parallel_connections']==1, p
+          assert p['broad_traversal_used'] is False, p
+          assert p['raw_payload_persisted'] is False, p
+          assert p['threshold_selected'] is False, p
+          assert p['candidate_generated'] is False, p
+          assert p['hard_negative_label'] is None, p
+          assert p['source_fusion_used'] is False, p
+          assert p['validation_data_used'] is False, p
+          assert p['retrospective_2026_used'] is False, p
+          assert p['prospective_holdout_used'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          required={'hourlyPrecipRate','hourlyPrecipRateGC','reliabilityFlag'}
+          assert required.issubset(set(p['netcdf']['variables'])), p['netcdf']['variables'].keys()
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase2l-gsmap-v8-netcdf-single-file-${{ github.run_id }}
+          path: reports/historical/phase2l_gsmap_v8_netcdf_single_file_proof.json
+          if-no-files-found: error
+          retention-days: 90
