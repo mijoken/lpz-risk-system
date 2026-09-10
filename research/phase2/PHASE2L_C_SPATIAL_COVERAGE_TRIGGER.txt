@@ -1,3 +1,4 @@
 trigger: phase2l-cmorph-spatial-coverage-proof
-requested_at_utc: 2026-09-10T04:12:00Z
-scope: Development 2023-2024 only; one-day 58-region geometry adequacy proof
+requested_at_utc: 2026-09-10T04:18:00Z
+scope: Development 2023-2024 only; one-day dynamic matched-domain geometry adequacy proof
+correction: derive unique primary subdivisions from frozen Phase 2K Development 65 episodes; do not hard-code all-positive 58-region count
