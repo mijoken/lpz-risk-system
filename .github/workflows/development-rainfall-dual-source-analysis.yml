@@ -1,0 +1,82 @@
+name: LPZ Development Dual-Source Rainfall Analysis
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/DUAL_SOURCE_ANALYSIS_TRIGGER.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: lpz-development-dual-source-analysis
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download frozen Phase 2I plan
+        uses: actions/download-artifact@v4
+        with:
+          name: development-rainfall-plan
+          path: work/plan
+          repository: ${{ github.repository }}
+          run-id: 34416417535
+          github-token: ${{ github.token }}
+      - name: Download original Phase 2I task reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rainfall-task-*
+          path: work/tasks/original
+          merge-multiple: false
+          repository: ${{ github.repository }}
+          run-id: 34416417535
+          github-token: ${{ github.token }}
+      - name: Download IMERG recovery reports
+        uses: actions/download-artifact@v4
+        with:
+          name: imerg-recovery-34421287940
+          path: work/tasks/recovery
+          repository: ${{ github.repository }}
+          run-id: 34421287940
+          github-token: ${{ github.token }}
+      - name: Analyze complete IMERG plus CMORPH Development episodes
+        run: |
+          python scripts/analyze_development_rainfall_dual_source.py \
+            --plan work/plan/development_rainfall_production_plan.json \
+            --window-manifest work/plan/development_rainfall_window_manifest.json \
+            --episode-registry work/plan/positive_episode_registry.json \
+            --task-dir work/tasks \
+            --output reports/historical/development_dual_source_disagreement.json
+      - name: Assert descriptive-only Phase 2J gate
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/development_dual_source_disagreement.json',encoding='utf-8'))
+          assert p['gate']=='PASS_COMPLETE_DUAL_SOURCE_DEVELOPMENT_DESCRIPTIVE_ANALYSIS', p
+          assert p['paired_episode_count']==65, p
+          assert p['candidate_threshold_selected'] is False, p
+          assert p['hard_negative_label'] is None, p
+          assert p['validation_data_used'] is False, p
+          assert p['retrospective_test_data_used'] is False, p
+          assert p['prospective_holdout_data_used'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: development-dual-source-disagreement-${{ github.run_id }}
+          path: reports/historical/development_dual_source_disagreement.json
+          if-no-files-found: warn
+          retention-days: 90
