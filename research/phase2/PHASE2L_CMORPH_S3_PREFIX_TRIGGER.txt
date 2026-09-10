@@ -1,4 +1,4 @@
 Phase 2L CMORPH daily hierarchy proof
 Date: 2026-09-10 JST
-Attempt: 4 - bounded data/daily/0.25deg/2023 contents.
+Attempt: 5 - exact data/daily/0.25deg/2023/07 keys.
 No thresholds, candidates, labels, Validation, or risk scoring.
