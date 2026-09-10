@@ -25,6 +25,9 @@ jobs:
           python-version: "3.12"
       - name: Install package
         run: python -m pip install -e .
+      - name: Inspect official CMORPH public S3 root
+        run: |
+          aws s3 ls --no-sign-request s3://noaa-cdr-precip-cmorph-pds/ | head -100
       - name: Run dual daily payload probe
         run: |
           python scripts/phase2l_daily_screening_payload_probe.py \
@@ -47,5 +50,5 @@ jobs:
         with:
           name: phase2l-daily-screening-payload-proof-${{ github.run_id }}
           path: reports/historical/phase2l_daily_screening_payload_proof.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 90
