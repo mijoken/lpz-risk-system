@@ -48,6 +48,64 @@ def _required_codes(phase2k: dict) -> set[str]:
     return codes
 
 
+def _geometry_points(geometry: dict):
+    kind = geometry.get("type")
+    if kind == "Polygon":
+        for ring in geometry.get("coordinates") or []:
+            for point in ring:
+                yield float(point[0]), float(point[1])
+        return
+    if kind == "MultiPolygon":
+        for polygon in geometry.get("coordinates") or []:
+            for ring in polygon:
+                for point in ring:
+                    yield float(point[0]), float(point[1])
+        return
+    if kind == "GeometryCollection":
+        for part in geometry.get("geometries") or []:
+            yield from _geometry_points(part)
+        return
+    raise ValueError(f"unsupported geometry type: {kind!r}")
+
+
+def _geometry_bbox(geometry: dict) -> tuple[float, float, float, float]:
+    pts = list(_geometry_points(geometry))
+    if not pts:
+        raise ValueError("geometry contains no coordinate points")
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _region_values(
+    rain: np.ma.MaskedArray,
+    areas: np.ndarray,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    geometry: dict,
+) -> tuple[int, np.ndarray, float, int]:
+    """Exact polygon selection with bbox used only as a computational prefilter."""
+    xmin, ymin, xmax, ymax = _geometry_bbox(geometry)
+    # Half a CMORPH cell of margin prevents floating-point edge loss. Final inclusion
+    # is still exact point-in-polygon on the official geometry.
+    pad = 0.125 + 1e-9
+    iy = np.where((lat >= ymin - pad) & (lat <= ymax + pad))[0]
+    ix = np.where((lon >= xmin - pad) & (lon <= xmax + pad))[0]
+    if not iy.size or not ix.size:
+        return 0, np.asarray([], dtype=float), 0.0, 0
+    lon2d, lat2d = np.meshgrid(lon[ix], lat[iy])
+    local_mask = mask_grid_centres(lat2d, lon2d, geometry)
+    cell_count = int(local_mask.sum())
+    if not cell_count:
+        return 0, np.asarray([], dtype=float), 0.0, int(local_mask.size)
+    local_rain = np.ma.asarray(rain[np.ix_(iy, ix)])
+    vals = np.asarray(local_rain[local_mask].compressed(), dtype=float)
+    vals = vals[np.isfinite(vals)]
+    vals = vals[vals >= 0]
+    represented_area = float(areas[np.ix_(iy, ix)][local_mask].sum())
+    return cell_count, vals, represented_area, int(local_mask.size)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase2k", required=True)
@@ -89,21 +147,19 @@ def main() -> int:
             lon_sub = lon_signed[xm]
             rain_sub = np.ma.asarray(rain[np.ix_(lm, xm)])
 
-        lon2d, lat2d = np.meshgrid(lon_sub, lat_sub)
         areas = spherical_latlon_cell_areas_km2(lat_sub, lon_sub)
         features = {str(f["properties"]["primary_subdivision_code"]): f["geometry"] for f in geo["features"]}
         rows = []
         for code in sorted(codes):
-            mask = mask_grid_centres(lat2d, lon2d, features[code])
-            cell_count = int(mask.sum())
-            vals = np.asarray(rain_sub[mask].compressed(), dtype=float) if cell_count else np.asarray([], dtype=float)
-            vals = vals[np.isfinite(vals)]
-            vals = vals[vals >= 0]
+            cell_count, vals, represented_area, tested_cells = _region_values(
+                rain_sub, areas, lat_sub, lon_sub, features[code]
+            )
             rows.append({
                 "primary_subdivision_code": code,
                 "grid_cell_count": cell_count,
                 "valid_rain_cell_count": int(vals.size),
-                "represented_grid_area_km2": float(areas[mask].sum()) if cell_count else 0.0,
+                "represented_grid_area_km2": represented_area,
+                "bbox_prefilter_tested_cell_count": tested_cells,
                 "rain_mean_mm_day": float(vals.mean()) if vals.size else None,
                 "rain_max_mm_day": float(vals.max()) if vals.size else None,
             })
@@ -112,9 +168,10 @@ def main() -> int:
     lt4 = [r["primary_subdivision_code"] for r in rows if r["grid_cell_count"] < 4]
     lt8 = [r["primary_subdivision_code"] for r in rows if r["grid_cell_count"] < 8]
     counts = [r["grid_cell_count"] for r in rows]
+    tested = [r["bbox_prefilter_tested_cell_count"] for r in rows]
     gate = "PASS_CMORPH_SPATIAL_COVERAGE_NO_ZERO_CELL_REGIONS" if not zero else "FAIL_CMORPH_ZERO_CELL_REGION"
     report = {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "phase": "2L-C-cmorph-spatial-coverage-proof",
         "split": "DEVELOPMENT",
         "proof_date_utc": a.date,
@@ -122,12 +179,14 @@ def main() -> int:
         "source_locator": key,
         "geometry_source": "JMA_OFFICIAL_PRIMARY_SUBDIVISION_POLYGON",
         "mask_semantics": "GRID_CELL_CENTRE_INSIDE_OFFICIAL_POLYGON",
+        "bbox_prefilter_semantics": "COMPUTATIONAL_PREFILTER_ONLY_FINAL_MEMBERSHIP_REMAINS_EXACT_OFFICIAL_POLYGON_POINT_INCLUSION",
         "required_region_count": len(codes),
         "required_region_count_semantics": "UNIQUE_PRIMARY_SUBDIVISIONS_PRESENT_IN_FROZEN_PHASE2K_DEVELOPMENT_65_EPISODES",
         "resolved_region_count": len(rows),
         "minimum_grid_cell_count": int(min(counts)),
         "median_grid_cell_count": float(np.median(counts)),
         "maximum_grid_cell_count": int(max(counts)),
+        "median_bbox_prefilter_tested_cell_count": float(np.median(tested)),
         "zero_cell_region_codes": zero,
         "lt4_cell_region_codes": lt4,
         "lt8_cell_region_codes": lt8,
@@ -146,7 +205,7 @@ def main() -> int:
     }
     out = Path(a.output); out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"gate": gate, "regions": len(codes), "min_cells": min(counts), "median_cells": np.median(counts), "lt4": len(lt4), "lt8": len(lt8)}, ensure_ascii=False))
+    print(json.dumps({"gate": gate, "regions": len(codes), "min_cells": min(counts), "median_cells": np.median(counts), "lt4": len(lt4), "lt8": len(lt8), "median_tested_cells": np.median(tested)}, ensure_ascii=False))
     return 0 if gate.startswith("PASS") else 2
 
 
