@@ -14,14 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: List bounded CMORPH 2023 daily hierarchy
+      - name: List exact CMORPH July 2023 daily keys
         run: |
           set -euo pipefail
           mkdir -p reports/historical
           aws s3api list-objects-v2 --no-sign-request \
             --bucket noaa-cdr-precip-cmorph-pds \
-            --prefix 'data/daily/0.25deg/2023/' \
-            --delimiter '/' --max-keys 100 --output json \
+            --prefix 'data/daily/0.25deg/2023/07/' \
+            --max-keys 100 --output json \
             | tee reports/historical/phase2l_cmorph_s3_daily_hierarchy.json.txt
       - uses: actions/upload-artifact@v4
         with:
