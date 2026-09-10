@@ -1,0 +1,7 @@
+trigger: phase2l-cmorph-matched-window-census
+requested_at_utc: 2026-09-10T10:46:00Z
+scope: Development 2023-2024 only
+regions: 45 frozen Development primary subdivisions
+window: official JMA bbox + frozen ERA5 0.5 degree padding
+candidate_rule: OFF
+hard_negative_label: OFF
