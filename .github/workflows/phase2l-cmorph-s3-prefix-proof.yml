@@ -14,14 +14,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: List CMORPH data root only
+      - name: List bounded CMORPH daily hierarchy
         run: |
           set -euo pipefail
           mkdir -p reports/historical
-          aws s3 ls --no-sign-request s3://noaa-cdr-precip-cmorph-pds/data/ | tee reports/historical/phase2l_cmorph_s3_data_root.txt
+          {
+            echo '=== daily root ==='
+            aws s3api list-objects-v2 --no-sign-request \
+              --bucket noaa-cdr-precip-cmorph-pds \
+              --prefix 'data/daily/' --delimiter '/' --max-keys 50 --output json
+            echo '=== 2023 prefix ==='
+            aws s3api list-objects-v2 --no-sign-request \
+              --bucket noaa-cdr-precip-cmorph-pds \
+              --prefix 'data/daily/2023' --delimiter '/' --max-keys 20 --output json
+          } | tee reports/historical/phase2l_cmorph_s3_daily_hierarchy.json.txt
       - uses: actions/upload-artifact@v4
         with:
           name: phase2l-cmorph-s3-prefix-${{ github.run_id }}
-          path: reports/historical/phase2l_cmorph_s3_data_root.txt
+          path: reports/historical/phase2l_cmorph_s3_daily_hierarchy.json.txt
           if-no-files-found: error
           retention-days: 30
