@@ -1,0 +1,18 @@
+Phase 2K Development Positive Environmental Baseline trigger
+Date: 2026-09-10 JST
+
+Purpose:
+- join frozen Development 65 local episodes to ERA5 six-time precursor snapshots
+- retain IMERG and CMORPH as source-native independent rainfall observations
+- describe positive-side moisture/wind/temporal structure only
+
+Guardrails:
+- Validation 2025: unused
+- Retrospective test 2026: unused
+- Prospective holdout: unused
+- Threshold selection: OFF
+- Hard Negative labeling: OFF
+- GSMaP access: OFF while JAXA review is pending
+- Source fusion: OFF
+- Convergence inference: OFF with current ERA5 descriptor
+- Risk Engine: OFF
