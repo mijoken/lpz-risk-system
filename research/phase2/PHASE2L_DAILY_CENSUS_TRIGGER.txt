@@ -1,0 +1,3 @@
+trigger: phase2l-development-daily-rainfall-census
+requested_at_utc: 2026-09-10T03:26:00Z
+scope: Development 2023-2024 only
