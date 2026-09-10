@@ -1,0 +1,12 @@
+trigger: phase2l-imerg-rolling-3h-full
+requested_at_utc: 2026-09-10T13:35:00Z
+scope: Development 2023-2024 only; exact six-slot IMERG half-hourly rolling 3h refinement of frozen CMORPH candidate reservoir
+candidate_region_days: 5943
+unique_utc_days: 449
+candidate_membership_source: frozen CMORPH reservoir Run 34469303188
+validation_2025: untouched
+retrospective_2026: untouched
+prospective_holdout: untouched
+hard_negative: off
+source_fusion: off
+risk_engine: off
