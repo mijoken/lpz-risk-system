@@ -1,0 +1,7 @@
+trigger: phase2l-imerg-independent-confirmation-full
+requested_at_utc: 2026-09-10T11:20:00Z
+scope: Development 2023-2024 only; full IMERG source-native confirmation of frozen CMORPH-selected candidate reservoir
+candidate_membership_change_by_imerg: forbidden
+validation_2025: untouched
+retrospective_2026: untouched
+prospective_holdout: untouched
