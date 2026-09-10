@@ -1,0 +1,64 @@
+name: LPZ Phase 2L-C CMORPH Matched Window Coverage Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "research/phase2/PHASE2L_C_MATCHED_WINDOW_TRIGGER.txt"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  matched-window-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        run: python -m pip install -e .
+      - name: Download frozen Phase 2K positive baseline
+        uses: actions/download-artifact@v4
+        with:
+          name: development-positive-environment-baseline-34423912911
+          path: work/positive
+          repository: ${{ github.repository }}
+          run-id: 34423912911
+          github-token: ${{ github.token }}
+      - name: Audit fixed 0.5deg matched-window coverage
+        run: |
+          python scripts/phase2l_cmorph_matched_window_coverage_proof.py \
+            --phase2k work/positive/development_positive_environment_baseline.json \
+            --date 2023-07-10 \
+            --output reports/historical/phase2l_cmorph_matched_window_coverage_proof.json
+      - name: Assert strict research guardrails
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/historical/phase2l_cmorph_matched_window_coverage_proof.json',encoding='utf-8'))
+          assert p['gate']=='PASS_CMORPH_MATCHED_WINDOW_COVERAGE_MIN16', p
+          assert p['padding_degrees']==0.5, p
+          assert p['minimum_cells_predeclared']==16, p
+          assert p['required_region_count']==p['resolved_region_count'] and p['required_region_count']>0, p
+          assert p['threshold_selected'] is False
+          assert p['candidate_generated'] is False
+          assert p['hard_negative_label'] is None
+          assert p['source_fusion_used'] is False
+          assert p['gsmap_used_for_discovery'] is False
+          assert p['validation_data_used'] is False
+          assert p['retrospective_2026_used'] is False
+          assert p['prospective_holdout_used'] is False
+          assert p['risk_engine_allowed'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase2l-cmorph-matched-window-coverage-proof-${{ github.run_id }}
+          path: reports/historical/phase2l_cmorph_matched_window_coverage_proof.json
+          if-no-files-found: error
+          retention-days: 90
