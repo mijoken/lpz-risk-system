@@ -1,0 +1,8 @@
+Phase 2L daily screening payload proof trigger
+Date: 2026-09-10 JST
+Scope: Development-only screening infrastructure proof
+Threshold selection: OFF
+Candidate generation: OFF
+Hard-negative labeling: OFF
+Validation 2025: UNUSED
+Risk Engine: OFF
