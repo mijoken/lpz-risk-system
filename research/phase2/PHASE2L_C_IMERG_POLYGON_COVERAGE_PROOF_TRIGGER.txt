@@ -1,0 +1,8 @@
+trigger: phase2l-imerg-official-polygon-coverage-proof
+requested_at_utc: 2026-09-11T00:45:00Z
+scope: Development 2023-2024 primary subdivisions only; one-source grid-coverage proof
+selection_or_threshold_change: forbidden
+validation_2025: untouched
+retrospective_2026: untouched
+prospective_holdout: untouched
+risk_engine: off
