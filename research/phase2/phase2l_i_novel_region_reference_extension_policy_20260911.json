@@ -1,0 +1,137 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-I-novel-region-reference-extension-policy",
+  "gate": "PASS_PHASE2L_I_NOVEL_REGION_REFERENCE_EXTENSION_POLICY_FROZEN_PRE_RAINFALL_ENVIRONMENT",
+  "frozen_at_utc": "2026-09-11T11:09:34.085889Z",
+  "amendment_timing": "POST_2025_POSITIVE_LABEL_OPEN_PRE_2025_RAINFALL_AND_PRE_2025_ERA5",
+  "transparency_note": "This is not part of the original Phase 2L-H pre-validation freeze. It is a protocol amendment made after official 2025 Positive labels revealed geographic domain mismatch, but before any 2025 rainfall or environmental outcome was read.",
+  "known_at_amendment": {
+    "validation_positive_region_day_count": 23,
+    "validation_unique_primary_subdivision_count": 18,
+    "covered_positive_region_day_count": 12,
+    "novel_positive_region_day_count": 11,
+    "novel_positive_region_day_fraction": 0.4782608695652174,
+    "novel_primary_subdivision_codes": [
+      "020010",
+      "130030",
+      "140010",
+      "220010",
+      "220020",
+      "350010",
+      "430030",
+      "460010",
+      "460020"
+    ],
+    "validation_rainfall_read": false,
+    "validation_era5_read": false
+  },
+  "problem": {
+    "original_development_reference_region_count": 45,
+    "original_development_reference_days_per_region": 731,
+    "reason_for_mismatch": "The original 45-region Development census was driven by regions represented in 2023-2024 Development positives. It was not a frozen national geographic universe.",
+    "scientific_risk_if_unaddressed": "Dropping novel-region 2025 positives would exclude nearly half of validation Positive region-days based on Development LPZ geography and would induce geographic selection bias."
+  },
+  "frozen_novel_region_policy": {
+    "drop_novel_region_positives": false,
+    "estimate_reference_from_2025": false,
+    "reference_period_for_novel_regions": [
+      2023,
+      2024
+    ],
+    "reference_day_count_target": 731,
+    "reference_source": "NOAA_CMORPH_CDR_DAILY_0P25DEG",
+    "geometry_semantics": "OFFICIAL_JMA_PRIMARY_SUBDIVISION_GEOMETRY_BBOX_PLUS_FROZEN_ERA5_0P5_DEG_PADDING",
+    "novel_region_codes_to_extend": [
+      "020010",
+      "130030",
+      "140010",
+      "220010",
+      "220020",
+      "350010",
+      "430030",
+      "460010",
+      "460020"
+    ],
+    "extension_scope": "REFERENCE_DISTRIBUTION_ONLY_USING_PRE_VALIDATION_YEARS"
+  },
+  "frozen_cmorph_screening_transfer": {
+    "metrics": [
+      "rain_max_mm_day",
+      "rain_p90_mm_day",
+      "rain_p95_mm_day"
+    ],
+    "development_percentile_rank_method": "PANDAS_RANK_AVERAGE_PCT",
+    "development_percentile_threshold": 80.0,
+    "logic": "ALL_THREE_METRICS_AT_OR_ABOVE_FROZEN_REGION_CUTOFF",
+    "out_of_sample_cutoff_algorithm": "FOR_EACH_REGION_AND_METRIC_TAKE_THE_MINIMUM_2023_2024_VALUE_AMONG_DAYS_WHOSE_PANDAS_AVERAGE_PERCENTILE_RANK_IS_GE_80",
+    "required_original_45_region_replay": "MUST_REPRODUCE_EXACT_FROZEN_5943_REGION_DAY_RESERVOIR",
+    "novel_region_cutoffs": "COMPUTE_WITH_IDENTICAL_ALGORITHM_FROM_2023_2024_ONLY",
+    "positive_case_eligibility": "ALL_OFFICIAL_2025_POSITIVE_REGION_DAYS_REMAIN_ELIGIBLE_REGARDLESS_OF_CMORPH_SCREEN_PASS",
+    "screening_role": "DEFINES_COMPARISON_CANDIDATE_POOL_NOT_POSITIVE_INCLUSION"
+  },
+  "frozen_imerg_transfer": {
+    "rolling_window": "30_MIN_NATIVE_SLOTS_3H_ROLLING_BOUNDARY_AWARE",
+    "pca_refit_on_2025": false,
+    "transform_source": "FROZEN_PHASE2L_D_DEVELOPMENT_LOG1P_MEAN_STD_AND_PCA_LOADINGS",
+    "matching_components": [
+      "PC1",
+      "PC2"
+    ]
+  },
+  "frozen_matching_policy": {
+    "same_primary_subdivision_required": true,
+    "season_window_calendar_days": 60,
+    "positive_event_exclusion_buffer_actual_days": 3,
+    "match_ratio": 3,
+    "replacement": false,
+    "distance": "EUCLIDEAN_RMS_IN_FROZEN_PC1_PC2_SPACE",
+    "positive_inclusion_not_conditioned_on_candidate_screen": true,
+    "if_fewer_than_3_eligible_comparisons": "MARK_UNMATCHABLE_UNDER_FROZEN_PROTOCOL",
+    "forbidden_relaxations": [
+      "NO_CROSS_REGION_MATCHING",
+      "NO_WIDER_SEASON_WINDOW",
+      "NO_SMALLER_EVENT_BUFFER",
+      "NO_REDUCED_MATCH_RATIO_FOR_PRIMARY",
+      "NO_MATCHING_WITH_REPLACEMENT",
+      "NO_PCA_REFIT",
+      "NO_THRESHOLD_TUNING"
+    ]
+  },
+  "primary_confirmatory_protocol": {
+    "metric": "q850_mean_kgkg",
+    "contrast": "t+0h",
+    "direction": "POSITIVE_HIGHER",
+    "cluster_unit": "POSITIVE_DATE_UTC",
+    "primary_test": "EXACT_ONE_SIDED_SIGN_TEST",
+    "alpha": 0.05,
+    "changed_by_amendment": false
+  },
+  "attrition_policy": {
+    "report_all_positive_region_days": true,
+    "report_reference_extension_failures": true,
+    "report_cmorph_screen_status_for_positives": true,
+    "report_unmatchable_positive_cases": true,
+    "no_post_hoc_substitution": true
+  },
+  "forbidden": [
+    "DO_NOT_USE_2025_RAINFALL_TO_DEFINE_REGION_REFERENCE",
+    "DO_NOT_USE_2025_ERA5_TO_DEFINE_REGION_REFERENCE",
+    "DO_NOT_DROP_NOVEL_REGIONS_BECAUSE_THEY_ARE_NOVEL",
+    "DO_NOT_REFIT_PCA_ON_2025",
+    "DO_NOT_CHANGE_PRIMARY_Q850_T0H",
+    "DO_NOT_CHANGE_MATCHING_PARAMETERS_AFTER_2025_RAINFALL_OPEN",
+    "DO_NOT_CREATE_HARD_NEGATIVE_LABEL",
+    "DO_NOT_ENABLE_RISK_ENGINE"
+  ],
+  "source_integrity": {
+    "phase2l_h_freeze_sha256": "6b3cac100513cb5be3e392eb3e9b68d250ddabd2c94c2c4ab93a0081b58b88fe",
+    "validation_open_report_sha256": "af5fec9ec67f4f5e1cf68f67a540c56b7cec8fac184c3636fdbb46a9aa547b9a",
+    "domain_report_sha256": "4c01e0e81bc33a0ad27a686db14175ed674b2197446ed19432f076ad06e8fc3b",
+    "git_head_before_amendment_commit": "3944692a5f4ed8b108a31b76477321abcf3d4bd5",
+    "git_branch": "main",
+    "git_status_before_amendment_commit": "?? scripts/phase2l_i_freeze_novel_region_extension_policy.py\n?? scripts/phase2l_i_open_2025_validation_positive_registry.py\n?? scripts/phase2l_i_validation_domain_compatibility_audit.py"
+  },
+  "retrospective_2026_read": false,
+  "prospective_holdout_read": false,
+  "risk_engine_allowed": false
+}

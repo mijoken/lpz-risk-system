@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "PASS_PHASE2L_I_NOVEL_REGION_REFERENCE_EXTENSION_POLICY_FROZEN_PRE_RAINFALL_ENVIRONMENT",
+  "policy_json": {
+    "path": "research\\phase2\\phase2l_i_novel_region_reference_extension_policy_20260911.json",
+    "sha256": "6826075febb1697dbdae31769da4f8f1f074b3b85058325d8a345a99ef74b0ac",
+    "size_bytes": 6067
+  },
+  "policy_markdown": {
+    "path": "research\\phase2\\phase2l_i_novel_region_reference_extension_policy_20260911.md",
+    "sha256": "782491b03b34485051c48547ce9e971cc01942d1935fc5396d45faaf6fe6b862",
+    "size_bytes": 2822
+  }
+}
