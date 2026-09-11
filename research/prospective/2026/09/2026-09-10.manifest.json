@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1.0",
+  "phase": "2E-prospective-daily-consolidation",
+  "date_utc": "2026-09-10",
+  "expected_15min_intervals": 96,
+  "bundle_count": 6,
+  "complete_bundle_count": 6,
+  "coverage_fraction": 0.0625,
+  "collector_gap_count": 90,
+  "parse_error_count": 0,
+  "parse_errors": [],
+  "uncompressed_jsonl_sha256": "f3cd224239a8dc0f1999e05aaf96396f11c01f3e62ef6d8588b9a407837497e2",
+  "archive_file": "research/prospective/2026/09/2026-09-10.jsonl.gz",
+  "archive_role": "PROSPECTIVE_NATIVE",
+  "raw_radar_archived": false,
+  "raw_grib_archived": false,
+  "prospective_day_quality": "INCOMPLETE_EXPLICIT_GAPS",
+  "risk_engine_allowed": false
+}
