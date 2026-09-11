@@ -1,0 +1,13 @@
+trigger: phase2l-imerg-rolling-3h-final-merge
+requested_at_utc: 2026-09-11T02:30:00Z
+scope: Development 2023-2024 only; merge frozen 24 monthly source-native IMERG rolling-3h shards
+original_run: 34484925277
+recovery_run: 34547474867
+ipv4_recovery_run: 34548057245
+candidate_membership_change: forbidden
+source_fusion: forbidden
+environment_variables: forbidden
+validation_2025: untouched
+retrospective_2026: untouched
+prospective_holdout: untouched
+risk_engine: off
