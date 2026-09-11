@@ -1,0 +1,8 @@
+trigger: phase2l-imerg-rolling-3h-recovery
+requested_at_utc: 2026-09-11T00:40:00Z
+original_full_run: 34484925277
+recovery_months: 2023-03, 2024-02, 2024-05, 2024-10
+reason: Earthdata runner network unreachable only; reuse all other monthly artifacts from original run
+validation_2025: untouched
+retrospective_2026: untouched
+prospective_holdout: untouched
