@@ -1,0 +1,252 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-H-discovery-validation-protocol-freeze",
+  "gate": "PASS_PHASE2L_H_DISCOVERY_AND_VALIDATION_PROTOCOL_FREEZE_PRIMARY_Q850_T0H",
+  "frozen_at_utc": "2026-09-11T10:50:43.524724Z",
+  "purpose": "Freeze the Development-era discovery result and the exact 2025 validation question before opening validation outcomes.",
+  "development_period": {
+    "used_for_discovery": true,
+    "years": [
+      2023,
+      2024
+    ]
+  },
+  "validation_period": {
+    "year": 2025,
+    "status_at_freeze": "UNTOUCHED_FOR_THIS_ANALYSIS",
+    "may_be_opened_only_after_this_freeze": true
+  },
+  "retrospective_2026": {
+    "status": "UNTOUCHED"
+  },
+  "prospective_holdout": {
+    "status": "UNTOUCHED"
+  },
+  "population_design": {
+    "unit": "JMA_PRIMARY_SUBDIVISION_REGION_DAY",
+    "positive_episode_count_development": 65,
+    "positive_unique_region_day_count_development": 52,
+    "comparison_case_count_development": 156,
+    "match_set_count_development": 52,
+    "comparison_role": "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL",
+    "hard_negative_label_created": false,
+    "match_ratio": "1_POSITIVE_TO_3_COMPARISONS",
+    "same_primary_subdivision_required": true,
+    "season_window_calendar_days": 60,
+    "positive_event_exclusion_buffer_actual_days": 3,
+    "rainfall_matching_space": "LOG1P_STANDARDIZED_FOUR_IMERG_3H_METRICS_PCA_PC1_PC2",
+    "environment_variables_used_for_matching": false,
+    "membership_policy": "FROZEN_FROM_PHASE_2L_D_AND_MUST_NOT_BE_CHANGED_BY_ERA5"
+  },
+  "time_anchor": {
+    "policy": "IMERG_3H_P95_MAX_WINDOW_START",
+    "applies_symmetrically_to": [
+      "POSITIVE",
+      "COMPARISON"
+    ],
+    "era5_offsets_hours": [
+      -12,
+      -6,
+      -3,
+      0
+    ],
+    "era5_alignment": "FLOOR_TO_LATEST_AVAILABLE_WHOLE_HOUR_NO_FUTURE_SOURCE_TIME"
+  },
+  "primary_hypothesis": {
+    "id": "H_PRIMARY_Q850_T0H",
+    "metric": "q850_mean_kgkg",
+    "pressure_level_hpa": 850,
+    "contrast": "t+0h",
+    "era5_snapshot_offset_hours": 0,
+    "spatial_semantics": "ERA5_REQUEST_BBOX_CONTEXT_NOT_SUBDIVISION_POLYGON_MEAN",
+    "directional_alternative": "POSITIVE_Q850_GREATER_THAN_MEAN_OF_3_MATCHED_COMPARISONS",
+    "scientific_statement": "Among rainfall-severity-matched heavy-rain cases, LPZ Positive cases have higher ERA5 850-hPa specific humidity at the start of the IMERG P95-max 3-hour rainfall window.",
+    "confirmatory_status": "ONLY_PRIMARY_CONFIRMATORY_HYPOTHESIS"
+  },
+  "primary_validation_estimand": {
+    "match_set_difference": "POSITIVE_VALUE_MINUS_MEAN_OF_3_MATCHED_COMPARISON_VALUES",
+    "cluster_unit": "POSITIVE_DATE_UTC",
+    "within_cluster_aggregation": "MEAN_OF_MATCH_SET_DIFFERENCES_WITHIN_POSITIVE_DATE_UTC",
+    "primary_effect_estimate": "EQUAL_WEIGHT_MEAN_OF_POSITIVE_DATE_UTC_CLUSTER_MEANS"
+  },
+  "primary_validation_test": {
+    "test": "EXACT_ONE_SIDED_SIGN_TEST_ON_POSITIVE_DATE_UTC_CLUSTER_MEANS",
+    "alternative": "CLUSTER_MEAN_DIFFERENCE_GT_0",
+    "zeros": "IGNORED",
+    "alpha": 0.05,
+    "multiplicity_correction": "NONE_REQUIRED_FOR_SINGLE_PRE_SPECIFIED_PRIMARY_HYPOTHESIS",
+    "primary_confirmation_rule": [
+      "PRIMARY_EFFECT_ESTIMATE_GT_0",
+      "ONE_SIDED_EXACT_SIGN_TEST_P_LT_0_05"
+    ],
+    "important_note": "The primary rule is frozen before 2025 outcome inspection. Secondary or exploratory results cannot rescue a failed primary."
+  },
+  "pre_specified_robustness_checks": {
+    "cluster_bootstrap": {
+      "resamples": 20000,
+      "ci": 0.95,
+      "desired_support": "LOWER_CONFIDENCE_BOUND_GT_0"
+    },
+    "leave_one_positive_date_out": {
+      "desired_support": [
+        "SAME_SIGN_FRACTION_EQ_1_0",
+        "LODO_RANGE_DOES_NOT_CROSS_ZERO"
+      ]
+    },
+    "interpretation": "These are robustness/support criteria, not substitutes for the frozen primary confirmation rule."
+  },
+  "pre_specified_secondary_hypotheses": [
+    {
+      "metric": "q925_mean_kgkg",
+      "contrast": "t-3h",
+      "direction": "POSITIVE_HIGHER",
+      "status": "SECONDARY_PRE_SPECIFIED_NOT_PRIMARY"
+    },
+    {
+      "metric": "q925_mean_kgkg",
+      "contrast": "t-6h",
+      "direction": "POSITIVE_HIGHER",
+      "status": "SECONDARY_PRE_SPECIFIED_NOT_PRIMARY"
+    },
+    {
+      "metric": "wind600_speed_mean_mps",
+      "contrast": "t+0h",
+      "direction": "POSITIVE_HIGHER",
+      "status": "SECONDARY_PRE_SPECIFIED_NOT_PRIMARY"
+    },
+    {
+      "metric": "q850_mean_kgkg",
+      "contrast": "persistence_mean",
+      "direction": "POSITIVE_HIGHER",
+      "status": "SECONDARY_PRE_SPECIFIED_NOT_PRIMARY"
+    },
+    {
+      "metric": "q850_mean_kgkg",
+      "contrast": "delta_-6h_to_0h",
+      "direction": "POSITIVE_HIGHER",
+      "status": "SECONDARY_PRE_SPECIFIED_NOT_PRIMARY"
+    },
+    {
+      "metric": "rh500_mean_pct",
+      "contrast": "delta_-3h_to_0h",
+      "direction": "POSITIVE_LOWER",
+      "status": "MECHANISTIC_EXPLORATORY_PRE_SPECIFIED"
+    }
+  ],
+  "secondary_analysis_policy": {
+    "confirmatory": false,
+    "report_effect_sizes": true,
+    "report_cluster_bootstrap_ci": true,
+    "report_sign_tests": true,
+    "multiplicity": "BENJAMINI_HOCHBERG_FDR_ACROSS_SECONDARY_AND_EXPLORATORY_PANEL",
+    "cannot_override_primary_failure": true
+  },
+  "full_exploratory_panel_policy": {
+    "phase2lf_continuous_test_count": 81,
+    "allowed": true,
+    "status": "EXPLORATORY_ONLY",
+    "new_feature_creation_after_validation_open": false,
+    "new_time_offset_creation_after_validation_open": false,
+    "threshold_search_after_validation_open": false
+  },
+  "physical_semantics_guardrails": {
+    "q850_mean_kgkg": "ERA5 pressure-level low-level moisture context",
+    "q850_x_wind850_speed_bbox_proxy": "BBOX_CONTEXT_MOISTURE_TRANSPORT_PROXY_ONLY",
+    "kato_500m_flwv_equivalence": false,
+    "note": "850-hPa moisture/wind metrics must never be called or silently substituted for Kato 500-m FLWV."
+  },
+  "validation_prohibitions": [
+    "DO_NOT_USE_2025_TO_CHANGE_MATCHING_MEMBERSHIP",
+    "DO_NOT_USE_2025_TO_CHANGE_PRIMARY_METRIC",
+    "DO_NOT_USE_2025_TO_CHANGE_PRIMARY_TIME_OFFSET",
+    "DO_NOT_USE_2025_TO_CHANGE_DIRECTIONAL_HYPOTHESIS",
+    "DO_NOT_USE_2025_TO_TUNE_THRESHOLDS",
+    "DO_NOT_PROMOTE_SECONDARY_TO_PRIMARY_AFTER_SEEING_2025",
+    "DO_NOT_CREATE_HARD_NEGATIVE_LABEL_FROM_ENVIRONMENTAL_SEPARATION",
+    "DO_NOT_USE_FUTURE_ERA5_SOURCE_TIMES",
+    "DO_NOT_ENABLE_RISK_ENGINE"
+  ],
+  "development_evidence_snapshot": {
+    "phase2lf_primary": {
+      "metric": "q850_mean_kgkg",
+      "contrast": "t+0h",
+      "paired_effect_dz": 0.700206707958088,
+      "sign_test_p_value_two_sided": 9.063271916964766e-06,
+      "bh_fdr_q_value_81_test_panel": 0.0007341250252741,
+      "mean_matched_difference": 0.0007802023756576,
+      "bootstrap_ci95": [
+        0.0004677974193691,
+        0.0010763139922642
+      ]
+    },
+    "phase2lg_primary": {
+      "metric": "q850_mean_kgkg",
+      "contrast": "t+0h",
+      "cluster_effect_dz": 0.6623569386161575,
+      "date_sign_test_p_value_two_sided": 0.0043435096740722,
+      "bh_fdr_q_value_81_test_panel": 0.3518242835998535,
+      "equal_date_mean_difference": 0.000679085997373,
+      "cluster_bootstrap_ci95": [
+        0.0002648259723737,
+        0.0011088957366912
+      ],
+      "cluster_bootstrap_ci_excludes_zero": true,
+      "lodo_same_sign_fraction": 1.0,
+      "lodo_crosses_zero": false
+    },
+    "interpretation": "Development evidence selects q850@0h as the sole Primary candidate. It is robust to date clustering in effect size, bootstrap CI, and LODO, but is NOT multiplicity-confirmed across the 81-test discovery panel. Therefore independent 2025 validation is required."
+  },
+  "source_integrity": {
+    "repo_root": "D:\\program\\lpz-risk-system_dev",
+    "git_head_before_freeze_commit": "ff2d36a8ff28c8b23743db29e1989005cd011334",
+    "git_branch": "main",
+    "git_status_before_freeze_commit": "?? scripts/phase2l_d_rainfall_matched_comparison.py\n?? scripts/phase2l_e_build_era5_manifest.py\n?? scripts/phase2l_e_merge_era5_reconstruction.py\n?? scripts/phase2l_f_matched_environment_discovery.py\n?? scripts/phase2l_g_cluster_aware_robustness.py\n?? scripts/phase2l_h_freeze_validation_protocol.py",
+    "sha256": {
+      "scripts/phase2l_d_rainfall_matched_comparison.py": {
+        "sha256": "dfdb00c79273d580c9b28a37177b263c9d6761f8d952bbeab10c0006921398b7",
+        "size_bytes": 21935
+      },
+      "scripts/phase2l_e_build_era5_manifest.py": {
+        "sha256": "6ca4a9d971fe68c1dead21f4dc5d1ce9fcd4a002c6775f58f462a9fc87728a64",
+        "size_bytes": 24885
+      },
+      "scripts/phase2l_e_merge_era5_reconstruction.py": {
+        "sha256": "3368774a7401437fb384a1dac40893abadcfcc813357afb7ec2479ab0d11bdfa",
+        "size_bytes": 14434
+      },
+      "scripts/phase2l_f_matched_environment_discovery.py": {
+        "sha256": "913a16ef0a85b3fdd5970497d610ba97ee52b61a61f3eea313e0a7ff4a2b928d",
+        "size_bytes": 22382
+      },
+      "scripts/phase2l_g_cluster_aware_robustness.py": {
+        "sha256": "cec4504f39b761d41c2ff8085624977a9e67ef91c2896cf5b9c7560289a8d999",
+        "size_bytes": 19071
+      },
+      "local_data/phase2l_d_rainfall_matched_comparison/phase2l_d_rainfall_matched_comparison_report.json": {
+        "sha256": "92fc67adfd5bcd7ccb1dddc0a26d3ce89f00366efdf9e8e02ccd5d9557431e66",
+        "size_bytes": 3944
+      },
+      "local_data/phase2l_e_environment_features/phase2l_e_era5_reconstruction_report.json": {
+        "sha256": "4309d204baba8fc94b501e90daae4d735b44db008102462faa75a698c75a90d6",
+        "size_bytes": 1311
+      },
+      "local_data/phase2l_f_environment_discovery/phase2l_f_environment_discovery_report.json": {
+        "sha256": "1b59c1b0ec68ff043103acf4cf9298d07e1c0f1fa43382bd38f8d21ccb935e28",
+        "size_bytes": 10818
+      },
+      "local_data/phase2l_f_environment_discovery/phase2l_f_continuous_matched_summary.csv": {
+        "sha256": "8b13ecea717e8dc9b25b12d340cdd08b7175a8cbf557b9075d681f59d2de1f31",
+        "size_bytes": 25775
+      },
+      "local_data/phase2l_g_cluster_robustness/phase2l_g_cluster_robustness_report.json": {
+        "sha256": "43bfd2d238eab502a7e8458d75fcfa8a749edad2257e0f18edb7efe2ccd304ab",
+        "size_bytes": 13563
+      },
+      "local_data/phase2l_g_cluster_robustness/phase2l_g_cluster_aware_robustness_summary.csv": {
+        "sha256": "176c1d62cd50a2b3744a58171e7fd50fb4e2e22bc73f63fc9112400a77858e7a",
+        "size_bytes": 30802
+      }
+    }
+  },
+  "risk_engine_allowed": false
+}

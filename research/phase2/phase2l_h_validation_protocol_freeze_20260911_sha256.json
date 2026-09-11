@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "PASS_PHASE2L_H_DISCOVERY_AND_VALIDATION_PROTOCOL_FREEZE_PRIMARY_Q850_T0H",
+  "freeze_json": {
+    "path": "research\\phase2\\phase2l_h_validation_protocol_freeze_20260911.json",
+    "sha256": "6b3cac100513cb5be3e392eb3e9b68d250ddabd2c94c2c4ab93a0081b58b88fe",
+    "size_bytes": 10694
+  },
+  "freeze_markdown": {
+    "path": "research\\phase2\\phase2l_h_validation_protocol_freeze_20260911.md",
+    "sha256": "83ed563167f34556aa9f63074111e92bcf63a00a951d38cc2cf41216e24109f4",
+    "size_bytes": 4045
+  }
+}
