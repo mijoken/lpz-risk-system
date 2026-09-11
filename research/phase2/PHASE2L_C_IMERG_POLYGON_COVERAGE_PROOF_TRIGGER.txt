@@ -1,5 +1,6 @@
 trigger: phase2l-imerg-official-polygon-coverage-proof
-requested_at_utc: 2026-09-11T00:45:00Z
+requested_at_utc: 2026-09-11T02:30:00Z
+retry_reason: first proof hit 30-minute timeout in unoptimized full-grid point-in-polygon loop; optimized bbox prefilter preserves exact cell-centre semantics
 scope: Development 2023-2024 primary subdivisions only; one-source grid-coverage proof
 selection_or_threshold_change: forbidden
 validation_2025: untouched
