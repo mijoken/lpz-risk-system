@@ -107,22 +107,38 @@ def atomic_write_csv(path: Path, df: pd.DataFrame) -> None:
     tmp.replace(path)
 
 
-def earthdata_login(tries: int = 5):
+def earthdata_login():
+    """Authenticate with NASA Earthdata using earthaccess automatic strategy.
+
+    Local-development policy:
+    1. EARTHDATA_TOKEN or EARTHDATA_USERNAME/EARTHDATA_PASSWORD if configured.
+    2. Windows _netrc / POSIX .netrc if configured.
+    3. Interactive terminal prompt as the final fallback.
+
+    We intentionally do not retry LoginStrategyUnavailable five times because
+    missing credentials are a configuration state, not a transient network
+    failure.  earthaccess.login() performs the supported strategy cascade.
+    """
     import earthaccess
 
-    last: Exception | None = None
-    for i in range(tries):
-        try:
-            return earthaccess.login(strategy="environment")
-        except Exception as exc:  # noqa: BLE001
-            last = exc
-            if i + 1 < tries:
-                time.sleep(10 * (i + 1))
+    try:
+        auth = earthaccess.login()
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(
+            "Earthdata authentication failed. Configure either "
+            "EARTHDATA_TOKEN, EARTHDATA_USERNAME + EARTHDATA_PASSWORD, "
+            "or a Windows _netrc file; alternatively complete the "
+            "interactive Earthdata prompt shown by earthaccess. "
+            f"Original error: {type(exc).__name__}: {exc}"
+        ) from exc
 
-    raise RuntimeError(
-        f"Earthdata login failed after {tries} attempts: "
-        f"{type(last).__name__}: {last}"
-    ) from last
+    if not bool(getattr(auth, "authenticated", False)):
+        raise RuntimeError(
+            "earthaccess.login() returned without an authenticated "
+            "Earthdata session."
+        )
+
+    return auth
 
 
 def download_small_file(url: str, dst: Path, tries: int = 5) -> None:
