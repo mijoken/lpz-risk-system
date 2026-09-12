@@ -25,7 +25,7 @@
         <div class="panel-head">
           <div>
             <h2 class="panel-title" id="map-title">Japan · Live precipitation context</h2>
-            <p class="panel-note">ホイール／ピンチで拡大、ドラッグ／タッチで移動できます。実況降水は表示用情報で、LPZ予測値ではありません。</p>
+            <p class="panel-note">ホイール／ピンチで拡大、ドラッグ／タッチで移動できます。拡大率に応じて地図境界の詳細度を切り替えます。</p>
           </div>
           <div class="map-state" id="map-state">Preparing public data …</div>
         </div>
@@ -34,6 +34,7 @@
           <div class="layer-toggles">
             <label class="toggle-chip"><input id="rain-layer-toggle" type="checkbox" checked> 実況降水</label>
             <label class="toggle-chip"><input id="boundary-layer-toggle" type="checkbox" checked> 一次細分区域</label>
+            <label class="toggle-chip"><input id="city-layer-toggle" type="checkbox" checked> 主要都市名</label>
             <label class="toggle-chip locked-toggle"><input id="risk-layer-toggle" type="checkbox" disabled> LPZ Risk 🔒</label>
           </div>
           <div class="map-buttons">
@@ -43,8 +44,15 @@
           </div>
         </div>
 
+        <form class="map-search" id="map-search-form" role="search">
+          <label class="sr-only" for="map-search-input">地名を検索</label>
+          <input id="map-search-input" type="search" autocomplete="off" placeholder="地名を検索（例：横浜、神奈川県東部、福島県会津）">
+          <button type="submit">移動</button>
+          <span id="map-search-feedback" aria-live="polite"></span>
+        </form>
+
         <div class="map-wrap">
-          <svg id="japan-map" role="img" aria-label="日本の気象庁一次細分区域と実況降水"></svg>
+          <svg id="japan-map" role="img" aria-label="日本の気象庁一次細分区域、主要都市名、実況降水"></svg>
 
           <div class="map-legend" aria-label="map legend">
             <span class="legend-swatch" aria-hidden="true"></span>
@@ -56,6 +64,14 @@
             <span></span>
           </div>
           <div class="error-box" id="map-error" hidden></div>
+        </div>
+
+        <div class="location-readout" aria-live="polite">
+          <div>
+            <span class="location-kicker">Selected / Search result</span>
+            <strong id="selected-location-name">地図上の区域または都市を選択できます</strong>
+          </div>
+          <span id="selected-location-meta">主要都市ラベルは位置把握のための表示参照で、科学計算には使用しません。</span>
         </div>
 
         <div class="rain-console">
@@ -114,8 +130,8 @@
               <div class="metric-value" id="geometry-count">—</div>
             </div>
             <div class="metric">
-              <div class="metric-label">Geometry schema</div>
-              <div class="metric-value" id="geometry-schema">—</div>
+              <div class="metric-label">Geometry schema / LOD</div>
+              <div class="metric-value metric-value-small" id="geometry-schema">—</div>
             </div>
             <div class="metric">
               <div class="metric-label">Pipeline</div>
@@ -136,7 +152,8 @@
 
         <section class="panel info-panel">
           <h2>About this map</h2>
-          <p>一次細分区域のポリゴンは気象庁GISをブラウザ表示用に簡略化したものです。実況降水レイヤーも表示専用であり、研究用の科学計算・マスキングには使用しません。</p>
+          <p>一次細分区域は気象庁GISを基にした表示専用ポリゴンです。O7以降は、拡大時に誤解を招く三角形フォールバックを使わず、微小な島・穴を表示倍率別に整理したLOD地図へ切り替えます。</p>
+          <p>「東部」「西部」などのJMA正式名称には親となる府県予報区名を併記し、主要都市ラベルと検索機能を位置把握の補助として使います。</p>
         </section>
       </aside>
     </section>
