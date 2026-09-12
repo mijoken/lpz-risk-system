@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mijoken.github.io/lpz-risk-system/schema/public_system_status.schema.json",
+  "title": "LPZ Public System Status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "product",
+    "generated_at_utc",
+    "overall_operational_status",
+    "scientific_release",
+    "pipeline",
+    "public_data"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "product": {"const": "LPZ_PUBLIC_SYSTEM_STATUS"},
+    "generated_at_utc": {"type": "string", "format": "date-time"},
+    "overall_operational_status": {
+      "type": "string",
+      "enum": ["ONLINE", "DEGRADED", "OFFLINE"]
+    },
+    "scientific_release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "risk_engine_allowed",
+        "primary_confirmatory_test_run",
+        "validation_status"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "LOCKED_VALIDATION_PENDING",
+            "RELEASED",
+            "SUSPENDED_SOURCE_STALE",
+            "SUSPENDED_PIPELINE_ERROR"
+          ]
+        },
+        "risk_engine_allowed": {"type": "boolean"},
+        "primary_confirmatory_test_run": {"type": "boolean"},
+        "validation_status": {"type": "string", "minLength": 1},
+        "primary_hypothesis_id": {"type": ["string", "null"]},
+        "imerg_final_version": {"type": ["string", "null"]},
+        "reason": {"type": ["string", "null"]}
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "last_success_at_utc"],
+      "properties": {
+        "state": {"type": "string", "enum": ["PASS", "DEGRADED", "FAIL", "UNKNOWN"]},
+        "last_success_at_utc": {"type": ["string", "null"], "format": "date-time"},
+        "run_id": {"type": ["string", "null"]},
+        "commit_sha": {"type": ["string", "null"]},
+        "message": {"type": ["string", "null"]}
+      }
+    },
+    "public_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["latest_path", "source_health_path", "geography_path"],
+      "properties": {
+        "latest_path": {"const": "data/latest.json"},
+        "source_health_path": {"const": "data/source_health.json"},
+        "geography_path": {"type": "string", "minLength": 1},
+        "data_contract_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"}
+      }
+    },
+    "notices": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scientific_release": {
+            "properties": {"risk_engine_allowed": {"const": false}},
+            "required": ["risk_engine_allowed"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "scientific_release": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "LOCKED_VALIDATION_PENDING",
+                  "SUSPENDED_SOURCE_STALE",
+                  "SUSPENDED_PIPELINE_ERROR"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
