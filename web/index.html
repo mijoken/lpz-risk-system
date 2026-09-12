@@ -1,29 +1,103 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LPZ Risk System</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 960px; }
-    .tag { display: inline-block; padding: .25rem .6rem; border: 1px solid #888; border-radius: 999px; }
-    code { background: #f3f3f3; padding: .15rem .3rem; }
-  </style>
+  <meta name="color-scheme" content="dark">
+  <title>LPZ Monitoring System</title>
+  <link rel="stylesheet" href="./css/app.css">
+  <script src="./js/map.js" defer></script>
+  <script src="./js/app.js" defer></script>
 </head>
 <body>
-  <h1>LPZ Risk System</h1>
-  <p class="tag">Phase 0.5 — Data Acquisition Proof</p>
-  <p>
-    This is an experimental research project for explainable monitoring of
-    linear precipitation-zone formation risk in Japan.
-  </p>
-  <p>
-    No operational LPZ risk score is published yet. The project is currently
-    validating upstream data acquisition and freshness behavior.
-  </p>
-  <p>
-    Official weather warnings must be obtained from the Japan Meteorological
-    Agency and local authorities.
-  </p>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="brand-kicker">LPZ Monitoring System</p>
+        <h1>線状降水帯モニタリング</h1>
+        <p class="subtitle">JMA一次細分区域を基礎単位とした公開運用ダッシュボード。現在は検証中のため、予測リスク値は公開していません。</p>
+      </div>
+      <div class="badge">PUBLIC PREVIEW · PHASE 2L-O3</div>
+    </header>
+
+    <section class="dashboard" aria-label="LPZ operational dashboard">
+      <section class="panel map-panel" aria-labelledby="map-title">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" id="map-title">Japan · JMA Primary Subdivisions</h2>
+            <p class="panel-note">地域にカーソルを合わせると、一次細分区域名とコードを確認できます。現在の色は危険度を意味しません。</p>
+          </div>
+          <div class="map-state" id="map-state">Preparing map …</div>
+        </div>
+
+        <div class="map-wrap">
+          <svg id="japan-map" role="img" aria-label="日本の気象庁一次細分区域地図"></svg>
+          <div class="map-legend" aria-label="map legend">
+            <span class="legend-swatch" aria-hidden="true"></span>
+            <span>Geography only · Risk output locked</span>
+          </div>
+          <div class="tooltip" id="map-tooltip" hidden>
+            <strong></strong>
+            <span></span>
+          </div>
+          <div class="error-box" id="map-error" hidden></div>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="System status">
+        <section class="panel status-panel">
+          <h2>System Status</h2>
+          <div class="status-list">
+            <div class="status-row">
+              <span class="dot ok" aria-hidden="true"></span>
+              <span class="status-name">Public geometry</span>
+              <span class="status-value value-ok">ONLINE</span>
+            </div>
+            <div class="status-row">
+              <span class="dot wait" aria-hidden="true"></span>
+              <span class="status-name">Prediction engine</span>
+              <span class="status-value value-wait">VALIDATION PENDING</span>
+            </div>
+            <div class="status-row">
+              <span class="dot wait" aria-hidden="true"></span>
+              <span class="status-name">IMERG Final V08</span>
+              <span class="status-value value-wait">WAITING</span>
+            </div>
+            <div class="status-row">
+              <span class="dot locked" aria-hidden="true"></span>
+              <span class="status-name">Risk output</span>
+              <span class="status-value value-locked">LOCKED</span>
+            </div>
+          </div>
+
+          <div class="metric-grid">
+            <div class="metric">
+              <div class="metric-label">JMA regions loaded</div>
+              <div class="metric-value" id="geometry-count">—</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Geometry schema</div>
+              <div class="metric-value" id="geometry-schema">—</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel info-panel">
+          <h2>Current scientific state</h2>
+          <p>2025 confirmatory validation is deferred until NASA IMERG Final V08 retrospective coverage is available and the frozen Development/Validation rainfall pipeline can be rebuilt consistently.</p>
+          <p>The Primary hypothesis remains frozen. This page intentionally does not display an LPZ probability, warning level, or risk heat map.</p>
+        </section>
+
+        <section class="panel info-panel">
+          <h2>About this map</h2>
+          <p>The displayed polygons are a browser-oriented derivative of official Japan Meteorological Agency primary-subdivision GIS. They are simplified for visualization only and must not be used for scientific masking or model computation.</p>
+        </section>
+      </aside>
+    </section>
+
+    <div class="notice">
+      <strong>Important:</strong> This is a research and monitoring system under validation. It is not an official warning service. For official warnings and disaster information, use information published by the Japan Meteorological Agency and relevant authorities.
+    </div>
+  </main>
 </body>
 </html>
