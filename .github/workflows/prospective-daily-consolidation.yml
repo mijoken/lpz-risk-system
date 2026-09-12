@@ -7,8 +7,6 @@ on:
         description: "UTC date to consolidate (YYYY-MM-DD); empty = previous UTC day"
         required: false
         default: ""
-  schedule:
-    - cron: "20 1 * * *"
 
 permissions:
   contents: write
