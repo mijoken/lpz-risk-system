@@ -1,15 +1,25 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "source_id": "JMA_PRIMARY_SUBDIVISION_GIS",
   "source_page": "https://www.data.jma.go.jp/developer/gis.html",
   "zip_url": "https://www.data.jma.go.jp/developer/gis/20190125_AreaForecastLocalM_1saibun_GIS.zip",
+  "area_metadata_url": "https://www.jma.go.jp/bosai/common/const/area.json",
   "source_authority": "Japan Meteorological Agency",
   "coordinate_reference_note": "JMA source page states GIS data are prepared in JGD2011.",
   "purpose": [
     "primary_subdivision_code_to_bbox",
     "ERA5_spatial_subsetting",
-    "historical_anchor_region_geometry"
+    "historical_anchor_region_geometry",
+    "public_GitHub_Pages_Japan_map_geometry"
   ],
-  "repository_policy": "Do not commit the 103 MB source archive. Commit only the derived small geometry registry and provenance metadata.",
+  "repository_policy": "Do not commit the approximately 103 MB source archive. Commit only derived small geometry products and provenance metadata.",
+  "public_web_geometry_policy": {
+    "output": "web/assets/japan_primary_subdivisions.geojson",
+    "geographic_unit": "JMA_PRIMARY_SUBDIVISION",
+    "name_source": "JMA area.json class10s",
+    "display_geometry_may_be_simplified": true,
+    "display_geometry_is_for_scientific_masking": false,
+    "research_geometry_must_remain_official_unsimplified": true
+  },
   "risk_engine_allowed": false
 }
