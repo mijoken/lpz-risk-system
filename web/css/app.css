@@ -29,6 +29,18 @@ body {
 button, input, select { font: inherit; }
 button { color: var(--text); }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .shell {
   width: min(1680px, calc(100% - 28px));
   margin: 0 auto;
@@ -155,7 +167,8 @@ h1 {
 .locked-toggle { opacity: .65; cursor: not-allowed; }
 
 .map-buttons button,
-.rain-console button {
+.rain-console button,
+.map-search button {
   min-height: 36px;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -167,13 +180,48 @@ h1 {
 }
 
 .map-buttons button:hover,
-.rain-console button:hover:not(:disabled) {
+.rain-console button:hover:not(:disabled),
+.map-search button:hover {
   border-color: #4c7599;
   background: rgba(22, 49, 76, .9);
 }
 
 .map-buttons button:disabled,
 .rain-console button:disabled { opacity: .45; cursor: not-allowed; }
+
+.map-search {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 0 20px 8px;
+}
+
+.map-search input {
+  min-width: 0;
+  min-height: 39px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: rgba(7, 17, 31, .68);
+  color: var(--text);
+  outline: none;
+}
+
+.map-search input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(84, 200, 255, .12);
+}
+
+.map-search input::placeholder { color: #718ba6; }
+
+#map-search-feedback {
+  grid-column: 1 / -1;
+  min-height: 1.1em;
+  color: #89a4be;
+  font-size: .76rem;
+  line-height: 1.4;
+}
 
 .map-wrap {
   position: relative;
@@ -226,6 +274,21 @@ h1 {
   filter: drop-shadow(0 0 4px rgba(84, 200, 255, .5));
 }
 
+.reference-city-layer { pointer-events: none; }
+.reference-city circle {
+  fill: #f6fbff;
+  stroke: #07111f;
+}
+.reference-city text {
+  fill: #f5fbff;
+  stroke: rgba(4, 13, 24, .96);
+  font-weight: 800;
+  letter-spacing: .01em;
+  dominant-baseline: central;
+  user-select: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+}
+
 .map-legend {
   position: absolute;
   left: 28px;
@@ -255,7 +318,7 @@ h1 {
 .tooltip {
   position: fixed;
   z-index: 20;
-  min-width: 175px;
+  min-width: 205px;
   pointer-events: none;
   border: 1px solid #42617e;
   border-radius: 11px;
@@ -267,7 +330,40 @@ h1 {
 
 .tooltip[hidden] { display: none; }
 .tooltip strong { display: block; margin-bottom: 3px; }
-.tooltip span { color: var(--muted); font-size: .82rem; }
+.tooltip span { color: var(--muted); font-size: .82rem; line-height: 1.45; }
+
+.location-readout {
+  display: grid;
+  grid-template-columns: minmax(220px, .8fr) minmax(280px, 1.2fr);
+  gap: 12px 20px;
+  align-items: center;
+  margin: 0 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: rgba(7, 17, 31, .48);
+}
+
+.location-readout > div { min-width: 0; }
+.location-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--accent);
+  font-size: .67rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.location-readout strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: .9rem;
+}
+.location-readout > span:last-child {
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
 
 .rain-console {
   margin: 0 12px 14px;
@@ -429,8 +525,10 @@ h1 {
   .panel-head { flex-direction: column; }
   .map-state { white-space: normal; }
   .map-toolbar { align-items: flex-start; flex-direction: column; }
+  .map-search { grid-template-columns: 1fr auto; padding-left: 14px; padding-right: 14px; }
   .map-wrap { min-height: 590px; }
   #japan-map { height: 590px; }
+  .location-readout { grid-template-columns: 1fr; }
   .side { grid-template-columns: 1fr; }
   .status-panel { grid-row: auto; }
 }
@@ -442,4 +540,6 @@ h1 {
   .metric-grid { grid-template-columns: 1fr; }
   .rain-console-head { align-items: flex-start; }
   .map-legend { left: 18px; right: 18px; max-width: none; bottom: 20px; }
+  .map-search { grid-template-columns: 1fr; }
+  .map-search button { width: 100%; }
 }
