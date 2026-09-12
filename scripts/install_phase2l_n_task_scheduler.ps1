@@ -19,13 +19,16 @@ $UserSid = $Identity.User.Value
 $Start = (Get-Date).Date.AddMinutes(4)
 $StartBoundary = $Start.ToString("yyyy-MM-dd'T'HH:mm:ss")
 
-$Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Runner`""
+# Keep the temporary local prospective collector running during development,
+# but do not flash a visible terminal window every 15 minutes.
+# This is a development harness only; production remains GitHub Actions + GitHub Pages.
+$Arguments = "-WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$Runner`""
 
 $xml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>LPZ Phase 2L-N local prospective collector every 15 minutes.</Description>
+    <Description>LPZ Phase 2L-N temporary local prospective collector every 15 minutes. Production remains GitHub Actions + GitHub Pages.</Description>
   </RegistrationInfo>
   <Triggers>
     <CalendarTrigger>
@@ -95,6 +98,7 @@ Write-Host "PowerShell       : $Pwsh"
 Write-Host "Runner           : $Runner"
 Write-Host "Start boundary   : $StartBoundary"
 Write-Host "Cadence          : every 15 minutes"
+Write-Host "Window mode      : Hidden"
 Write-Host "Multiple instance: IgnoreNew"
 Write-Host "Network required : true"
 Write-Host "Run context      : current user / InteractiveToken"
