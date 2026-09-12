@@ -246,6 +246,7 @@ h1 {
 
 .metric-label { color: var(--muted); font-size: .72rem; }
 .metric-value { margin-top: 4px; font-size: 1.1rem; font-weight: 800; }
+.metric-value-small { font-size: .72rem; line-height: 1.35; overflow-wrap: anywhere; }
 
 .info-panel { padding: 18px; }
 .info-panel p {
