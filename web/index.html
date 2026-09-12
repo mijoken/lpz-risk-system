@@ -17,7 +17,7 @@
         <h1>線状降水帯モニタリング</h1>
         <p class="subtitle">JMA一次細分区域を基礎単位とした公開運用ダッシュボード。現在は検証中のため、予測リスク値は公開していません。</p>
       </div>
-      <div class="badge">PUBLIC PREVIEW · PHASE 2L-O3</div>
+      <div class="badge" id="release-badge">PUBLIC PREVIEW · PHASE 2L-O4</div>
     </header>
 
     <section class="dashboard" aria-label="LPZ operational dashboard">
@@ -27,14 +27,14 @@
             <h2 class="panel-title" id="map-title">Japan · JMA Primary Subdivisions</h2>
             <p class="panel-note">地域にカーソルを合わせると、一次細分区域名とコードを確認できます。現在の色は危険度を意味しません。</p>
           </div>
-          <div class="map-state" id="map-state">Preparing map …</div>
+          <div class="map-state" id="map-state">Preparing public data …</div>
         </div>
 
         <div class="map-wrap">
           <svg id="japan-map" role="img" aria-label="日本の気象庁一次細分区域地図"></svg>
           <div class="map-legend" aria-label="map legend">
             <span class="legend-swatch" aria-hidden="true"></span>
-            <span>Geography only · Risk output locked</span>
+            <span id="map-legend-text">Geography only · Risk output locked</span>
           </div>
           <div class="tooltip" id="map-tooltip" hidden>
             <strong></strong>
@@ -51,22 +51,27 @@
             <div class="status-row">
               <span class="dot ok" aria-hidden="true"></span>
               <span class="status-name">Public geometry</span>
-              <span class="status-value value-ok">ONLINE</span>
+              <span class="status-value value-ok" id="public-geometry-status">LOADING</span>
+            </div>
+            <div class="status-row">
+              <span class="dot ok" aria-hidden="true"></span>
+              <span class="status-name">Live sources</span>
+              <span class="status-value value-ok" id="live-source-status">LOADING</span>
             </div>
             <div class="status-row">
               <span class="dot wait" aria-hidden="true"></span>
               <span class="status-name">Prediction engine</span>
-              <span class="status-value value-wait">VALIDATION PENDING</span>
+              <span class="status-value value-wait" id="prediction-status">VALIDATION PENDING</span>
             </div>
             <div class="status-row">
               <span class="dot wait" aria-hidden="true"></span>
               <span class="status-name">IMERG Final V08</span>
-              <span class="status-value value-wait">WAITING</span>
+              <span class="status-value value-wait" id="imerg-status">WAITING</span>
             </div>
             <div class="status-row">
               <span class="dot locked" aria-hidden="true"></span>
               <span class="status-name">Risk output</span>
-              <span class="status-value value-locked">LOCKED</span>
+              <span class="status-value value-locked" id="risk-status">LOCKED</span>
             </div>
           </div>
 
@@ -79,13 +84,21 @@
               <div class="metric-label">Geometry schema</div>
               <div class="metric-value" id="geometry-schema">—</div>
             </div>
+            <div class="metric">
+              <div class="metric-label">Pipeline</div>
+              <div class="metric-value" id="pipeline-status">—</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Public data UTC</div>
+              <div class="metric-value metric-value-small" id="public-data-time">—</div>
+            </div>
           </div>
         </section>
 
         <section class="panel info-panel">
           <h2>Current scientific state</h2>
-          <p>2025 confirmatory validation is deferred until NASA IMERG Final V08 retrospective coverage is available and the frozen Development/Validation rainfall pipeline can be rebuilt consistently.</p>
-          <p>The Primary hypothesis remains frozen. This page intentionally does not display an LPZ probability, warning level, or risk heat map.</p>
+          <p id="scientific-state-text">Loading the authoritative public system state …</p>
+          <p>The Primary hypothesis remains frozen. This page intentionally does not display an LPZ probability, warning level, or risk heat map while the public release gate is locked.</p>
         </section>
 
         <section class="panel info-panel">
