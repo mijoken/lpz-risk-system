@@ -1,7 +1,24 @@
-name: LPZ Public Pages Deploy (O5)
+name: LPZ Public Production Cycle (O6)
 
 on:
   workflow_dispatch:
+  schedule:
+    # GitHub cron is UTC. Run four times per hour; exact start can drift a few minutes.
+    - cron: "2,17,32,47 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/public-pages-deploy.yml"
+      - "config/data_sources.json"
+      - "research/phase2/phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.json"
+      - "scripts/build_public_operational_source_health.py"
+      - "scripts/build_public_rain_overlay.py"
+      - "scripts/build_public_web_data.py"
+      - "scripts/acquisition_probe.py"
+      - "src/**"
+      - "tests/test_public_web.py"
+      - "tests/test_public_rain_overlay.py"
+      - "web/**"
 
 permissions:
   contents: read
@@ -9,13 +26,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: lpz-public-pages
-  cancel-in-progress: false
+  group: lpz-public-production
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -24,29 +41,45 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: "pip"
 
-      - name: Install O5 validation dependencies
-        run: python -m pip install --upgrade "pytest>=8" "jsonschema>=4.23"
+      - name: Install production dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . "pytest>=8"
 
-      - name: Run public web contract tests
+      - name: Run public contract and rain-overlay tests
         env:
           PYTHONPATH: src
-        run: python -m pytest tests/test_public_web.py -q
-
-      - name: Build safe O5 bootstrap source health
         run: |
-          python scripts/build_public_deploy_bootstrap_source_health.py \
-            --output reports/public/o5_bootstrap_source_health.json
+          python -m pytest \
+            tests/test_public_web.py \
+            tests/test_public_rain_overlay.py \
+            -q
+
+      - name: Build GitHub operational source health
+        run: |
+          python scripts/build_public_operational_source_health.py \
+            --output reports/public/o6_source_health.json \
+            --acquisition-output reports/public/o6_acquisition_probe.json
+
+      - name: Build settled JMA rain overlay
+        run: |
+          python scripts/build_public_rain_overlay.py \
+            --output-dir web/data/rain \
+            --settled-lag-minutes 15 \
+            --frame-count 5 \
+            --frame-spacing-minutes 15
 
       - name: Build and validate public JSON products
         run: |
           python scripts/build_public_web_data.py \
-            --source-health-report reports/public/o5_bootstrap_source_health.json \
-            --pipeline-state DEGRADED \
+            --source-health-report reports/public/o6_source_health.json \
+            --pipeline-state PASS \
             --run-id "${{ github.run_id }}" \
             --commit-sha "${{ github.sha }}"
 
-      - name: Assert public deploy surface
+      - name: Assert production deploy surface
         run: |
           python - <<'PY'
           import json
@@ -62,23 +95,62 @@ jobs:
               root / "data" / "system_status.json",
               root / "data" / "source_health.json",
               root / "data" / "latest.json",
+              root / "data" / "rain" / "latest.json",
           ]
           missing = [str(p) for p in required if not p.is_file()]
           assert not missing, missing
 
           status = json.loads((root / "data" / "system_status.json").read_text(encoding="utf-8"))
           latest = json.loads((root / "data" / "latest.json").read_text(encoding="utf-8"))
+          rain = json.loads((root / "data" / "rain" / "latest.json").read_text(encoding="utf-8"))
+
           assert status["scientific_release"]["risk_engine_allowed"] is False
+          assert status["scientific_release"]["primary_confirmatory_test_run"] is False
           assert latest["release"]["risk_engine_allowed"] is False
           assert len(latest["regions"]) == 142
           assert all(row["risk"] is None for row in latest["regions"])
           assert all(row["display_state"] != "RISK_AVAILABLE" for row in latest["regions"])
-          print("O5 deploy surface invariant: PASS")
+
+          assert rain["product"] == "LPZ_PUBLIC_RAIN_OVERLAY"
+          assert rain["display_only"] is True
+          assert rain["scientific_input_allowed"] is False
+          for frame in rain.get("frames", []):
+              image = root / frame["image_path"].removeprefix("data/")
+              # image_path is relative to web/, not web/data/.
+              image = root / frame["image_path"]
+              assert image.is_file(), image
+
+          print("O6 production deploy surface invariant: PASS")
+          print(f"rain_status={rain['status']} frames={len(rain.get('frames', []))}")
           PY
 
-      # Pages must be enabled once in repository Settings > Pages > Source: GitHub Actions.
-      # This workflow intentionally does not auto-enable Pages because configure-pages
-      # requires a token other than GITHUB_TOKEN for enablement.
+      - name: Write workflow summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          print("## LPZ Public Production Cycle")
+          status_p = Path("web/data/system_status.json")
+          rain_p = Path("web/data/rain/latest.json")
+          source_p = Path("web/data/source_health.json")
+          if status_p.exists():
+              s=json.loads(status_p.read_text(encoding="utf-8"))
+              print(f"- Pipeline: **{s['pipeline']['state']}**")
+              print(f"- Scientific release: **{s['scientific_release']['state']}**")
+              print(f"- Risk engine allowed: **{s['scientific_release']['risk_engine_allowed']}**")
+          if source_p.exists():
+              h=json.loads(source_p.read_text(encoding="utf-8"))
+              print(f"- Live source health: **{h['overall_status']}**")
+          if rain_p.exists():
+              r=json.loads(rain_p.read_text(encoding="utf-8"))
+              print(f"- Rain layer: **{r['status']}** ({len(r.get('frames', []))} frames)")
+              if r.get("frames"):
+                  print(f"- Latest rain frame: `{r['frames'][r['latest_index']]['valid_time_utc']}`")
+          PY
+
+      # Pages was enabled once in Settings > Pages > Source: GitHub Actions.
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
 
