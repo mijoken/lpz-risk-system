@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-K2-v07-boundary-v08-deferred-validation-freeze",
+  "gate": "PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE",
+  "frozen_at_utc": "2026-09-12T00:03:31.380785Z",
+  "purpose": "Freeze the official IMERG Final V07 source boundary, preserve the original Phase 2L-H confirmatory protocol, and defer the 2025 Primary validation until a consistent Final V08 reconstruction is possible.",
+  "upstream_protocol": {
+    "phase2l_h_gate": "PASS_PHASE2L_H_DISCOVERY_AND_VALIDATION_PROTOCOL_FREEZE_PRIMARY_Q850_T0H",
+    "primary_hypothesis": {
+      "id": "H_PRIMARY_Q850_T0H",
+      "metric": "q850_mean_kgkg",
+      "contrast": "t+0h",
+      "directional_alternative": "POSITIVE_Q850_GREATER_THAN_MEAN_OF_3_MATCHED_COMPARISONS"
+    },
+    "frozen_matching": {
+      "unit": "JMA_PRIMARY_SUBDIVISION_REGION_DAY",
+      "match_ratio": "1_POSITIVE_TO_3_COMPARISONS",
+      "same_primary_subdivision_required": true,
+      "season_window_calendar_days": 60,
+      "positive_event_exclusion_buffer_actual_days": 3,
+      "rainfall_matching_space": "LOG1P_STANDARDIZED_FOUR_IMERG_3H_METRICS_PCA_PC1_PC2",
+      "comparison_role": "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL",
+      "environment_variables_used_for_matching": false
+    }
+  },
+  "observed_v07_boundary": {
+    "source_id": "NASA_IMERG_FINAL_V07_HALFHOUR",
+    "short_name": "GPM_3IMERGHH",
+    "version": "07",
+    "final_available_half_hour_start_utc": "2025-09-30T23:30:00Z",
+    "final_available_nominal_utc_date": "2025-09-30",
+    "supported_region_days": 1004,
+    "unavailable_region_days": 214,
+    "supported_unique_target_days": 143,
+    "unavailable_unique_target_days": 48,
+    "valid_supported_day_checkpoints": 143,
+    "supported_days_missing_checkpoint": 0,
+    "supported_segment_status": "COMPLETE"
+  },
+  "validation_population_impact": {
+    "official_positive_region_days_total": 23,
+    "official_positive_region_days_v07_supported": 22,
+    "official_positive_region_days_v07_unavailable": 1,
+    "fully_observed_frozen_matching_universes": 0,
+    "source_truncated_frozen_matching_universes": 23,
+    "exact_frozen_2025_matching_possible_under_v07": false
+  },
+  "validation_state": {
+    "status": "DEFERRED_PENDING_IMERG_FINAL_V08",
+    "primary_confirmatory_test_run": false,
+    "primary_outcome_opened": false,
+    "2025_era5_environment_outcomes_may_be_opened_now": false,
+    "risk_engine_allowed": false,
+    "operational_system_development_may_continue": true
+  },
+  "prohibitions_during_v8_wait": [
+    "DO_NOT_OPEN_2025_ERA5_ENVIRONMENT_FOR_PRIMARY_VALIDATION_BEFORE_RAINFALL_MATCHING_IS_RESOLVED",
+    "DO_NOT_SUBSTITUTE_IMERG_LATE_OR_EARLY_FOR_FINAL_PRIMARY_VALIDATION",
+    "DO_NOT_SUBSTITUTE_GSMAP_CMORPH_OR_OTHER_SATELLITE_FOR_MISSING_FINAL_IMERG_TARGETS",
+    "DO_NOT_FILL_ONLY_2025_OCT_DEC_WITH_A_DIFFERENT_IMERG_VERSION",
+    "DO_NOT_DROP_V07_UNAVAILABLE_2025_TARGETS_TO_FORCE_COMPLETION",
+    "DO_NOT_SHRINK_OR_EXPAND_THE_FROZEN_PLUS_MINUS_60_DAY_SEASON_WINDOW",
+    "DO_NOT_CHANGE_THE_PLUS_MINUS_3_DAY_POSITIVE_EVENT_BUFFER",
+    "DO_NOT_CHANGE_THE_1_TO_3_NO_REPLACEMENT_MATCHING_POLICY",
+    "DO_NOT_REFIT_PCA_OR_STANDARDIZATION_USING_2025_VALIDATION_DATA",
+    "DO_NOT_CHANGE_PRIMARY_METRIC_TIME_OFFSET_DIRECTION_OR_TEST",
+    "DO_NOT_PROMOTE_SECONDARY_OR_EXPLORATORY_FEATURES_TO_RESCUE_PRIMARY",
+    "DO_NOT_USE_2026_RETROSPECTIVE_OR_PROSPECTIVE_OUTCOMES_FOR_MODEL_SELECTION",
+    "DO_NOT_ENABLE_RISK_ENGINE_BEFORE_CONFIRMATORY_VALIDATION_IS_RESOLVED"
+  ],
+  "allowed_work_during_v8_wait": [
+    "SOURCE_HEALTH_MONITORING_AND_VERSION_DETECTION",
+    "PROSPECTIVE_DATA_COLLECTION_WITHOUT_OUTCOME_DRIVEN_MODEL_SELECTION",
+    "CHECKPOINT_RESUME_AND_AUDIT_INFRASTRUCTURE",
+    "DATABASE_AND_SCHEMA_IMPLEMENTATION",
+    "END_TO_END_PIPELINE_ORCHESTRATION_WITHOUT_2025_ENVIRONMENT_OUTCOME_OPENING",
+    "DASHBOARD_AND_UI_IMPLEMENTATION_WITH_RISK_ENGINE_LOCKED",
+    "WINDOWS_SCHEDULER_AND_RECOVERY_AUTOMATION",
+    "V8_MIGRATION_AND_REBUILD_CODE_IMPLEMENTATION_USING_MOCK_OR_DEVELOPMENT_DATA",
+    "TESTS_DOCUMENTATION_AND_OPERATIONAL_HARDENING"
+  ],
+  "v8_reentry_conditions_in_order": [
+    "OFFICIAL_NASA_IMERG_FINAL_V08_IS_PUBLICLY_AVAILABLE",
+    "FINAL_V08_HALF_HOURLY_PRODUCT_COVERS_ALL_REQUIRED_2023_2024_DEVELOPMENT_AND_2025_VALIDATION_DATES",
+    "REBUILD_THE_FROZEN_5943_DEVELOPMENT_IMERG_REGION_DAYS_USING_FINAL_V08",
+    "REBUILD_THE_FROZEN_1218_2025_VALIDATION_TARGET_REGION_DAYS_USING_THE_SAME_FINAL_V08_PRODUCT",
+    "REESTIMATE_LOG1P_MEAN_STD_AND_PCA_LOADINGS_FROM_DEVELOPMENT_V08_ONLY",
+    "TRANSFER_THE_DEVELOPMENT_V08_TRANSFORM_TO_2025_WITHOUT_2025_REFIT",
+    "REAPPLY_THE_FROZEN_SAME_REGION_PLUS_MINUS_60_DAY_PLUS_MINUS_3_DAY_1_TO_3_NO_REPLACEMENT_MATCHING",
+    "FREEZE_THE_FINAL_2025_MATCHED_POPULATION",
+    "ONLY_AFTER_MATCHING_FREEZE_OPEN_2025_ERA5_ENVIRONMENT_OUTCOMES",
+    "RUN_THE_SINGLE_FROZEN_Q850_T0H_CONFIRMATORY_TEST_ONCE",
+    "DO_NOT_RETUNE_AFTER_PASS_OR_FAIL"
+  ],
+  "v8_rebuild_policy": {
+    "partial_oct_dec_patch_allowed": false,
+    "same_final_imerg_version_required_for_development_and_validation": true,
+    "development_2023_2024_rebuild_required": true,
+    "validation_2025_rebuild_required": true,
+    "development_reservoir_region_days_expected": 5943,
+    "validation_target_region_days_expected": 1218,
+    "pca_fit_population": "DEVELOPMENT_V8_ONLY",
+    "validation_transform_policy": "TRANSFER_FROZEN_DEVELOPMENT_V8_TRANSFORM_NO_2025_REFIT",
+    "matching_policy_change_allowed": false,
+    "primary_hypothesis_change_allowed": false
+  },
+  "source_integrity": {
+    "repo_root": "D:\\program\\lpz-risk-system_dev",
+    "git_head_before_k2_freeze_commit": "0f49b6d9345e32a238af750e186f3bb2c9217731",
+    "git_branch": "main",
+    "git_status_before_k2_freeze_commit": "?? .dodsrc\n?? run_phase2l_k_until_complete.ps1\n?? scripts/phase2l_i_build_novel_region_dev_cmorph_reference.py\n?? scripts/phase2l_k2_freeze_v07_boundary_v08_deferred_validation.py\n?? scripts/phase2l_k_audit_imerg_final_v07_truncation.py\n?? scripts/system3_stage5_treasury_v0_3_final_holdout_evaluation_v0_1_0.ps1",
+    "sha256": {
+      "research\\phase2\\phase2l_h_validation_protocol_freeze_20260911.json": {
+        "sha256": "6b3cac100513cb5be3e392eb3e9b68d250ddabd2c94c2c4ab93a0081b58b88fe",
+        "size_bytes": 10694
+      },
+      "local_data\\phase2l_k_final_v07_truncation_audit\\phase2l_k_final_v07_source_truncation_report.json": {
+        "sha256": "cedc3cad71914bee69baf8e1fef7e97cfa71d31b58a6220e32526a2ddb485253",
+        "size_bytes": 2593
+      }
+    }
+  },
+  "next_phase": {
+    "phase": "2L-L",
+    "name": "SOURCE_HEALTH_AND_OPERATIONAL_READINESS",
+    "goal": "Continue V1 operational system completion without opening the deferred 2025 Primary environmental outcome."
+  }
+}

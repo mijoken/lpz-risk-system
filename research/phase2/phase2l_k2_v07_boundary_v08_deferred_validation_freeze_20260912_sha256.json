@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE",
+  "generated_at_utc": "2026-09-12T00:03:31.627369Z",
+  "artifacts": {
+    "research\\phase2\\phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.json": {
+      "sha256": "20a327116a22d424db9280e5181453fe3bb62a3e1b4381e404b9b54b2dc0bc28",
+      "size_bytes": 6915
+    },
+    "research\\phase2\\phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.md": {
+      "sha256": "7d67e4eddd24ac106c0d55cdf969a982d0862fb6cf0bd8574273d1f076640d5f",
+      "size_bytes": 4346
+    }
+  },
+  "inputs": {
+    "research\\phase2\\phase2l_h_validation_protocol_freeze_20260911.json": {
+      "sha256": "6b3cac100513cb5be3e392eb3e9b68d250ddabd2c94c2c4ab93a0081b58b88fe",
+      "size_bytes": 10694
+    },
+    "local_data\\phase2l_k_final_v07_truncation_audit\\phase2l_k_final_v07_source_truncation_report.json": {
+      "sha256": "cedc3cad71914bee69baf8e1fef7e97cfa71d31b58a6220e32526a2ddb485253",
+      "size_bytes": 2593
+    }
+  }
+}
