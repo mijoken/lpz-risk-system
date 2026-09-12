@@ -9,6 +9,8 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/prospective-feature-collector.yml"
+      - "scripts/build_prospective_feature_bundle.py"
+      - "tests/test_prospective_feature_bundle.py"
 
 permissions:
   contents: read
@@ -51,19 +53,50 @@ jobs:
       - name: Build multi-frame radar object tracking
         run: python scripts/radar_tracking_probe.py --output reports/scientific/radar_tracking.json
 
+      - name: Classify tracking-cycle applicability
+        id: tracking_state
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+
+          p=json.load(open('reports/scientific/radar_tracking.json',encoding='utf-8'))
+          if p.get('execution_ok') is not True:
+              raise SystemExit('radar tracking transport/execution failed; this is not a no-event cycle')
+
+          proven = p.get('scientific_tracking_proven') is True
+          gates = p.get('gates') or {}
+          if not proven:
+              # Only a technically valid, fixed-mosaic cycle with no conservative
+              # temporal component match may be archived as COMPLETE_NO_TRACKABLE_EVENT.
+              assert gates.get('fixed_multiframe_mosaic') is True, p
+              assert gates.get('component_tracking') is False, p
+              assert isinstance(p.get('tracking'), dict), p
+              assert len(p.get('frame_valid_times') or []) >= 2, p
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh:
+              fh.write(f"trackable={'true' if proven else 'false'}\n")
+          print('TRACKABLE_COMPONENT_PRESENT' if proven else 'COMPLETE_NO_TRACKABLE_EVENT_CANDIDATE')
+          PY
+
       - name: Build parent/core hierarchy
+        if: steps.tracking_state.outputs.trackable == 'true'
         run: python scripts/radar_hierarchy_probe.py --tracking reports/scientific/radar_tracking.json --output reports/scientific/radar_hierarchy.json
 
       - name: Build parent temporal descriptors
+        if: steps.tracking_state.outputs.trackable == 'true'
         run: python scripts/radar_temporal_descriptor.py --tracking reports/scientific/radar_tracking.json --hierarchy reports/scientific/radar_hierarchy.json --output reports/scientific/radar_temporal.json
 
       - name: Build parent-motion-relative genesis geometry
+        if: steps.tracking_state.outputs.trackable == 'true'
         run: python scripts/radar_genesis_geometry_report.py --tracking reports/scientific/radar_tracking.json --hierarchy reports/scientific/radar_hierarchy.json --output reports/scientific/radar_genesis_geometry.json
 
       - name: Build 850-hPa inflow-relative genesis geometry
+        if: steps.tracking_state.outputs.trackable == 'true'
         run: python scripts/radar_inflow_geometry_probe.py --genesis reports/scientific/radar_genesis_geometry.json --output reports/scientific/radar_inflow_geometry.json
 
       - name: Build parent precursor feature table
+        if: steps.tracking_state.outputs.trackable == 'true'
         run: |
           python scripts/build_parent_precursor_report.py \
             --temporal reports/scientific/radar_temporal.json \
@@ -79,17 +112,21 @@ jobs:
             --run-id "${{ github.run_id }}" \
             --commit-sha "${{ github.sha }}"
 
-      - name: Assert no operational classification
+      - name: Assert prospective scientific lock
         run: |
           python - <<'PY'
           import json
           p=json.load(open('reports/prospective/prospective_feature_bundle.json',encoding='utf-8'))
           assert p['bundle_complete'] is True, p
+          assert p['collection_status'] in {'COMPLETE_FEATURES','COMPLETE_NO_TRACKABLE_EVENT'}, p
+          assert p['candidate_structure_is_lpz_classification'] is False, p
+          assert p['no_trackable_event_is_negative_label'] is False, p
           assert p['raw_radar_archived'] is False, p
           assert p['raw_grib_archived'] is False, p
           assert p['lpz_classification'] is None, p
           assert p['risk_score'] is None, p
           assert p['risk_engine_allowed'] is False, p
+          print(f"Prospective collection status: {p['collection_status']}")
           print('Prospective scientific lock invariant: PASS')
           PY
 
