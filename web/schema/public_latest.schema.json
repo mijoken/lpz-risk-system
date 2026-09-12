@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mijoken.github.io/lpz-risk-system/schema/public_latest.schema.json",
+  "title": "LPZ Public Latest Regional State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "product", "generated_at_utc", "release", "map", "regions"],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "product": {"const": "LPZ_PUBLIC_LATEST"},
+    "generated_at_utc": {"type": "string", "format": "date-time"},
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "risk_engine_allowed", "validation_status"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "LOCKED_VALIDATION_PENDING",
+            "RELEASED",
+            "SUSPENDED_SOURCE_STALE",
+            "SUSPENDED_PIPELINE_ERROR"
+          ]
+        },
+        "risk_engine_allowed": {"type": "boolean"},
+        "validation_status": {"type": "string", "minLength": 1},
+        "model_version": {"type": ["string", "null"]},
+        "message": {"type": ["string", "null"]}
+      }
+    },
+    "map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["geographic_unit", "geometry_path"],
+      "properties": {
+        "geographic_unit": {"const": "JMA_PRIMARY_SUBDIVISION"},
+        "geometry_path": {"type": "string", "minLength": 1},
+        "region_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "region_code",
+          "name_ja",
+          "geometry_key",
+          "data_time_utc",
+          "freshness",
+          "display_state",
+          "risk"
+        ],
+        "properties": {
+          "region_code": {"type": "string", "pattern": "^[0-9]{6}$"},
+          "name_ja": {"type": "string", "minLength": 1},
+          "prefecture_name_ja": {"type": ["string", "null"]},
+          "geometry_key": {"type": "string", "minLength": 1},
+          "data_time_utc": {"type": ["string", "null"], "format": "date-time"},
+          "freshness": {"type": "string", "enum": ["FRESH", "STALE", "MISSING", "UNKNOWN"]},
+          "display_state": {
+            "type": "string",
+            "enum": ["NO_PUBLIC_RISK", "RISK_AVAILABLE", "SUSPENDED", "NO_DATA"]
+          },
+          "observed": {
+            "type": ["object", "null"],
+            "additionalProperties": true
+          },
+          "risk": {
+            "oneOf": [
+              {"type": "null"},
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["model_version", "issued_at_utc", "score", "scale_min", "scale_max", "category"],
+                "properties": {
+                  "model_version": {"type": "string", "minLength": 1},
+                  "issued_at_utc": {"type": "string", "format": "date-time"},
+                  "score": {"type": "number"},
+                  "scale_min": {"type": "number"},
+                  "scale_max": {"type": "number"},
+                  "category": {"type": "string", "minLength": 1},
+                  "interpretation": {"type": ["string", "null"]}
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "release": {
+            "properties": {"risk_engine_allowed": {"const": false}},
+            "required": ["risk_engine_allowed"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "regions": {
+            "items": {
+              "properties": {
+                "risk": {"type": "null"},
+                "display_state": {"enum": ["NO_PUBLIC_RISK", "SUSPENDED", "NO_DATA"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "release": {
+            "properties": {"risk_engine_allowed": {"const": true}},
+            "required": ["risk_engine_allowed"]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "release": {"properties": {"state": {"const": "RELEASED"}}}
+        }
+      }
+    }
+  ]
+}
