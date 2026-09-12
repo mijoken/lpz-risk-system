@@ -12,13 +12,19 @@
     maxLat: 46.5,
   });
   const MIN_SCALE = 1;
-  const MAX_SCALE = 8;
+  const MAX_SCALE = 10;
 
   const state = {
     svg: null,
     viewport: null,
     rainImage: null,
     boundaryGroup: null,
+    cityLayer: null,
+    tooltip: null,
+    onSelect: null,
+    viewChangeHandler: null,
+    cityLabelsVisible: true,
+    cities: [],
     scale: 1,
     tx: 0,
     ty: 0,
@@ -73,6 +79,11 @@
     throw new Error(`Unsupported geometry type: ${geometry.type}`);
   }
 
+  function featureDisplayName(feature) {
+    const props = feature?.properties || {};
+    return props.display_name_ja || props.name_ja || props.region_code || feature?.id || "名称未取得";
+  }
+
   function positionTooltip(tooltip, event) {
     if (!tooltip || !event) return;
     const margin = 14;
@@ -89,8 +100,13 @@
     const props = feature.properties || {};
     const name = tooltip.querySelector("strong");
     const meta = tooltip.querySelector("span");
-    if (name) name.textContent = props.name_ja || "名称未取得";
-    if (meta) meta.textContent = `JMA一次細分区域 ${props.region_code || feature.id || "—"}`;
+    if (name) name.textContent = featureDisplayName(feature);
+    if (meta) {
+      const raw = props.name_ja && props.display_name_ja && props.name_ja !== props.display_name_ja
+        ? ` · JMA名称 ${props.name_ja}`
+        : "";
+      meta.textContent = `一次細分区域 ${props.region_code || feature.id || "—"}${raw}`;
+    }
     tooltip.hidden = false;
     positionTooltip(tooltip, event);
   }
@@ -112,12 +128,43 @@
     };
   }
 
-  function applyTransform() {
+  function refreshCityLabels() {
+    if (!state.cityLayer) return;
+    const scale = state.scale;
+    for (const group of state.cityLayer.querySelectorAll(".reference-city")) {
+      const minScale = Number(group.dataset.minScale || 1);
+      const visible = state.cityLabelsVisible && scale + 1e-6 >= minScale;
+      group.style.display = visible ? "block" : "none";
+      if (!visible) continue;
+      const circle = group.querySelector("circle");
+      const text = group.querySelector("text");
+      if (circle) {
+        circle.setAttribute("r", String(3.0 / scale));
+        circle.setAttribute("stroke-width", String(1.25 / scale));
+      }
+      if (text) {
+        text.setAttribute("font-size", String(12.5 / scale));
+        text.setAttribute("x", String(6.5 / scale));
+        text.setAttribute("y", String(-5.5 / scale));
+        text.setAttribute("stroke-width", String(2.7 / scale));
+      }
+    }
+  }
+
+  function notifyViewChange() {
+    if (typeof state.viewChangeHandler === "function") {
+      state.viewChangeHandler({ scale: state.scale, tx: state.tx, ty: state.ty });
+    }
+  }
+
+  function applyTransform({ notify = true } = {}) {
     if (!state.viewport) return;
     state.viewport.setAttribute(
       "transform",
       `translate(${state.tx.toFixed(3)} ${state.ty.toFixed(3)}) scale(${state.scale.toFixed(5)})`
     );
+    refreshCityLabels();
+    if (notify) notifyViewChange();
   }
 
   function zoomAt(factor, point) {
@@ -145,6 +192,26 @@
 
   function zoomOut() {
     zoomAt(1 / 1.45, { x: VIEW.width / 2, y: VIEW.height / 2 });
+  }
+
+  function focusLonLat(lon, lat, scale = 5) {
+    const p = project([lon, lat]);
+    const next = clamp(Number(scale) || 5, MIN_SCALE, MAX_SCALE);
+    state.scale = next;
+    state.tx = VIEW.width / 2 - p[0] * next;
+    state.ty = VIEW.height / 2 - p[1] * next;
+    state.dragLast = null;
+    state.pinchStart = null;
+    applyTransform();
+  }
+
+  function focusFeature(feature, scale = 4.5) {
+    const props = feature?.properties || {};
+    const lon = Number(props.label_lon);
+    const lat = Number(props.label_lat);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return false;
+    focusLonLat(lon, lat, scale);
+    return true;
   }
 
   function pointerDistance(a, b) {
@@ -223,11 +290,7 @@
         const distance = Math.max(1, pointerDistance(a, b));
         const start = state.pinchStart;
         if (!start) return;
-        const nextScale = clamp(
-          start.scale * (distance / start.distance),
-          MIN_SCALE,
-          MAX_SCALE
-        );
+        const nextScale = clamp(start.scale * (distance / start.distance), MIN_SCALE, MAX_SCALE);
         state.scale = nextScale;
         state.tx = center.x - start.worldX * nextScale;
         state.ty = center.y - start.worldY * nextScale;
@@ -264,21 +327,103 @@
     });
   }
 
-  function render(svg, featureCollection, options = {}) {
-    if (!svg) throw new Error("Map SVG element is missing.");
+  function buildBoundaryFragment(featureCollection) {
     if (!featureCollection || featureCollection.type !== "FeatureCollection") {
       throw new Error("Public geometry is not a GeoJSON FeatureCollection.");
     }
-    const features = Array.isArray(featureCollection.features)
-      ? featureCollection.features
-      : [];
+    const features = Array.isArray(featureCollection.features) ? featureCollection.features : [];
     if (!features.length) throw new Error("Public geometry contains no features.");
 
+    const fragment = document.createDocumentFragment();
+    let count = 0;
+    for (const feature of features) {
+      const d = geometryPath(feature.geometry);
+      if (!d) continue;
+
+      const path = document.createElementNS(SVG_NS, "path");
+      const props = feature.properties || {};
+      const code = props.region_code || String(feature.id || "");
+      const name = featureDisplayName(feature);
+
+      path.setAttribute("d", d);
+      path.setAttribute("class", "region");
+      path.setAttribute("fill-rule", "evenodd");
+      path.setAttribute("clip-rule", "evenodd");
+      path.setAttribute("tabindex", "0");
+      path.setAttribute("role", "button");
+      path.setAttribute("aria-label", `${name} ${code}`.trim());
+      path.dataset.regionCode = code;
+
+      path.addEventListener("pointerenter", (event) => {
+        path.classList.add("is-active");
+        if (event.pointerType === "mouse") showTooltip(state.tooltip, feature, event);
+      });
+      path.addEventListener("pointermove", (event) => {
+        if (event.pointerType === "mouse") positionTooltip(state.tooltip, event);
+      });
+      path.addEventListener("pointerleave", (event) => {
+        path.classList.remove("is-active");
+        if (event.pointerType === "mouse") hideTooltip(state.tooltip);
+      });
+      path.addEventListener("click", (event) => {
+        path.classList.add("is-active");
+        showTooltip(state.tooltip, feature, event);
+        if (typeof state.onSelect === "function") state.onSelect(feature);
+      });
+      path.addEventListener("focus", () => path.classList.add("is-active"));
+      path.addEventListener("blur", () => path.classList.remove("is-active"));
+
+      fragment.appendChild(path);
+      count += 1;
+    }
+    return { fragment, count };
+  }
+
+  function replaceGeometry(featureCollection) {
+    if (!state.boundaryGroup) throw new Error("Map is not initialized.");
+    const { fragment, count } = buildBoundaryFragment(featureCollection);
+    state.boundaryGroup.replaceChildren(fragment);
+    return count;
+  }
+
+  function renderCities(cities) {
+    if (!state.cityLayer) return;
+    state.cityLayer.replaceChildren();
+    state.cities = Array.isArray(cities) ? cities : [];
+    const fragment = document.createDocumentFragment();
+    for (const city of state.cities) {
+      const lon = Number(city.lon);
+      const lat = Number(city.lat);
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+      const [x, y] = project([lon, lat]);
+      const g = document.createElementNS(SVG_NS, "g");
+      g.setAttribute("class", "reference-city");
+      g.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)})`);
+      g.dataset.minScale = String(Number(city.min_scale) || 1);
+
+      const circle = document.createElementNS(SVG_NS, "circle");
+      circle.setAttribute("cx", "0");
+      circle.setAttribute("cy", "0");
+      const text = document.createElementNS(SVG_NS, "text");
+      text.textContent = String(city.name_ja || "");
+      text.setAttribute("paint-order", "stroke");
+      text.setAttribute("stroke-linejoin", "round");
+      g.append(circle, text);
+      fragment.appendChild(g);
+    }
+    state.cityLayer.appendChild(fragment);
+    refreshCityLabels();
+  }
+
+  function render(svg, featureCollection, options = {}) {
+    if (!svg) throw new Error("Map SVG element is missing.");
     svg.setAttribute("viewBox", `0 0 ${VIEW.width} ${VIEW.height}`);
     svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
     svg.replaceChildren();
 
-    const tooltip = options.tooltip || null;
+    state.tooltip = options.tooltip || null;
+    state.onSelect = typeof options.onSelect === "function" ? options.onSelect : null;
+
     const viewport = document.createElementNS(SVG_NS, "g");
     viewport.setAttribute("class", "map-viewport");
 
@@ -295,58 +440,23 @@
 
     const boundaryGroup = document.createElementNS(SVG_NS, "g");
     boundaryGroup.setAttribute("class", "boundary-layer");
-    const fragment = document.createDocumentFragment();
-
-    for (const feature of features) {
-      const d = geometryPath(feature.geometry);
-      if (!d) continue;
-
-      const path = document.createElementNS(SVG_NS, "path");
-      const props = feature.properties || {};
-      const code = props.region_code || String(feature.id || "");
-      const name = props.name_ja || code || "JMA一次細分区域";
-
-      path.setAttribute("d", d);
-      path.setAttribute("class", "region");
-      path.setAttribute("fill-rule", "evenodd");
-      path.setAttribute("clip-rule", "evenodd");
-      path.setAttribute("tabindex", "0");
-      path.setAttribute("role", "button");
-      path.setAttribute("aria-label", `${name} ${code}`.trim());
-      path.dataset.regionCode = code;
-
-      path.addEventListener("pointerenter", (event) => {
-        path.classList.add("is-active");
-        if (event.pointerType === "mouse") showTooltip(tooltip, feature, event);
-      });
-      path.addEventListener("pointermove", (event) => {
-        if (event.pointerType === "mouse") positionTooltip(tooltip, event);
-      });
-      path.addEventListener("pointerleave", (event) => {
-        path.classList.remove("is-active");
-        if (event.pointerType === "mouse") hideTooltip(tooltip);
-      });
-      path.addEventListener("click", (event) => {
-        path.classList.add("is-active");
-        showTooltip(tooltip, feature, event);
-      });
-      path.addEventListener("focus", () => path.classList.add("is-active"));
-      path.addEventListener("blur", () => path.classList.remove("is-active"));
-
-      fragment.appendChild(path);
-    }
-
-    boundaryGroup.appendChild(fragment);
     viewport.appendChild(boundaryGroup);
+
+    const cityLayer = document.createElementNS(SVG_NS, "g");
+    cityLayer.setAttribute("class", "reference-city-layer");
+    cityLayer.setAttribute("pointer-events", "none");
+    viewport.appendChild(cityLayer);
     svg.appendChild(viewport);
 
     state.svg = svg;
     state.viewport = viewport;
     state.rainImage = rainImage;
     state.boundaryGroup = boundaryGroup;
+    state.cityLayer = cityLayer;
+    const rendered = replaceGeometry(featureCollection);
     resetView();
     bindInteractions(svg);
-    return boundaryGroup.querySelectorAll(".region").length;
+    return rendered;
   }
 
   function setRainFrame(url) {
@@ -368,19 +478,34 @@
   }
 
   function setBoundariesVisible(visible) {
-    if (state.boundaryGroup) {
-      state.boundaryGroup.style.display = visible ? "block" : "none";
-    }
+    if (state.boundaryGroup) state.boundaryGroup.style.display = visible ? "block" : "none";
+  }
+
+  function setCityLabelsVisible(visible) {
+    state.cityLabelsVisible = Boolean(visible);
+    refreshCityLabels();
+  }
+
+  function setViewChangeHandler(handler) {
+    state.viewChangeHandler = typeof handler === "function" ? handler : null;
+    notifyViewChange();
   }
 
   window.LPZMap = Object.freeze({
     VIEW,
     render,
+    replaceGeometry,
+    renderCities,
     resetView,
     zoomIn,
     zoomOut,
+    focusLonLat,
+    focusFeature,
+    currentScale: () => state.scale,
+    setViewChangeHandler,
     setRainFrame,
     setRainVisible,
     setBoundariesVisible,
+    setCityLabelsVisible,
   });
 })();
