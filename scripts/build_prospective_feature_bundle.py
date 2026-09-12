@@ -4,10 +4,13 @@
 The bundle intentionally contains derived scientific JSON only. Raw radar PNG/tiles and
 GRIB payloads are never archived here. No risk score or LPZ classification is produced.
 
-A technically valid tracking cycle can legitimately contain no temporally trackable
-precipitation component. That is an operationally complete observation, not a pipeline
-failure and not an LPZ-negative label. In that case downstream hierarchy/genesis reports
-are not applicable and the bundle is archived as COMPLETE_NO_TRACKABLE_EVENT.
+Normal live weather can stop at different descriptive stages without being a pipeline
+failure:
+- no temporally trackable precipitation component;
+- trackable components exist, but no embedded-core genesis event is observed;
+- full downstream precursor descriptors are available.
+
+These states are archived explicitly. None is an LPZ-positive/negative classification.
 """
 from __future__ import annotations
 
@@ -28,14 +31,19 @@ COMPONENTS = {
     "parent_precursor_features": "parent_precursor_features.json",
 }
 
-UPSTREAM_TRACKING_COMPONENTS = {
+TRACKING_STAGE = {
     "radar_scientific_decode",
     "radar_morphology",
     "radar_wind_orientation",
     "radar_tracking",
 }
 
-DOWNSTREAM_EVENT_COMPONENTS = set(COMPONENTS) - UPSTREAM_TRACKING_COMPONENTS
+HIERARCHY_STAGE = TRACKING_STAGE | {
+    "radar_hierarchy",
+    "radar_temporal",
+}
+
+EVENT_STAGE = set(COMPONENTS) - HIERARCHY_STAGE
 
 
 def _load(path: Path) -> dict:
@@ -46,11 +54,7 @@ def _load(path: Path) -> dict:
 
 
 def _tracking_no_event(tracking: dict | None) -> bool:
-    """Return true only for a successful tracking execution with zero temporal match.
-
-    This is deliberately narrower than merely checking scientific_tracking_proven=False.
-    A technical failure must never be converted into a no-event observation.
-    """
+    """True only for a successful fixed-mosaic cycle with zero temporal match."""
     if not isinstance(tracking, dict):
         return False
     gates = tracking.get("gates")
@@ -64,6 +68,18 @@ def _tracking_no_event(tracking: dict | None) -> bool:
         and isinstance(tracking.get("tracking"), dict)
         and isinstance(tracking.get("frame_valid_times"), list)
         and len(tracking.get("frame_valid_times", [])) >= 2
+    )
+
+
+def _hierarchy_no_genesis(hierarchy: dict | None, temporal: dict | None) -> bool:
+    """True only when hierarchy + temporal processing succeeded and genesis count is zero."""
+    if not isinstance(hierarchy, dict) or not isinstance(temporal, dict):
+        return False
+    return (
+        hierarchy.get("execution_ok") is True
+        and hierarchy.get("scientific_hierarchy_proven") is True
+        and hierarchy.get("embedded_core_genesis_event_count") == 0
+        and temporal.get("execution_ok") is True
     )
 
 
@@ -97,30 +113,52 @@ def build_bundle(
         components[name] = payload
         failed.extend(_component_failure(name, payload))
 
-    no_trackable_event = _tracking_no_event(components.get("radar_tracking"))
     present = set(components)
-    all_present = present == set(COMPONENTS)
-    upstream_present = UPSTREAM_TRACKING_COMPONENTS.issubset(present)
     missing_set = set(missing)
+    no_trackable_event = _tracking_no_event(components.get("radar_tracking"))
+    no_embedded_genesis = _hierarchy_no_genesis(
+        components.get("radar_hierarchy"),
+        components.get("radar_temporal"),
+    )
 
     if no_trackable_event:
-        # A no-event cycle is complete only when every prerequisite through tracking
-        # exists, none failed technically, and any missing reports are downstream-only.
         complete = (
-            upstream_present
+            TRACKING_STAGE.issubset(present)
             and not failed
-            and missing_set.issubset(DOWNSTREAM_EVENT_COMPONENTS)
+            and missing_set.issubset(set(COMPONENTS) - TRACKING_STAGE)
         )
         collection_status = (
-            "COMPLETE_NO_TRACKABLE_EVENT"
-            if complete
-            else "TECHNICAL_INCOMPLETE"
+            "COMPLETE_NO_TRACKABLE_EVENT" if complete else "TECHNICAL_INCOMPLETE"
         )
         candidate_structure_state = "NO_TEMPORALLY_TRACKABLE_COMPONENT"
+        interpretation = (
+            "Collection completed normally, but this four-frame live tracking window "
+            "contained no temporally trackable precipitation component under the "
+            "conservative overlap association. This is not an LPZ-negative label."
+        )
+    elif no_embedded_genesis:
+        complete = (
+            HIERARCHY_STAGE.issubset(present)
+            and not failed
+            and missing_set.issubset(EVENT_STAGE)
+        )
+        collection_status = (
+            "COMPLETE_NO_EMBEDDED_GENESIS" if complete else "TECHNICAL_INCOMPLETE"
+        )
+        candidate_structure_state = "TRACKABLE_COMPONENT_NO_EMBEDDED_GENESIS"
+        interpretation = (
+            "Collection completed normally with temporally trackable precipitation "
+            "components, but no embedded-core genesis event was observed in this live "
+            "window. This is descriptive absence of the downstream event, not an "
+            "LPZ-negative label."
+        )
     else:
-        complete = all_present and not failed
+        complete = present == set(COMPONENTS) and not failed
         collection_status = "COMPLETE_FEATURES" if complete else "TECHNICAL_INCOMPLETE"
-        candidate_structure_state = "TRACKABLE_COMPONENT_PRESENT" if complete else "UNKNOWN"
+        candidate_structure_state = "TRACKABLE_COMPONENT_WITH_FEATURES" if complete else "UNKNOWN"
+        interpretation = (
+            "Prospective derived-feature collection only; no LPZ classification is produced."
+        )
 
     generated = generated_at_utc or (
         datetime.now(timezone.utc)
@@ -130,8 +168,9 @@ def build_bundle(
     )
 
     tracking = components.get("radar_tracking") or {}
+    hierarchy = components.get("radar_hierarchy") or {}
     bundle = {
-        "schema_version": "0.2.0",
+        "schema_version": "0.3.0",
         "phase": "2E-prospective-derived-feature-archive",
         "entity_type": "PROSPECTIVE_DERIVED_FEATURE_BUNDLE",
         "generated_at_utc": generated,
@@ -142,6 +181,8 @@ def build_bundle(
         "collection_status": collection_status,
         "candidate_structure_state": candidate_structure_state,
         "candidate_structure_is_lpz_classification": False,
+        "no_event_state_is_negative_label": False,
+        # Retained for backward-compatible consumers introduced in v0.2.0.
         "no_trackable_event_is_negative_label": False,
         "raw_radar_archived": False,
         "raw_grib_archived": False,
@@ -155,13 +196,12 @@ def build_bundle(
             "scientific_tracking_proven": tracking.get("scientific_tracking_proven"),
             "execution_ok": tracking.get("execution_ok"),
         },
-        "interpretation": (
-            "Collection completed normally, but this four-frame live tracking window "
-            "contained no temporally trackable precipitation component under the "
-            "conservative overlap association. This is not an LPZ-negative label."
-            if collection_status == "COMPLETE_NO_TRACKABLE_EVENT"
-            else "Prospective derived-feature collection only; no LPZ classification is produced."
-        ),
+        "hierarchy_window": {
+            "scientific_hierarchy_proven": hierarchy.get("scientific_hierarchy_proven"),
+            "embedded_core_genesis_event_count": hierarchy.get("embedded_core_genesis_event_count"),
+            "execution_ok": hierarchy.get("execution_ok"),
+        },
+        "interpretation": interpretation,
         "lpz_classification": None,
         "risk_score": None,
         "risk_engine_allowed": False,
