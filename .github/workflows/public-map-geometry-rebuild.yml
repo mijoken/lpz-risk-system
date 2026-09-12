@@ -66,6 +66,12 @@ jobs:
               assert geo['region_count'] == 142
               assert geo['scientific_masking_allowed'] is False
               assert geo['risk_engine_allowed'] is False
+              assert geo['display_transform']['collapsed_ring_policy'] == (
+                  'BACK_OFF_TOLERANCE_THEN_KEEP_OFFICIAL_RING_NEVER_TRIANGLE_FLOOR'
+              )
+              assert geo['display_transform']['tiny_part_policy'] == (
+                  'PRUNE_BY_LOD_KEEP_LARGEST_PART_PER_REGION'
+              )
               codes = {str(f['properties']['region_code']) for f in geo['features']}
               assert len(codes) == 142
               if expected_codes is None:
@@ -73,14 +79,10 @@ jobs:
               else:
                   assert codes == expected_codes
 
-              # O7 removes the old triangle-floor mechanism entirely.
-              for f in geo['features']:
-                  transform = geo['display_transform']
-                  assert 'TRIANGLE' not in transform['collapsed_ring_policy']
-
           compat = json.loads(Path('web/assets/japan_primary_subdivisions.geojson').read_text(encoding='utf-8'))
           assert compat['lod'] == 'overview'
           assert compat['region_count'] == 142
+          assert compat['display_transform']['collapsed_ring_policy'].endswith('NEVER_TRIANGLE_FLOOR')
           print('O7 topology-safe map product validation: PASS')
           PY
 
