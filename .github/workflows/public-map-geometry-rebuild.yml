@@ -1,0 +1,120 @@
+name: LPZ Public Map Geometry Rebuild (O7)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/public-map-geometry-rebuild.yml"
+      - "scripts/build_public_map_lod.py"
+      - "config/jma_primary_subdivision_gis.json"
+      - "src/lpz_risk/historical_spatial.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lpz-public-map-geometry-rebuild
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Build topology-safe display geometry LODs
+        run: |
+          python scripts/build_public_map_lod.py \
+            --asset-dir web/assets/map \
+            --compat-output web/assets/japan_primary_subdivisions.geojson \
+            --report reports/web/phase2l_o7_public_map_lod_report.json
+
+      - name: Validate public map products
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('web/assets/map/manifest.json').read_text(encoding='utf-8'))
+          assert manifest['product'] == 'LPZ_PUBLIC_MAP_GEOMETRY_MANIFEST'
+          assert manifest['region_count'] == 142
+          assert manifest['scientific_masking_allowed'] is False
+          assert manifest['risk_engine_allowed'] is False
+          assert [row['id'] for row in manifest['lods']] == ['overview','regional','local']
+
+          expected_codes = None
+          for row in manifest['lods']:
+              p = Path('web') / row['path']
+              assert p.is_file(), p
+              geo = json.loads(p.read_text(encoding='utf-8'))
+              assert geo['region_count'] == 142
+              assert geo['scientific_masking_allowed'] is False
+              assert geo['risk_engine_allowed'] is False
+              codes = {str(f['properties']['region_code']) for f in geo['features']}
+              assert len(codes) == 142
+              if expected_codes is None:
+                  expected_codes = codes
+              else:
+                  assert codes == expected_codes
+
+              # O7 removes the old triangle-floor mechanism entirely.
+              for f in geo['features']:
+                  transform = geo['display_transform']
+                  assert 'TRIANGLE' not in transform['collapsed_ring_policy']
+
+          compat = json.loads(Path('web/assets/japan_primary_subdivisions.geojson').read_text(encoding='utf-8'))
+          assert compat['lod'] == 'overview'
+          assert compat['region_count'] == 142
+          print('O7 topology-safe map product validation: PASS')
+          PY
+
+      - name: Commit generated public geometry
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          git add \
+            web/assets/japan_primary_subdivisions.geojson \
+            web/assets/map/manifest.json \
+            web/assets/map/jma_primary_overview.geojson \
+            web/assets/map/jma_primary_regional.geojson \
+            web/assets/map/jma_primary_local.geojson
+          if git diff --cached --quiet; then
+            echo "No public map geometry changes to commit."
+          else
+            git commit -m "phase2l: regenerate topology-safe public map geometry"
+            git push origin HEAD:main
+          fi
+
+      - name: Write summary
+        if: always()
+        run: |
+          if [ -f reports/web/phase2l_o7_public_map_lod_report.json ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          p=json.load(open('reports/web/phase2l_o7_public_map_lod_report.json',encoding='utf-8'))
+          print('## O7 Public Map Geometry')
+          print(f"- Gate: **{p['gate']}**")
+          print(f"- Regions: **{p['region_count']}**")
+          print('- Triangle-floor policy: **REMOVED**')
+          for row in p['lods']:
+              print(f"- {row['lod']}: {row['display_vertices']:,} vertices / {row['mib']:.2f} MiB")
+          PY
+          fi
