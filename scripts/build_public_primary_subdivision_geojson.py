@@ -1,515 +1,237 @@
 #!/usr/bin/env python3
-"""Phase 2L-O2 — build lightweight public JMA primary-subdivision GeoJSON.
-
-Production purpose:
-- derive a browser-friendly map asset for GitHub Pages from official JMA GIS;
-- use JMA area.json class10s as the exact nationwide primary-subdivision code set;
-- preserve a hard separation between display geometry and scientific geometry.
-
-IMPORTANT:
-The simplified/rounded output from this script is DISPLAY ONLY.
-It must never be used for rainfall masking, matching, or scientific calculations.
-"""
-
 from __future__ import annotations
-
-import argparse
-import hashlib
-import json
-import sys
-import urllib.request
+import argparse, hashlib, json, sys, urllib.request
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src"
+SRC = ROOT / 'src'
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+from lpz_risk.historical_spatial import build_primary_subdivision_geojson
 
-from lpz_risk.historical_spatial import build_primary_subdivision_geojson  # noqa: E402
-
-DEFAULT_CONFIG = ROOT / "config" / "jma_primary_subdivision_gis.json"
-DEFAULT_OUTPUT = ROOT / "web" / "assets" / "japan_primary_subdivisions.geojson"
-DEFAULT_REPORT = ROOT / "reports" / "web" / "phase2l_o2_public_geometry_report.json"
-
-USER_AGENT = "lpz-risk-system/0.1 public-map-builder"
-EXPECTED_SOURCE_ID = "JMA_PRIMARY_SUBDIVISION_GIS"
-MAX_ADAPTIVE_DECIMALS = 10
+DEFAULT_CONFIG = ROOT/'config'/'jma_primary_subdivision_gis.json'
+DEFAULT_OUTPUT = ROOT/'web'/'assets'/'japan_primary_subdivisions.geojson'
+DEFAULT_REPORT = ROOT/'reports'/'web'/'phase2l_o2_public_geometry_report.json'
+PASS_GATE = 'PASS_PHASE2L_O2_PUBLIC_JMA_PRIMARY_SUBDIVISION_GEOJSON'
+MAX_DECIMALS = 10
 
 
-def _download(url: str, timeout: int = 180) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        payload = resp.read()
-    if not payload:
-        raise ValueError(f"empty response: {url}")
-    return payload
+def download(url: str) -> bytes:
+    req = urllib.request.Request(url, headers={'User-Agent':'lpz-risk-system/0.1 public-map-builder'})
+    with urllib.request.urlopen(req, timeout=180) as r:
+        b = r.read()
+    if not b: raise ValueError(f'empty response: {url}')
+    return b
 
 
-def _sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+def sha256(b: bytes) -> str:
+    return hashlib.sha256(b).hexdigest()
 
 
-def _atomic_write_json(path: Path, payload: Any, *, compact: bool) -> None:
+def dump_bytes(obj: Any) -> bytes:
+    return (json.dumps(obj, ensure_ascii=False, separators=(',',':'), allow_nan=False)+'\n').encode('utf-8')
+
+
+def atomic_write(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if compact:
-        text = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
-    else:
-        text = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
-    json.loads(text)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
+    tmp = path.with_suffix(path.suffix+'.tmp')
+    tmp.write_bytes(data); tmp.replace(path)
 
 
-def _extract_class10s(area_payload: bytes) -> dict[str, dict[str, Any]]:
-    area = json.loads(area_payload.decode("utf-8"))
-    class10s = area.get("class10s")
-    if not isinstance(class10s, dict) or not class10s:
-        raise ValueError("JMA area.json does not contain a non-empty class10s object")
-
-    out: dict[str, dict[str, Any]] = {}
-    for raw_code, raw_meta in class10s.items():
-        code = str(raw_code).strip()
-        if len(code) != 6 or not code.isdigit():
-            raise ValueError(f"unexpected class10s code: {raw_code!r}")
-        if not isinstance(raw_meta, dict):
-            raise ValueError(f"class10s metadata is not an object: {code}")
-        name = raw_meta.get("name")
-        if not isinstance(name, str) or not name.strip():
-            raise ValueError(f"class10s missing Japanese name: {code}")
-        out[code] = dict(raw_meta)
+def extract_class10s(b: bytes) -> dict[str,dict[str,Any]]:
+    obj = json.loads(b.decode('utf-8'))
+    src = obj.get('class10s')
+    if not isinstance(src, dict) or not src: raise ValueError('JMA area.json missing class10s')
+    out = {}
+    for code, meta in src.items():
+        code = str(code)
+        if len(code)!=6 or not code.isdigit(): raise ValueError(f'bad class10s code: {code}')
+        if not isinstance(meta,dict) or not str(meta.get('name','')).strip(): raise ValueError(f'bad class10s metadata: {code}')
+        out[code]=meta
     return out
 
 
-def _sqdist(a: list[float], b: list[float]) -> float:
-    dx = float(a[0]) - float(b[0])
-    dy = float(a[1]) - float(b[1])
-    return dx * dx + dy * dy
+def point_seg_d2(p,a,b):
+    ax,ay=a; bx,by=b; px,py=p; dx=bx-ax; dy=by-ay
+    if dx==0 and dy==0: return (px-ax)**2+(py-ay)**2
+    t=max(0,min(1,((px-ax)*dx+(py-ay)*dy)/(dx*dx+dy*dy)))
+    qx=ax+t*dx; qy=ay+t*dy
+    return (px-qx)**2+(py-qy)**2
 
 
-def _point_segment_sqdist(p: list[float], a: list[float], b: list[float]) -> float:
-    ax, ay = float(a[0]), float(a[1])
-    bx, by = float(b[0]), float(b[1])
-    px, py = float(p[0]), float(p[1])
-    dx, dy = bx - ax, by - ay
-    if dx == 0.0 and dy == 0.0:
-        return (px - ax) ** 2 + (py - ay) ** 2
-    t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)
-    t = max(0.0, min(1.0, t))
-    qx, qy = ax + t * dx, ay + t * dy
-    return (px - qx) ** 2 + (py - qy) ** 2
+def rdp(points, tol):
+    if len(points)<=2: return points[:]
+    a,b=points[0],points[-1]; best=-1; idx=-1
+    for i in range(1,len(points)-1):
+        d=point_seg_d2(points[i],a,b)
+        if d>best: best=d; idx=i
+    if best>tol*tol and idx>0:
+        left=rdp(points[:idx+1],tol); right=rdp(points[idx:],tol)
+        return left[:-1]+right
+    return [a,b]
 
 
-def _rdp_open(points: list[list[float]], tolerance: float) -> list[list[float]]:
-    if len(points) <= 2 or tolerance <= 0.0:
-        return points[:]
-    tol2 = tolerance * tolerance
-    a, b = points[0], points[-1]
-    max_d2 = -1.0
-    index = -1
-    for i in range(1, len(points) - 1):
-        d2 = _point_segment_sqdist(points[i], a, b)
-        if d2 > max_d2:
-            max_d2 = d2
-            index = i
-    if max_d2 > tol2 and index > 0:
-        left = _rdp_open(points[: index + 1], tolerance)
-        right = _rdp_open(points[index:], tolerance)
-        return left[:-1] + right
-    return [a, b]
-
-
-def _dedupe_consecutive(points: Iterable[list[float]]) -> list[list[float]]:
-    out: list[list[float]] = []
-    for p in points:
-        q = [float(p[0]), float(p[1])]
-        if not out or q != out[-1]:
-            out.append(q)
-    return out
-
-
-def _open_ring(coords: list[list[float]]) -> list[list[float]]:
-    pts = _dedupe_consecutive(coords)
-    if len(pts) >= 2 and pts[0] == pts[-1]:
-        pts = pts[:-1]
+def open_ring(coords):
+    pts=[]
+    for p in coords:
+        q=[float(p[0]),float(p[1])]
+        if not pts or q!=pts[-1]: pts.append(q)
+    if len(pts)>1 and pts[0]==pts[-1]: pts.pop()
     return pts
 
 
-def _ring_valid(ring: list[list[float]]) -> bool:
-    if len(ring) < 4:
-        return False
-    if ring[0] != ring[-1]:
-        return False
-    if len({tuple(p) for p in ring[:-1]}) < 3:
-        return False
-    return all(
-        118.0 <= float(lon) <= 156.0 and 18.0 <= float(lat) <= 50.0
-        for lon, lat in ring
-    )
+def close_round(pts, decimals):
+    out=[]
+    for p in pts:
+        q=[round(float(p[0]),decimals),round(float(p[1]),decimals)]
+        if not out or q!=out[-1]: out.append(q)
+    if out and out[0]!=out[-1]: out.append(out[0][:])
+    return out
 
 
-def _round_close(points: list[list[float]], decimals: int) -> list[list[float]]:
-    rounded = [[round(float(p[0]), decimals), round(float(p[1]), decimals)] for p in points]
-    rounded = _dedupe_consecutive(rounded)
-    if rounded and rounded[0] != rounded[-1]:
-        rounded.append(rounded[0][:])
-    return rounded
+def valid_ring(r):
+    return len(r)>=4 and r[0]==r[-1] and len({tuple(p) for p in r[:-1]})>=3 and all(118<=p[0]<=156 and 18<=p[1]<=50 for p in r)
 
 
-def _simplified_open_ring(pts: list[list[float]], tolerance: float) -> list[list[float]]:
-    if len(pts) <= 3 or tolerance <= 0.0:
-        return pts[:]
-
-    i0 = min(range(len(pts)), key=lambda i: (pts[i][0], pts[i][1]))
-    p0 = pts[i0]
-    i1 = max(range(len(pts)), key=lambda i: _sqdist(pts[i], p0))
-    if i0 == i1:
-        return pts[:]
-
-    rotated = pts[i0:] + pts[:i0]
-    j = (i1 - i0) % len(pts)
-    if j <= 0 or j >= len(rotated):
-        j = max(range(1, len(rotated)), key=lambda i: _sqdist(rotated[i], rotated[0]))
-
-    chain1 = rotated[: j + 1]
-    chain2 = rotated[j:] + [rotated[0]]
-    simp1 = _rdp_open(chain1, tolerance)
-    simp2 = _rdp_open(chain2, tolerance)
-    merged = _dedupe_consecutive(simp1 + simp2[1:])
-    if merged and merged[0] == merged[-1]:
-        merged = merged[:-1]
-    if len({tuple(p) for p in merged}) < 3:
-        return pts[:]
-    return merged
+def simplify_open(pts,tol):
+    if len(pts)<=3: return pts[:]
+    i0=min(range(len(pts)),key=lambda i:(pts[i][0],pts[i][1]))
+    p0=pts[i0]; i1=max(range(len(pts)),key=lambda i:(pts[i][0]-p0[0])**2+(pts[i][1]-p0[1])**2)
+    rot=pts[i0:]+pts[:i0]; j=(i1-i0)%len(pts)
+    if j<=0 or j>=len(rot): j=max(range(1,len(rot)),key=lambda i:(rot[i][0]-rot[0][0])**2+(rot[i][1]-rot[0][1])**2)
+    merged=rdp(rot[:j+1],tol)+rdp(rot[j:]+[rot[0]],tol)[1:]
+    ded=[]
+    for p in merged:
+        if not ded or p!=ded[-1]: ded.append(p)
+    if ded and ded[0]==ded[-1]: ded.pop()
+    return ded if len({tuple(p) for p in ded})>=3 else pts[:]
 
 
-def _simplify_ring(
-    coords: list[list[float]],
-    tolerance: float,
-    decimals: int,
-    stats: dict[str, int],
-) -> list[list[float]]:
-    """Simplify a display ring without ever collapsing a valid small island.
+def minimal_triangle(pts):
+    i0=min(range(len(pts)),key=lambda i:(pts[i][0],pts[i][1]))
+    p0=pts[i0]
+    i1=max(range(len(pts)),key=lambda i:(pts[i][0]-p0[0])**2+(pts[i][1]-p0[1])**2)
+    candidates=[i for i in range(len(pts)) if i not in {i0,i1}]
+    i2=max(candidates,key=lambda i:point_seg_d2(pts[i],pts[i0],pts[i1]))
+    if point_seg_d2(pts[i2],pts[i0],pts[i1])<=0: raise ValueError('degenerate official ring')
+    chosen={i0,i1,i2}
+    tri=[pts[i] for i in range(len(pts)) if i in chosen]
+    if len(tri)!=3: raise ValueError('triangle fallback failed')
+    return tri
 
-    Normal path uses requested tolerance/precision. If simplification or rounding
-    collapses the ring, fall back to the original ring and increase precision only
-    for that ring. This preserves tiny official polygons while keeping the bulk of
-    the public GeoJSON compact.
-    """
-    stats["rings_total"] += 1
-    pts = _open_ring(coords)
-    if len({tuple(p) for p in pts}) < 3:
-        raise ValueError("official source ring has fewer than 3 distinct vertices")
 
-    simplified = _simplified_open_ring(pts, tolerance)
-    candidate = _round_close(simplified, decimals)
-    if _ring_valid(candidate):
-        if len(simplified) < len(pts):
-            stats["rings_simplified"] += 1
+def simplify_ring(coords,tol,decimals,stats):
+    stats['rings_total']+=1
+    pts=open_ring(coords)
+    if len({tuple(p) for p in pts})<3: raise ValueError('official ring invalid')
+    candidate=close_round(simplify_open(pts,tol),decimals)
+    if valid_ring(candidate):
+        if len(candidate)-1 < len(pts): stats['rings_simplified']+=1
         return candidate
-
-    stats["rings_fallback_original"] += 1
-    for adaptive_decimals in range(decimals, MAX_ADAPTIVE_DECIMALS + 1):
-        fallback = _round_close(pts, adaptive_decimals)
-        if _ring_valid(fallback):
-            if adaptive_decimals > decimals:
-                stats["rings_precision_escalated"] += 1
-                stats["max_decimals_used"] = max(stats["max_decimals_used"], adaptive_decimals)
-            return fallback
-
-    exact = [[float(p[0]), float(p[1])] for p in pts]
-    exact.append(exact[0][:])
-    if _ring_valid(exact):
-        stats["rings_exact_fallback"] += 1
-        return exact
-    raise ValueError("official source ring remains invalid after exact fallback")
+    stats['rings_minimal_triangle']+=1
+    tri=minimal_triangle(pts)
+    for d in range(decimals,MAX_DECIMALS+1):
+        r=close_round(tri,d)
+        if valid_ring(r):
+            if d>decimals: stats['rings_precision_escalated']+=1
+            stats['max_decimals_used']=max(stats['max_decimals_used'],d)
+            return r
+    r=tri+[tri[0][:]]
+    if valid_ring(r): return r
+    raise ValueError('tiny ring fallback invalid')
 
 
-def _count_vertices_geometry(geometry: dict[str, Any]) -> int:
-    gtype = geometry.get("type")
-    if gtype == "Polygon":
-        return sum(len(ring) for ring in geometry.get("coordinates", []))
-    if gtype == "MultiPolygon":
-        return sum(len(ring) for polygon in geometry.get("coordinates", []) for ring in polygon)
-    if gtype == "GeometryCollection":
-        return sum(_count_vertices_geometry(g) for g in geometry.get("geometries", []))
-    raise ValueError(f"unsupported geometry type: {gtype!r}")
+def transform(g,tol,decimals,stats):
+    t=g.get('type')
+    if t=='Polygon': return {'type':'Polygon','coordinates':[simplify_ring(r,tol,decimals,stats) for r in g.get('coordinates',[])]}
+    if t=='MultiPolygon': return {'type':'MultiPolygon','coordinates':[[simplify_ring(r,tol,decimals,stats) for r in poly] for poly in g.get('coordinates',[])]}
+    if t=='GeometryCollection': return {'type':'GeometryCollection','geometries':[transform(x,tol,decimals,stats) for x in g.get('geometries',[])]}
+    raise ValueError(f'unsupported geometry: {t}')
 
 
-def _transform_geometry(
-    geometry: dict[str, Any],
-    *,
-    tolerance: float,
-    decimals: int,
-    stats: dict[str, int],
-) -> dict[str, Any]:
-    gtype = geometry.get("type")
-    if gtype == "Polygon":
-        return {
-            "type": "Polygon",
-            "coordinates": [
-                _simplify_ring(ring, tolerance, decimals, stats)
-                for ring in geometry.get("coordinates", [])
-            ],
-        }
-    if gtype == "MultiPolygon":
-        return {
-            "type": "MultiPolygon",
-            "coordinates": [
-                [_simplify_ring(ring, tolerance, decimals, stats) for ring in polygon]
-                for polygon in geometry.get("coordinates", [])
-            ],
-        }
-    if gtype == "GeometryCollection":
-        return {
-            "type": "GeometryCollection",
-            "geometries": [
-                _transform_geometry(g, tolerance=tolerance, decimals=decimals, stats=stats)
-                for g in geometry.get("geometries", [])
-            ],
-        }
-    raise ValueError(f"unsupported geometry type: {gtype!r}")
+def count_vertices(g):
+    t=g.get('type')
+    if t=='Polygon': return sum(len(r) for r in g.get('coordinates',[]))
+    if t=='MultiPolygon': return sum(len(r) for p in g.get('coordinates',[]) for r in p)
+    if t=='GeometryCollection': return sum(count_vertices(x) for x in g.get('geometries',[]))
+    raise ValueError(t)
 
 
-def _validate_coordinates(geometry: dict[str, Any]) -> None:
-    gtype = geometry.get("type")
-    if gtype == "Polygon":
-        polygons = [geometry.get("coordinates", [])]
-    elif gtype == "MultiPolygon":
-        polygons = geometry.get("coordinates", [])
-    elif gtype == "GeometryCollection":
-        for g in geometry.get("geometries", []):
-            _validate_coordinates(g)
+def validate(g):
+    t=g.get('type')
+    if t=='Polygon': polys=[g.get('coordinates',[])]
+    elif t=='MultiPolygon': polys=g.get('coordinates',[])
+    elif t=='GeometryCollection':
+        for x in g.get('geometries',[]): validate(x)
         return
-    else:
-        raise ValueError(f"unsupported geometry type: {gtype!r}")
-
-    for polygon in polygons:
-        if not polygon:
-            raise ValueError("polygon has no rings")
-        for ring in polygon:
-            if not _ring_valid(ring):
-                raise ValueError("invalid polygon ring after display transform")
+    else: raise ValueError(t)
+    for p in polys:
+        if not p: raise ValueError('polygon without rings')
+        for r in p:
+            if not valid_ring(r): raise ValueError('invalid display ring')
 
 
-def _public_feature(
-    feature: dict[str, Any],
-    meta: dict[str, Any],
-    *,
-    tolerance: float,
-    decimals: int,
-    stats: dict[str, int],
-) -> tuple[dict[str, Any], int, int]:
-    code = str(feature["id"])
-    raw_geometry = feature["geometry"]
-    before = _count_vertices_geometry(raw_geometry)
-    geometry = _transform_geometry(
-        raw_geometry,
-        tolerance=tolerance,
-        decimals=decimals,
-        stats=stats,
-    )
-    _validate_coordinates(geometry)
-    after = _count_vertices_geometry(geometry)
-
-    props = feature.get("properties", {})
-    public = {
-        "type": "Feature",
-        "id": code,
-        "properties": {
-            "region_code": code,
-            "geometry_key": code,
-            "name_ja": meta.get("name"),
-            "name_en": meta.get("enName"),
-            "parent_code": meta.get("parent"),
-            "office_name_ja": meta.get("officeName"),
-            "source_part_count": props.get("source_part_count"),
-        },
-        "geometry": geometry,
-    }
-    return public, before, after
+def build_candidate(official, meta, cfg, tol, decimals, zip_sha, area_sha):
+    stats={'rings_total':0,'rings_simplified':0,'rings_minimal_triangle':0,'rings_precision_escalated':0,'max_decimals_used':decimals}
+    feats=[]; before=after=0; seen=set()
+    for f in official['features']:
+        code=str(f['id'])
+        if code not in meta or code in seen: raise RuntimeError(f'bad/duplicate code {code}')
+        seen.add(code); raw=f['geometry']; g=transform(raw,tol,decimals,stats); validate(g)
+        before+=count_vertices(raw); after+=count_vertices(g)
+        p=f.get('properties',{})
+        feats.append({'type':'Feature','id':code,'properties':{'region_code':code,'geometry_key':code,'name_ja':meta[code].get('name'),'name_en':meta[code].get('enName'),'parent_code':meta[code].get('parent'),'office_name_ja':meta[code].get('officeName'),'source_part_count':p.get('source_part_count')},'geometry':g})
+    if seen!=set(meta): raise RuntimeError('public feature code mismatch')
+    feats.sort(key=lambda x:x['id'])
+    obj={'type':'FeatureCollection','schema_version':'1.0.2','product':'LPZ_PUBLIC_JMA_PRIMARY_SUBDIVISION_GEOMETRY','geographic_unit':'JMA_PRIMARY_SUBDIVISION','geometry_key':'region_code','display_geometry_semantics':'AUTO_SIMPLIFIED_DERIVATIVE_FOR_WEB_DISPLAY_ONLY','scientific_masking_allowed':False,'risk_engine_allowed':False,'source':{'authority':cfg['source_authority'],'source_id':cfg['source_id'],'source_page':cfg['source_page'],'source_zip_url':cfg['zip_url'],'area_metadata_url':cfg['area_metadata_url'],'source_crs':'JGD2011 geographic lon/lat','source_zip_sha256':zip_sha,'area_metadata_sha256':area_sha},'display_transform':{'simplification_algorithm':'RDP_AUTO_TUNED_WITH_TINY_RING_TRIANGLE','tolerance_degrees':tol,'nominal_coordinate_decimals':decimals,'adaptive_precision_max_decimals':MAX_DECIMALS,'tiny_ring_fallback':'DISPLAY_ONLY_MINIMAL_TRIANGLE','research_geometry_modified':False},'region_count':len(feats),'features':feats}
+    return obj, {'before':before,'after':after,'stats':stats}
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
-    ap.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    ap.add_argument("--report", type=Path, default=DEFAULT_REPORT)
-    ap.add_argument(
-        "--tolerance-deg",
-        type=float,
-        default=0.0015,
-        help="Display-only RDP tolerance in degrees. Never used for science.",
-    )
-    ap.add_argument(
-        "--coordinate-decimals",
-        type=int,
-        default=5,
-        help="Nominal decimal places for display GeoJSON; tiny rings may retain more precision.",
-    )
-    ap.add_argument(
-        "--max-output-mib",
-        type=float,
-        default=10.0,
-        help="Fail if final public GeoJSON is larger than this.",
-    )
-    args = ap.parse_args()
+def schedule(base,maxv):
+    vals=[]; v=base
+    while v<=maxv+1e-12:
+        vals.append(round(v,10)); v*=2
+    if not vals or vals[-1]<maxv: vals.append(maxv)
+    return vals
 
-    if args.tolerance_deg < 0:
-        raise ValueError("--tolerance-deg must be >= 0")
-    if not (4 <= args.coordinate_decimals <= 8):
-        raise ValueError("--coordinate-decimals must be between 4 and 8")
-    if args.max_output_mib <= 0:
-        raise ValueError("--max-output-mib must be > 0")
 
-    cfg = json.loads(args.config.read_text(encoding="utf-8"))
-    if cfg.get("source_id") != EXPECTED_SOURCE_ID:
-        raise ValueError(f"unexpected source_id: {cfg.get('source_id')!r}")
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument('--config',type=Path,default=DEFAULT_CONFIG); ap.add_argument('--output',type=Path,default=DEFAULT_OUTPUT); ap.add_argument('--report',type=Path,default=DEFAULT_REPORT)
+    ap.add_argument('--tolerance-deg',type=float,default=0.0015); ap.add_argument('--max-tolerance-deg',type=float,default=0.096); ap.add_argument('--coordinate-decimals',type=int,default=5); ap.add_argument('--target-output-mib',type=float,default=8.0); ap.add_argument('--max-output-mib',type=float,default=10.0)
+    a=ap.parse_args()
+    if a.tolerance_deg<=0 or a.max_tolerance_deg<a.tolerance_deg: raise ValueError('invalid tolerance range')
+    if not 4<=a.coordinate_decimals<=8: raise ValueError('coordinate decimals must be 4..8')
+    if not 0<a.target_output_mib<=a.max_output_mib: raise ValueError('invalid size limits')
+    cfg=json.loads(a.config.read_text(encoding='utf-8'))
+    if cfg.get('source_id')!='JMA_PRIMARY_SUBDIVISION_GIS': raise ValueError('unexpected source_id')
 
-    print("=" * 104)
-    print("LPZ PHASE 2L-O2 — PUBLIC JMA PRIMARY-SUBDIVISION GEOJSON")
-    print("=" * 104)
-    print("Downloading JMA area metadata ...")
-    area_bytes = _download(str(cfg["area_metadata_url"]))
-    class10s = _extract_class10s(area_bytes)
-    required_codes = set(class10s)
-    print(f"JMA class10s regions             : {len(required_codes)}")
+    print('='*104); print('LPZ PHASE 2L-O2 — PUBLIC JMA PRIMARY-SUBDIVISION GEOJSON'); print('='*104)
+    print('Downloading JMA area metadata ...'); area=download(str(cfg['area_metadata_url'])); meta=extract_class10s(area); codes=set(meta); print(f'JMA class10s regions             : {len(codes)}')
+    print('Downloading official JMA primary-subdivision GIS archive ...'); z=download(str(cfg['zip_url'])); print(f'GIS archive downloaded           : {len(z)/(1024**2):.1f} MiB')
+    official=build_primary_subdivision_geojson(z,codes); missing=list(official.get('missing_required_codes') or [])
+    if missing or int(official.get('resolved_code_count',-1))!=len(codes): raise RuntimeError(f'official geometry incomplete: {missing[:20]}')
+    print(f'Official geometry resolved       : {len(codes)} / {len(codes)}')
+    print(f'Auto-size target / hard max      : {a.target_output_mib:.2f} / {a.max_output_mib:.2f} MiB'); print('-'*104)
 
-    print("Downloading official JMA primary-subdivision GIS archive ...")
-    zip_bytes = _download(str(cfg["zip_url"]))
-    print(f"GIS archive downloaded           : {len(zip_bytes) / (1024**2):.1f} MiB")
+    trials=[]; chosen=None; best=None; zsha=sha256(z); asha=sha256(area)
+    for tol in schedule(a.tolerance_deg,a.max_tolerance_deg):
+        obj,m=build_candidate(official,meta,cfg,tol,a.coordinate_decimals,zsha,asha); payload=dump_bytes(obj); size=len(payload)/(1024**2); ratio=m['after']/m['before'] if m['before'] else 0
+        trials.append({'tolerance_degrees':tol,'output_size_mib':size,'after_vertices':m['after'],'vertex_retention_fraction':ratio,'ring_fallback_statistics':m['stats']})
+        print(f'trial tolerance={tol:<8g} size={size:>7.2f} MiB vertices={m["after"]:,} retention={ratio:.2%}')
+        if size<=a.max_output_mib: best=(tol,obj,m,payload)
+        if size<=a.target_output_mib: chosen=(tol,obj,m,payload); break
+    if chosen is None: chosen=best
+    if chosen is None:
+        report={'schema_version':'1.0.2','phase':'2L-O2-public-primary-subdivision-geometry','gate':'FAIL_PHASE2L_O2_PUBLIC_GEOJSON_TOO_LARGE','trials':trials,'scientific_masking_allowed':False,'research_geometry_modified':False,'risk_engine_allowed':False}
+        atomic_write(a.report,(json.dumps(report,ensure_ascii=False,indent=2)+'\n').encode('utf-8'))
+        raise RuntimeError(f'no safe simplification fit under {a.max_output_mib:.2f} MiB; see report')
 
-    official = build_primary_subdivision_geojson(zip_bytes, required_codes)
-    missing = list(official.get("missing_required_codes") or [])
-    if missing:
-        raise RuntimeError(
-            f"official JMA geometry missing {len(missing)} class10s codes: {missing[:20]}"
-        )
-    if int(official.get("resolved_code_count", -1)) != len(required_codes):
-        raise RuntimeError("resolved official geometry count does not equal JMA class10s count")
-
-    public_features: list[dict[str, Any]] = []
-    before_vertices = 0
-    after_vertices = 0
-    seen: set[str] = set()
-    ring_stats = {
-        "rings_total": 0,
-        "rings_simplified": 0,
-        "rings_fallback_original": 0,
-        "rings_precision_escalated": 0,
-        "rings_exact_fallback": 0,
-        "max_decimals_used": args.coordinate_decimals,
-    }
-
-    for feature in official["features"]:
-        code = str(feature["id"])
-        if code not in class10s:
-            raise RuntimeError(f"official geometry produced non-class10s code: {code}")
-        if code in seen:
-            raise RuntimeError(f"duplicate public geometry feature code: {code}")
-        seen.add(code)
-        pub, before, after = _public_feature(
-            feature,
-            class10s[code],
-            tolerance=args.tolerance_deg,
-            decimals=args.coordinate_decimals,
-            stats=ring_stats,
-        )
-        public_features.append(pub)
-        before_vertices += before
-        after_vertices += after
-
-    if seen != required_codes:
-        missing_final = sorted(required_codes - seen)
-        extra_final = sorted(seen - required_codes)
-        raise RuntimeError(f"public feature code mismatch: missing={missing_final}, extra={extra_final}")
-
-    public_features.sort(key=lambda f: str(f["id"]))
-    output_obj = {
-        "type": "FeatureCollection",
-        "schema_version": "1.0.1",
-        "product": "LPZ_PUBLIC_JMA_PRIMARY_SUBDIVISION_GEOMETRY",
-        "geographic_unit": "JMA_PRIMARY_SUBDIVISION",
-        "geometry_key": "region_code",
-        "display_geometry_semantics": "SIMPLIFIED_DERIVATIVE_FOR_WEB_DISPLAY_ONLY",
-        "scientific_masking_allowed": False,
-        "risk_engine_allowed": False,
-        "source": {
-            "authority": cfg["source_authority"],
-            "source_id": cfg["source_id"],
-            "source_page": cfg["source_page"],
-            "source_zip_url": cfg["zip_url"],
-            "area_metadata_url": cfg["area_metadata_url"],
-            "source_crs": "JGD2011 geographic lon/lat",
-            "source_zip_sha256": _sha256(zip_bytes),
-            "area_metadata_sha256": _sha256(area_bytes),
-        },
-        "display_transform": {
-            "simplification_algorithm": "RDP_CLOSED_RING_TWO_CHAIN_WITH_VALIDITY_FALLBACK",
-            "tolerance_degrees": args.tolerance_deg,
-            "nominal_coordinate_decimals": args.coordinate_decimals,
-            "adaptive_precision_max_decimals": MAX_ADAPTIVE_DECIMALS,
-            "research_geometry_modified": False,
-        },
-        "region_count": len(public_features),
-        "features": public_features,
-    }
-
-    _atomic_write_json(args.output, output_obj, compact=True)
-    size_bytes = args.output.stat().st_size
-    size_mib = size_bytes / (1024**2)
-    if size_mib > args.max_output_mib:
-        args.output.unlink(missing_ok=True)
-        raise RuntimeError(
-            f"public GeoJSON would be {size_mib:.2f} MiB, above "
-            f"--max-output-mib={args.max_output_mib:.2f}; increase simplification carefully"
-        )
-
-    ratio = (after_vertices / before_vertices) if before_vertices else 0.0
-    report = {
-        "schema_version": "1.0.1",
-        "phase": "2L-O2-public-primary-subdivision-geometry",
-        "gate": "PASS_PHASE2L_O2_PUBLIC_JMA_PRIMARY_SUBDIVISION_GEOJSON",
-        "source_id": cfg["source_id"],
-        "jma_class10s_count": len(required_codes),
-        "official_geometry_resolved_count": len(seen),
-        "missing_codes": [],
-        "output": str(args.output),
-        "output_size_bytes": size_bytes,
-        "output_size_mib": size_mib,
-        "official_vertex_count_before_display_transform": before_vertices,
-        "public_vertex_count_after_display_transform": after_vertices,
-        "vertex_retention_fraction": ratio,
-        "tolerance_degrees": args.tolerance_deg,
-        "nominal_coordinate_decimals": args.coordinate_decimals,
-        "ring_fallback_statistics": ring_stats,
-        "scientific_masking_allowed": False,
-        "research_geometry_modified": False,
-        "risk_engine_allowed": False,
-        "source_zip_sha256": _sha256(zip_bytes),
-        "area_metadata_sha256": _sha256(area_bytes),
-    }
-    _atomic_write_json(args.report, report, compact=False)
-
-    print(f"Official geometry resolved       : {len(seen)} / {len(required_codes)}")
-    print(f"Vertices before display simplify : {before_vertices:,}")
-    print(f"Vertices after display simplify  : {after_vertices:,}")
-    print(f"Vertex retention                 : {ratio:.2%}")
-    print(f"Protected/fallback rings         : {ring_stats['rings_fallback_original']:,}")
-    print(f"Precision-escalated rings        : {ring_stats['rings_precision_escalated']:,}")
-    print(f"Maximum decimals actually used   : {ring_stats['max_decimals_used']}")
-    print(f"Public GeoJSON size              : {size_mib:.2f} MiB")
-    print("Scientific masking allowed       : NO")
-    print("Research geometry modified       : NO")
-    print("Risk engine                      : NOT ALLOWED")
-    print("")
-    print("Gate                             : PASS_PHASE2L_O2_PUBLIC_JMA_PRIMARY_SUBDIVISION_GEOJSON")
-    print(f"GeoJSON                          : {args.output}")
-    print(f"Report                           : {args.report}")
-    print("=" * 104)
+    tol,obj,m,payload=chosen; atomic_write(a.output,payload); size=len(payload)/(1024**2); ratio=m['after']/m['before'] if m['before'] else 0; st=m['stats']
+    report={'schema_version':'1.0.2','phase':'2L-O2-public-primary-subdivision-geometry','gate':PASS_GATE,'jma_class10s_count':len(codes),'official_geometry_resolved_count':len(codes),'output':str(a.output),'output_size_mib':size,'official_vertex_count_before_display_transform':m['before'],'public_vertex_count_after_display_transform':m['after'],'vertex_retention_fraction':ratio,'initial_tolerance_degrees':a.tolerance_deg,'selected_tolerance_degrees':tol,'ring_fallback_statistics':st,'auto_tuning_trials':trials,'scientific_masking_allowed':False,'research_geometry_modified':False,'risk_engine_allowed':False,'source_zip_sha256':zsha,'area_metadata_sha256':asha}
+    atomic_write(a.report,(json.dumps(report,ensure_ascii=False,indent=2)+'\n').encode('utf-8'))
+    print('-'*104); print(f'Selected display tolerance       : {tol:g} deg'); print(f'Vertices before display simplify : {m["before"]:,}'); print(f'Vertices after display simplify  : {m["after"]:,}'); print(f'Vertex retention                 : {ratio:.2%}'); print(f'Tiny-ring triangles              : {st["rings_minimal_triangle"]:,}'); print(f'Precision-escalated triangles    : {st["rings_precision_escalated"]:,}'); print(f'Maximum decimals actually used   : {st["max_decimals_used"]}'); print(f'Public GeoJSON size              : {size:.2f} MiB'); print('Scientific masking allowed       : NO'); print('Research geometry modified       : NO'); print('Risk engine                      : NOT ALLOWED'); print(); print(f'Gate                             : {PASS_GATE}'); print(f'GeoJSON                          : {a.output}'); print(f'Report                           : {a.report}'); print('='*104)
     return 0
 
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__=='__main__': raise SystemExit(main())
