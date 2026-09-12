@@ -3,9 +3,19 @@
 
   const SYSTEM_STATUS_URL = "./data/system_status.json";
   const RAIN_MANIFEST_URL = "./data/rain/latest.json";
+  const MAP_MANIFEST_URL = "./assets/map/manifest.json";
+  const REFERENCE_CITIES_URL = "./data/reference_cities.json";
   const SUPPORTED_MAJOR = 1;
+
   let rainState = null;
   let rainTimer = null;
+  let mapManifest = null;
+  let referenceCities = [];
+  let regionSearchFeatures = [];
+  let latestProduct = null;
+  let activeLodId = null;
+  let lodRequestToken = 0;
+  const lodCache = new Map();
 
   async function fetchJson(url) {
     const response = await fetch(url, { cache: "no-store" });
@@ -159,7 +169,7 @@
     const riskToggle = document.getElementById("risk-layer-toggle");
     if (riskToggle) {
       riskToggle.checked = false;
-      riskToggle.disabled = locked || true; // reserved until a released risk renderer exists
+      riskToggle.disabled = true;
     }
   }
 
@@ -192,11 +202,12 @@
   function updateMapLegend() {
     const rainToggle = document.getElementById("rain-layer-toggle");
     const rainOn = Boolean(rainToggle?.checked && rainState?.frames?.length);
+    const lod = activeLodId ? ` · ${activeLodId} detail` : "";
     setText(
       "map-legend-text",
       rainOn
-        ? "実況降水（表示用加工） + JMA一次細分区域 · LPZ Risk locked"
-        : "JMA一次細分区域 · LPZ Risk locked"
+        ? `実況降水（表示用加工） + JMA一次細分区域${lod} · LPZ Risk locked`
+        : `JMA一次細分区域${lod} · LPZ Risk locked`
     );
   }
 
@@ -293,6 +304,120 @@
     setRainFrame(rainState.currentIndex);
   }
 
+  function featureDisplayName(feature) {
+    const props = feature?.properties || {};
+    return props.display_name_ja || props.name_ja || props.region_code || feature?.id || "—";
+  }
+
+  function renderRegionSelection(feature) {
+    const props = feature?.properties || {};
+    const code = props.region_code || feature?.id || "—";
+    setText("selected-location-name", featureDisplayName(feature));
+    setText(
+      "selected-location-meta",
+      `JMA一次細分区域 ${code}${props.name_ja ? ` · JMA名称「${props.name_ja}」` : ""}`
+    );
+  }
+
+  function renderCitySelection(city) {
+    setText("selected-location-name", `${city.prefecture_ja || ""} ${city.name_ja || ""}`.trim());
+    setText("selected-location-meta", "地図参照用の主要都市アンカー · 科学計算には使用しません");
+  }
+
+  function normalizeSearch(value) {
+    return String(value || "").trim().toLocaleLowerCase("ja-JP").replace(/\s+/g, "");
+  }
+
+  function setupSearch() {
+    const form = document.getElementById("map-search-form");
+    const input = document.getElementById("map-search-input");
+    const feedback = document.getElementById("map-search-feedback");
+    if (!form || !input) return;
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const q = normalizeSearch(input.value);
+      if (!q) return;
+
+      const city = referenceCities.find((row) => {
+        const values = [row.name_ja, row.prefecture_ja, `${row.prefecture_ja || ""}${row.name_ja || ""}`];
+        return values.some((value) => normalizeSearch(value).includes(q));
+      });
+      if (city) {
+        window.LPZMap.focusLonLat(Number(city.lon), Number(city.lat), 5.2);
+        renderCitySelection(city);
+        if (feedback) feedback.textContent = `${city.prefecture_ja || ""} ${city.name_ja}へ移動しました。`;
+        return;
+      }
+
+      const feature = regionSearchFeatures.find((row) => {
+        const props = row?.properties || {};
+        const values = [
+          props.display_name_ja,
+          props.name_ja,
+          props.parent_name_ja,
+          props.region_code,
+          `${props.parent_name_ja || ""}${props.name_ja || ""}`,
+        ];
+        return values.some((value) => normalizeSearch(value).includes(q));
+      });
+      if (feature && window.LPZMap.focusFeature(feature, 4.7)) {
+        renderRegionSelection(feature);
+        if (feedback) feedback.textContent = `${featureDisplayName(feature)}へ移動しました。`;
+        return;
+      }
+
+      if (feedback) feedback.textContent = `「${input.value.trim()}」は現在の地図参照データでは見つかりませんでした。`;
+    });
+  }
+
+  function desiredLod(scale) {
+    const rows = Array.isArray(mapManifest?.lods) ? mapManifest.lods : [];
+    if (!rows.length) return null;
+    const s = Number(scale) || 1;
+    return rows.find((row) => {
+      const min = Number(row.min_scale ?? 1);
+      const max = row.max_scale === null || row.max_scale === undefined ? Infinity : Number(row.max_scale);
+      return s >= min && s < max;
+    }) || rows[rows.length - 1];
+  }
+
+  async function switchLodForScale(scale) {
+    const target = desiredLod(scale);
+    if (!target || target.id === activeLodId) return;
+    const token = ++lodRequestToken;
+    let geo = lodCache.get(target.id);
+    if (!geo) {
+      geo = await fetchJson(publicUrl(target.path));
+      if (token !== lodRequestToken) return;
+      if (latestProduct) assertRegionJoin(latestProduct, geo);
+      lodCache.set(target.id, geo);
+    }
+    if (token !== lodRequestToken) return;
+
+    const count = window.LPZMap.replaceGeometry(geo);
+    if (count !== 142) throw new Error(`LOD ${target.id} rendered ${count} regions, expected 142.`);
+    activeLodId = target.id;
+    regionSearchFeatures = Array.isArray(geo.features) ? geo.features : regionSearchFeatures;
+    setText("geometry-schema", `${geo.schema_version || "—"} · ${target.id}`);
+    setText("map-state", `${count} regions · ${target.id} detail · interactive public map`);
+    updateMapLegend();
+  }
+
+  function setupReferenceCities(doc) {
+    if (!doc || doc.product !== "LPZ_PUBLIC_REFERENCE_CITIES" || !Array.isArray(doc.cities)) {
+      referenceCities = [];
+      const toggle = document.getElementById("city-layer-toggle");
+      if (toggle) {
+        toggle.checked = false;
+        toggle.disabled = true;
+      }
+      return;
+    }
+    referenceCities = doc.cities;
+    window.LPZMap.renderCities(referenceCities);
+  }
+
   function bindMapControls() {
     document.getElementById("map-reset")?.addEventListener("click", () => window.LPZMap.resetView());
     document.getElementById("map-zoom-in")?.addEventListener("click", () => window.LPZMap.zoomIn());
@@ -303,6 +428,14 @@
       boundaryToggle.checked = true;
       boundaryToggle.addEventListener("change", () => {
         window.LPZMap.setBoundariesVisible(boundaryToggle.checked);
+      });
+    }
+
+    const cityToggle = document.getElementById("city-layer-toggle");
+    if (cityToggle) {
+      cityToggle.checked = true;
+      cityToggle.addEventListener("change", () => {
+        window.LPZMap.setCityLabelsVisible(cityToggle.checked);
       });
     }
   }
@@ -317,35 +450,58 @@
       assertProduct(systemStatus, "LPZ_PUBLIC_SYSTEM_STATUS");
 
       const data = systemStatus.public_data || {};
-      const [sourceHealth, latest, geojson, rainManifest] = await Promise.all([
+      const [sourceHealth, latest, geojson, rainManifest, optionalMapManifest, citiesDoc] = await Promise.all([
         fetchJson(publicUrl(data.source_health_path)),
         fetchJson(publicUrl(data.latest_path)),
         fetchJson(publicUrl(data.geography_path)),
         fetchOptionalJson(RAIN_MANIFEST_URL),
+        fetchOptionalJson(MAP_MANIFEST_URL),
+        fetchOptionalJson(REFERENCE_CITIES_URL),
       ]);
 
       assertProduct(sourceHealth, "LPZ_PUBLIC_SOURCE_HEALTH");
       assertProduct(latest, "LPZ_PUBLIC_LATEST");
       assertLockedRiskInvariant(systemStatus, latest);
       assertRegionJoin(latest, geojson);
+      latestProduct = latest;
 
       if (!window.LPZMap || typeof window.LPZMap.render !== "function") {
         throw new Error("LPZ map renderer was not loaded.");
       }
 
-      const rendered = window.LPZMap.render(svg, geojson, { tooltip });
+      const rendered = window.LPZMap.render(svg, geojson, {
+        tooltip,
+        onSelect: renderRegionSelection,
+      });
       const expected = Number(latest.map?.region_count);
       if (Number.isInteger(expected) && rendered !== expected) {
         throw new Error(`Rendered region count mismatch: rendered=${rendered}, latest=${expected}`);
       }
 
+      mapManifest = optionalMapManifest?.product === "LPZ_PUBLIC_MAP_GEOMETRY_MANIFEST"
+        ? optionalMapManifest
+        : null;
+      activeLodId = geojson.lod || mapManifest?.default_lod || null;
+      regionSearchFeatures = Array.isArray(geojson.features) ? geojson.features : [];
+      if (activeLodId) lodCache.set(activeLodId, geojson);
+
       bindMapControls();
+      setupReferenceCities(citiesDoc);
+      setupSearch();
       renderStatus(systemStatus, sourceHealth);
       setupRain(rainManifest);
       applyStatusValue("public-geometry-status", "ONLINE", "ok");
       setText("geometry-count", String(rendered));
-      setText("map-state", `${rendered} regions · interactive public map`);
-      setText("geometry-schema", geojson.schema_version || "—");
+      setText("map-state", `${rendered} regions · ${activeLodId || "single"} detail · interactive public map`);
+      setText("geometry-schema", `${geojson.schema_version || "—"}${activeLodId ? ` · ${activeLodId}` : ""}`);
+
+      window.LPZMap.setViewChangeHandler(({ scale }) => {
+        switchLodForScale(scale).catch((error) => {
+          console.warn("LOD switch failed; keeping current geometry", error);
+          setText("map-search-feedback", "詳細地図の切替に失敗したため、現在の地図精度を維持しています。");
+        });
+      });
+      updateMapLegend();
     } catch (error) {
       console.error(error);
       applyStatusValue("public-geometry-status", "FAILED", "locked");
