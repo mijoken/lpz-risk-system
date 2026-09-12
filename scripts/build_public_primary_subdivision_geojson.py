@@ -34,6 +34,7 @@ DEFAULT_REPORT = ROOT / "reports" / "web" / "phase2l_o2_public_geometry_report.j
 
 USER_AGENT = "lpz-risk-system/0.1 public-map-builder"
 EXPECTED_SOURCE_ID = "JMA_PRIMARY_SUBDIVISION_GIS"
+MAX_ADAPTIVE_DECIMALS = 10
 
 
 def _download(url: str, timeout: int = 180) -> bytes:
@@ -128,24 +129,43 @@ def _dedupe_consecutive(points: Iterable[list[float]]) -> list[list[float]]:
     return out
 
 
-def _simplify_ring(coords: list[list[float]], tolerance: float, decimals: int) -> list[list[float]]:
+def _open_ring(coords: list[list[float]]) -> list[list[float]]:
     pts = _dedupe_consecutive(coords)
-    if len(pts) < 4:
-        return [[round(p[0], decimals), round(p[1], decimals)] for p in pts]
-
-    if pts[0] == pts[-1]:
+    if len(pts) >= 2 and pts[0] == pts[-1]:
         pts = pts[:-1]
-    if len(pts) < 3:
-        original = _dedupe_consecutive(coords)
-        return [[round(p[0], decimals), round(p[1], decimals)] for p in original]
+    return pts
+
+
+def _ring_valid(ring: list[list[float]]) -> bool:
+    if len(ring) < 4:
+        return False
+    if ring[0] != ring[-1]:
+        return False
+    if len({tuple(p) for p in ring[:-1]}) < 3:
+        return False
+    return all(
+        118.0 <= float(lon) <= 156.0 and 18.0 <= float(lat) <= 50.0
+        for lon, lat in ring
+    )
+
+
+def _round_close(points: list[list[float]], decimals: int) -> list[list[float]]:
+    rounded = [[round(float(p[0]), decimals), round(float(p[1]), decimals)] for p in points]
+    rounded = _dedupe_consecutive(rounded)
+    if rounded and rounded[0] != rounded[-1]:
+        rounded.append(rounded[0][:])
+    return rounded
+
+
+def _simplified_open_ring(pts: list[list[float]], tolerance: float) -> list[list[float]]:
+    if len(pts) <= 3 or tolerance <= 0.0:
+        return pts[:]
 
     i0 = min(range(len(pts)), key=lambda i: (pts[i][0], pts[i][1]))
     p0 = pts[i0]
     i1 = max(range(len(pts)), key=lambda i: _sqdist(pts[i], p0))
     if i0 == i1:
-        rounded = [[round(p[0], decimals), round(p[1], decimals)] for p in pts]
-        rounded.append(rounded[0][:])
-        return rounded
+        return pts[:]
 
     rotated = pts[i0:] + pts[:i0]
     j = (i1 - i0) % len(pts)
@@ -156,23 +176,54 @@ def _simplify_ring(coords: list[list[float]], tolerance: float, decimals: int) -
     chain2 = rotated[j:] + [rotated[0]]
     simp1 = _rdp_open(chain1, tolerance)
     simp2 = _rdp_open(chain2, tolerance)
-    merged = simp1 + simp2[1:]
+    merged = _dedupe_consecutive(simp1 + simp2[1:])
+    if merged and merged[0] == merged[-1]:
+        merged = merged[:-1]
+    if len({tuple(p) for p in merged}) < 3:
+        return pts[:]
+    return merged
 
-    if merged[0] != merged[-1]:
-        merged.append(merged[0][:])
-    distinct = {tuple(p) for p in merged[:-1]}
-    if len(distinct) < 3:
-        merged = pts + [pts[0][:]]
 
-    rounded = [[round(p[0], decimals), round(p[1], decimals)] for p in merged]
-    rounded = _dedupe_consecutive(rounded)
-    if rounded and rounded[0] != rounded[-1]:
-        rounded.append(rounded[0][:])
-    if len(rounded) < 4:
-        fallback = [[round(p[0], decimals), round(p[1], decimals)] for p in pts]
-        fallback.append(fallback[0][:])
-        return fallback
-    return rounded
+def _simplify_ring(
+    coords: list[list[float]],
+    tolerance: float,
+    decimals: int,
+    stats: dict[str, int],
+) -> list[list[float]]:
+    """Simplify a display ring without ever collapsing a valid small island.
+
+    Normal path uses requested tolerance/precision. If simplification or rounding
+    collapses the ring, fall back to the original ring and increase precision only
+    for that ring. This preserves tiny official polygons while keeping the bulk of
+    the public GeoJSON compact.
+    """
+    stats["rings_total"] += 1
+    pts = _open_ring(coords)
+    if len({tuple(p) for p in pts}) < 3:
+        raise ValueError("official source ring has fewer than 3 distinct vertices")
+
+    simplified = _simplified_open_ring(pts, tolerance)
+    candidate = _round_close(simplified, decimals)
+    if _ring_valid(candidate):
+        if len(simplified) < len(pts):
+            stats["rings_simplified"] += 1
+        return candidate
+
+    stats["rings_fallback_original"] += 1
+    for adaptive_decimals in range(decimals, MAX_ADAPTIVE_DECIMALS + 1):
+        fallback = _round_close(pts, adaptive_decimals)
+        if _ring_valid(fallback):
+            if adaptive_decimals > decimals:
+                stats["rings_precision_escalated"] += 1
+                stats["max_decimals_used"] = max(stats["max_decimals_used"], adaptive_decimals)
+            return fallback
+
+    exact = [[float(p[0]), float(p[1])] for p in pts]
+    exact.append(exact[0][:])
+    if _ring_valid(exact):
+        stats["rings_exact_fallback"] += 1
+        return exact
+    raise ValueError("official source ring remains invalid after exact fallback")
 
 
 def _count_vertices_geometry(geometry: dict[str, Any]) -> int:
@@ -186,18 +237,27 @@ def _count_vertices_geometry(geometry: dict[str, Any]) -> int:
     raise ValueError(f"unsupported geometry type: {gtype!r}")
 
 
-def _transform_geometry(geometry: dict[str, Any], *, tolerance: float, decimals: int) -> dict[str, Any]:
+def _transform_geometry(
+    geometry: dict[str, Any],
+    *,
+    tolerance: float,
+    decimals: int,
+    stats: dict[str, int],
+) -> dict[str, Any]:
     gtype = geometry.get("type")
     if gtype == "Polygon":
         return {
             "type": "Polygon",
-            "coordinates": [_simplify_ring(ring, tolerance, decimals) for ring in geometry.get("coordinates", [])],
+            "coordinates": [
+                _simplify_ring(ring, tolerance, decimals, stats)
+                for ring in geometry.get("coordinates", [])
+            ],
         }
     if gtype == "MultiPolygon":
         return {
             "type": "MultiPolygon",
             "coordinates": [
-                [_simplify_ring(ring, tolerance, decimals) for ring in polygon]
+                [_simplify_ring(ring, tolerance, decimals, stats) for ring in polygon]
                 for polygon in geometry.get("coordinates", [])
             ],
         }
@@ -205,7 +265,7 @@ def _transform_geometry(geometry: dict[str, Any], *, tolerance: float, decimals:
         return {
             "type": "GeometryCollection",
             "geometries": [
-                _transform_geometry(g, tolerance=tolerance, decimals=decimals)
+                _transform_geometry(g, tolerance=tolerance, decimals=decimals, stats=stats)
                 for g in geometry.get("geometries", [])
             ],
         }
@@ -229,15 +289,8 @@ def _validate_coordinates(geometry: dict[str, Any]) -> None:
         if not polygon:
             raise ValueError("polygon has no rings")
         for ring in polygon:
-            if len(ring) < 4:
-                raise ValueError("polygon ring has fewer than 4 coordinates")
-            if ring[0] != ring[-1]:
-                raise ValueError("polygon ring is not closed")
-            if len({tuple(p) for p in ring[:-1]}) < 3:
-                raise ValueError("polygon ring has fewer than 3 distinct vertices")
-            for lon, lat in ring:
-                if not (118.0 <= float(lon) <= 156.0 and 18.0 <= float(lat) <= 50.0):
-                    raise ValueError(f"coordinate outside expected Japan GIS envelope: {(lon, lat)}")
+            if not _ring_valid(ring):
+                raise ValueError("invalid polygon ring after display transform")
 
 
 def _public_feature(
@@ -246,11 +299,17 @@ def _public_feature(
     *,
     tolerance: float,
     decimals: int,
+    stats: dict[str, int],
 ) -> tuple[dict[str, Any], int, int]:
     code = str(feature["id"])
     raw_geometry = feature["geometry"]
     before = _count_vertices_geometry(raw_geometry)
-    geometry = _transform_geometry(raw_geometry, tolerance=tolerance, decimals=decimals)
+    geometry = _transform_geometry(
+        raw_geometry,
+        tolerance=tolerance,
+        decimals=decimals,
+        stats=stats,
+    )
     _validate_coordinates(geometry)
     after = _count_vertices_geometry(geometry)
 
@@ -287,7 +346,7 @@ def main() -> int:
         "--coordinate-decimals",
         type=int,
         default=5,
-        help="Decimal places retained in display-only GeoJSON.",
+        help="Nominal decimal places for display GeoJSON; tiny rings may retain more precision.",
     )
     ap.add_argument(
         "--max-output-mib",
@@ -334,6 +393,14 @@ def main() -> int:
     before_vertices = 0
     after_vertices = 0
     seen: set[str] = set()
+    ring_stats = {
+        "rings_total": 0,
+        "rings_simplified": 0,
+        "rings_fallback_original": 0,
+        "rings_precision_escalated": 0,
+        "rings_exact_fallback": 0,
+        "max_decimals_used": args.coordinate_decimals,
+    }
 
     for feature in official["features"]:
         code = str(feature["id"])
@@ -347,6 +414,7 @@ def main() -> int:
             class10s[code],
             tolerance=args.tolerance_deg,
             decimals=args.coordinate_decimals,
+            stats=ring_stats,
         )
         public_features.append(pub)
         before_vertices += before
@@ -360,7 +428,7 @@ def main() -> int:
     public_features.sort(key=lambda f: str(f["id"]))
     output_obj = {
         "type": "FeatureCollection",
-        "schema_version": "1.0.0",
+        "schema_version": "1.0.1",
         "product": "LPZ_PUBLIC_JMA_PRIMARY_SUBDIVISION_GEOMETRY",
         "geographic_unit": "JMA_PRIMARY_SUBDIVISION",
         "geometry_key": "region_code",
@@ -378,9 +446,10 @@ def main() -> int:
             "area_metadata_sha256": _sha256(area_bytes),
         },
         "display_transform": {
-            "simplification_algorithm": "RDP_CLOSED_RING_TWO_CHAIN",
+            "simplification_algorithm": "RDP_CLOSED_RING_TWO_CHAIN_WITH_VALIDITY_FALLBACK",
             "tolerance_degrees": args.tolerance_deg,
-            "coordinate_decimals": args.coordinate_decimals,
+            "nominal_coordinate_decimals": args.coordinate_decimals,
+            "adaptive_precision_max_decimals": MAX_ADAPTIVE_DECIMALS,
             "research_geometry_modified": False,
         },
         "region_count": len(public_features),
@@ -399,7 +468,7 @@ def main() -> int:
 
     ratio = (after_vertices / before_vertices) if before_vertices else 0.0
     report = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.0.1",
         "phase": "2L-O2-public-primary-subdivision-geometry",
         "gate": "PASS_PHASE2L_O2_PUBLIC_JMA_PRIMARY_SUBDIVISION_GEOJSON",
         "source_id": cfg["source_id"],
@@ -413,7 +482,8 @@ def main() -> int:
         "public_vertex_count_after_display_transform": after_vertices,
         "vertex_retention_fraction": ratio,
         "tolerance_degrees": args.tolerance_deg,
-        "coordinate_decimals": args.coordinate_decimals,
+        "nominal_coordinate_decimals": args.coordinate_decimals,
+        "ring_fallback_statistics": ring_stats,
         "scientific_masking_allowed": False,
         "research_geometry_modified": False,
         "risk_engine_allowed": False,
@@ -426,6 +496,9 @@ def main() -> int:
     print(f"Vertices before display simplify : {before_vertices:,}")
     print(f"Vertices after display simplify  : {after_vertices:,}")
     print(f"Vertex retention                 : {ratio:.2%}")
+    print(f"Protected/fallback rings         : {ring_stats['rings_fallback_original']:,}")
+    print(f"Precision-escalated rings        : {ring_stats['rings_precision_escalated']:,}")
+    print(f"Maximum decimals actually used   : {ring_stats['max_decimals_used']}")
     print(f"Public GeoJSON size              : {size_mib:.2f} MiB")
     print("Scientific masking allowed       : NO")
     print("Research geometry modified       : NO")
