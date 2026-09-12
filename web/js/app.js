@@ -2,14 +2,27 @@
   "use strict";
 
   const SYSTEM_STATUS_URL = "./data/system_status.json";
+  const RAIN_MANIFEST_URL = "./data/rain/latest.json";
   const SUPPORTED_MAJOR = 1;
+  let rainState = null;
+  let rainTimer = null;
 
   async function fetchJson(url) {
     const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`${url} returned HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
     return response.json();
+  }
+
+  async function fetchOptionalJson(url) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`${url} returned HTTP ${response.status}`);
+      return response.json();
+    } catch (error) {
+      console.warn("Optional public product unavailable", url, error);
+      return null;
+    }
   }
 
   function setText(id, value) {
@@ -49,7 +62,6 @@
     if (systemAllowed !== latestAllowed) {
       throw new Error("Risk release state mismatch between system_status.json and latest.json.");
     }
-
     if (!systemAllowed) {
       for (const region of latest.regions || []) {
         if (region.risk !== null) {
@@ -73,9 +85,7 @@
       throw new Error(`Region count mismatch: latest=${latestCodes.size}, geometry=${geometryCodes.size}`);
     }
     for (const code of geometryCodes) {
-      if (!latestCodes.has(code)) {
-        throw new Error(`Region join-key missing from latest.json: ${code}`);
-      }
+      if (!latestCodes.has(code)) throw new Error(`Region join-key missing from latest.json: ${code}`);
     }
   }
 
@@ -87,6 +97,25 @@
     if (tone === "ok") node.classList.add("value-ok");
     else if (tone === "locked") node.classList.add("value-locked");
     else node.classList.add("value-wait");
+  }
+
+  function formatJst(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value || "—";
+    return new Intl.DateTimeFormat("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date) + " JST";
+  }
+
+  function ageMinutes(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
   }
 
   function renderStatus(systemStatus, sourceHealth) {
@@ -126,7 +155,156 @@
         `${release.reason || "The public scientific release state is locked."}`
     );
     setText("release-badge", locked ? "PUBLIC PREVIEW · RISK LOCKED" : "PUBLIC RELEASE");
-    setText("map-legend-text", locked ? "Geography only · Risk output locked" : "Released public risk layer");
+
+    const riskToggle = document.getElementById("risk-layer-toggle");
+    if (riskToggle) {
+      riskToggle.checked = false;
+      riskToggle.disabled = locked || true; // reserved until a released risk renderer exists
+    }
+  }
+
+  function stopRainPlayback() {
+    if (rainTimer !== null) {
+      window.clearInterval(rainTimer);
+      rainTimer = null;
+    }
+    const button = document.getElementById("rain-play");
+    if (button) button.textContent = "▶ 再生";
+  }
+
+  function renderRainLegend(manifest) {
+    const root = document.getElementById("rain-legend");
+    if (!root) return;
+    root.replaceChildren();
+    for (const entry of manifest.legend || []) {
+      const item = document.createElement("span");
+      item.className = "rain-legend-item";
+      const swatch = document.createElement("i");
+      const rgb = Array.isArray(entry.rgb) ? entry.rgb : [255, 255, 255];
+      swatch.style.background = `rgb(${rgb.join(",")})`;
+      const label = document.createElement("span");
+      label.textContent = entry.label || "";
+      item.append(swatch, label);
+      root.appendChild(item);
+    }
+  }
+
+  function updateMapLegend() {
+    const rainToggle = document.getElementById("rain-layer-toggle");
+    const rainOn = Boolean(rainToggle?.checked && rainState?.frames?.length);
+    setText(
+      "map-legend-text",
+      rainOn
+        ? "実況降水（表示用加工） + JMA一次細分区域 · LPZ Risk locked"
+        : "JMA一次細分区域 · LPZ Risk locked"
+    );
+  }
+
+  function setRainFrame(index) {
+    if (!rainState || !Array.isArray(rainState.frames) || !rainState.frames.length) return;
+    const safe = Math.max(0, Math.min(rainState.frames.length - 1, Number(index) || 0));
+    const frame = rainState.frames[safe];
+    rainState.currentIndex = safe;
+    window.LPZMap.setRainFrame(publicUrl(frame.image_path));
+
+    const toggle = document.getElementById("rain-layer-toggle");
+    window.LPZMap.setRainVisible(toggle ? toggle.checked : true);
+    const slider = document.getElementById("rain-frame-slider");
+    if (slider) slider.value = String(safe);
+
+    const age = ageMinutes(frame.valid_time_utc);
+    setText(
+      "rain-time",
+      `${formatJst(frame.valid_time_utc)}${age === null ? "" : ` · 約${age}分前`}`
+    );
+    updateMapLegend();
+  }
+
+  function startRainPlayback() {
+    if (!rainState?.frames?.length || rainState.frames.length < 2) return;
+    stopRainPlayback();
+    const button = document.getElementById("rain-play");
+    if (button) button.textContent = "■ 停止";
+    rainTimer = window.setInterval(() => {
+      const next = (rainState.currentIndex + 1) % rainState.frames.length;
+      setRainFrame(next);
+    }, 900);
+  }
+
+  function setupRain(manifest) {
+    const toggle = document.getElementById("rain-layer-toggle");
+    const slider = document.getElementById("rain-frame-slider");
+    const play = document.getElementById("rain-play");
+
+    if (!manifest || manifest.product !== "LPZ_PUBLIC_RAIN_OVERLAY" || !manifest.frames?.length) {
+      rainState = null;
+      if (toggle) {
+        toggle.checked = false;
+        toggle.disabled = true;
+      }
+      if (slider) slider.disabled = true;
+      if (play) play.disabled = true;
+      applyStatusValue("rain-layer-status", manifest?.status || "UNAVAILABLE", "wait");
+      setText("rain-time", "実況降水データなし");
+      window.LPZMap.setRainFrame(null);
+      updateMapLegend();
+      return;
+    }
+
+    assertProduct(manifest, "LPZ_PUBLIC_RAIN_OVERLAY");
+    rainState = {
+      ...manifest,
+      currentIndex: Number.isInteger(manifest.latest_index)
+        ? manifest.latest_index
+        : manifest.frames.length - 1,
+    };
+    renderRainLegend(manifest);
+    applyStatusValue(
+      "rain-layer-status",
+      manifest.status,
+      manifest.status === "AVAILABLE" ? "ok" : "wait"
+    );
+
+    if (toggle) {
+      toggle.disabled = false;
+      toggle.checked = true;
+      toggle.addEventListener("change", () => {
+        window.LPZMap.setRainVisible(toggle.checked);
+        updateMapLegend();
+      });
+    }
+    if (slider) {
+      slider.disabled = false;
+      slider.min = "0";
+      slider.max = String(manifest.frames.length - 1);
+      slider.step = "1";
+      slider.addEventListener("input", () => {
+        stopRainPlayback();
+        setRainFrame(Number(slider.value));
+      });
+    }
+    if (play) {
+      play.disabled = manifest.frames.length < 2;
+      play.addEventListener("click", () => {
+        if (rainTimer === null) startRainPlayback();
+        else stopRainPlayback();
+      });
+    }
+    setRainFrame(rainState.currentIndex);
+  }
+
+  function bindMapControls() {
+    document.getElementById("map-reset")?.addEventListener("click", () => window.LPZMap.resetView());
+    document.getElementById("map-zoom-in")?.addEventListener("click", () => window.LPZMap.zoomIn());
+    document.getElementById("map-zoom-out")?.addEventListener("click", () => window.LPZMap.zoomOut());
+
+    const boundaryToggle = document.getElementById("boundary-layer-toggle");
+    if (boundaryToggle) {
+      boundaryToggle.checked = true;
+      boundaryToggle.addEventListener("change", () => {
+        window.LPZMap.setBoundariesVisible(boundaryToggle.checked);
+      });
+    }
   }
 
   async function start() {
@@ -135,15 +313,15 @@
     setText("map-state", "Loading public data …");
 
     try {
-      // system_status.json is authoritative for which public products may be loaded.
       const systemStatus = await fetchJson(SYSTEM_STATUS_URL);
       assertProduct(systemStatus, "LPZ_PUBLIC_SYSTEM_STATUS");
 
       const data = systemStatus.public_data || {};
-      const [sourceHealth, latest, geojson] = await Promise.all([
+      const [sourceHealth, latest, geojson, rainManifest] = await Promise.all([
         fetchJson(publicUrl(data.source_health_path)),
         fetchJson(publicUrl(data.latest_path)),
         fetchJson(publicUrl(data.geography_path)),
+        fetchOptionalJson(RAIN_MANIFEST_URL),
       ]);
 
       assertProduct(sourceHealth, "LPZ_PUBLIC_SOURCE_HEALTH");
@@ -161,10 +339,12 @@
         throw new Error(`Rendered region count mismatch: rendered=${rendered}, latest=${expected}`);
       }
 
+      bindMapControls();
       renderStatus(systemStatus, sourceHealth);
+      setupRain(rainManifest);
       applyStatusValue("public-geometry-status", "ONLINE", "ok");
       setText("geometry-count", String(rendered));
-      setText("map-state", `${rendered} regions · JSON-driven public state`);
+      setText("map-state", `${rendered} regions · interactive public map`);
       setText("geometry-schema", geojson.schema_version || "—");
     } catch (error) {
       console.error(error);
