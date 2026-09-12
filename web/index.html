@@ -15,32 +15,60 @@
       <div>
         <p class="brand-kicker">LPZ Monitoring System</p>
         <h1>線状降水帯モニタリング</h1>
-        <p class="subtitle">JMA一次細分区域を基礎単位とした公開運用ダッシュボード。現在は検証中のため、予測リスク値は公開していません。</p>
+        <p class="subtitle">実況降水とJMA一次細分区域を表示する研究用モニタリング画面。LPZ予測リスクは科学的検証完了まで公開ロック中です。</p>
       </div>
-      <div class="badge" id="release-badge">PUBLIC PREVIEW · PHASE 2L-O4</div>
+      <div class="badge" id="release-badge">PUBLIC PREVIEW · RISK LOCKED</div>
     </header>
 
     <section class="dashboard" aria-label="LPZ operational dashboard">
       <section class="panel map-panel" aria-labelledby="map-title">
         <div class="panel-head">
           <div>
-            <h2 class="panel-title" id="map-title">Japan · JMA Primary Subdivisions</h2>
-            <p class="panel-note">地域にカーソルを合わせると、一次細分区域名とコードを確認できます。現在の色は危険度を意味しません。</p>
+            <h2 class="panel-title" id="map-title">Japan · Live precipitation context</h2>
+            <p class="panel-note">ホイール／ピンチで拡大、ドラッグ／タッチで移動できます。実況降水は表示用情報で、LPZ予測値ではありません。</p>
           </div>
           <div class="map-state" id="map-state">Preparing public data …</div>
         </div>
 
+        <div class="map-toolbar" aria-label="Map controls">
+          <div class="layer-toggles">
+            <label class="toggle-chip"><input id="rain-layer-toggle" type="checkbox" checked> 実況降水</label>
+            <label class="toggle-chip"><input id="boundary-layer-toggle" type="checkbox" checked> 一次細分区域</label>
+            <label class="toggle-chip locked-toggle"><input id="risk-layer-toggle" type="checkbox" disabled> LPZ Risk 🔒</label>
+          </div>
+          <div class="map-buttons">
+            <button id="map-zoom-in" type="button" title="拡大">＋</button>
+            <button id="map-zoom-out" type="button" title="縮小">－</button>
+            <button id="map-reset" type="button">全国表示</button>
+          </div>
+        </div>
+
         <div class="map-wrap">
-          <svg id="japan-map" role="img" aria-label="日本の気象庁一次細分区域地図"></svg>
+          <svg id="japan-map" role="img" aria-label="日本の気象庁一次細分区域と実況降水"></svg>
+
           <div class="map-legend" aria-label="map legend">
             <span class="legend-swatch" aria-hidden="true"></span>
-            <span id="map-legend-text">Geography only · Risk output locked</span>
+            <span id="map-legend-text">JMA一次細分区域 · LPZ Risk locked</span>
           </div>
+
           <div class="tooltip" id="map-tooltip" hidden>
             <strong></strong>
             <span></span>
           </div>
           <div class="error-box" id="map-error" hidden></div>
+        </div>
+
+        <div class="rain-console">
+          <div class="rain-console-head">
+            <div>
+              <strong>実況降水</strong>
+              <span id="rain-time">読み込み中 …</span>
+            </div>
+            <button id="rain-play" type="button">▶ 再生</button>
+          </div>
+          <input id="rain-frame-slider" class="rain-slider" type="range" min="0" max="0" value="0" disabled aria-label="実況降水の時刻">
+          <div class="rain-legend" id="rain-legend" aria-label="降水強度凡例"></div>
+          <p class="rain-attribution">出典：気象庁「高解像度降水ナウキャスト」をLPZ Monitoring Systemで表示用に加工。色は降水強度の区間（mm/h）を示します。</p>
         </div>
       </section>
 
@@ -57,6 +85,11 @@
               <span class="dot ok" aria-hidden="true"></span>
               <span class="status-name">Live sources</span>
               <span class="status-value value-ok" id="live-source-status">LOADING</span>
+            </div>
+            <div class="status-row">
+              <span class="dot ok" aria-hidden="true"></span>
+              <span class="status-name">Rain layer</span>
+              <span class="status-value value-ok" id="rain-layer-status">LOADING</span>
             </div>
             <div class="status-row">
               <span class="dot wait" aria-hidden="true"></span>
@@ -103,7 +136,7 @@
 
         <section class="panel info-panel">
           <h2>About this map</h2>
-          <p>The displayed polygons are a browser-oriented derivative of official Japan Meteorological Agency primary-subdivision GIS. They are simplified for visualization only and must not be used for scientific masking or model computation.</p>
+          <p>一次細分区域のポリゴンは気象庁GISをブラウザ表示用に簡略化したものです。実況降水レイヤーも表示専用であり、研究用の科学計算・マスキングには使用しません。</p>
         </section>
       </aside>
     </section>
