@@ -91,7 +91,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main
           git add \
             web/assets/japan_primary_subdivisions.geojson \
             web/assets/map/manifest.json \
@@ -101,7 +100,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "No public map geometry changes to commit."
           else
+            # Commit the generated working tree first. If main moved while the
+            # ~3-4 minute geometry build was running, rebase this clean commit
+            # afterwards; pulling before commit would fail on generated changes.
             git commit -m "phase2l: regenerate topology-safe public map geometry"
+            git pull --rebase origin main
             git push origin HEAD:main
           fi
 
