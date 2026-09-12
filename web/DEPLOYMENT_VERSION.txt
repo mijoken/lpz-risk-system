@@ -1,0 +1,3 @@
+LPZ Public Web Deployment Marker
+O7 map geometry commit: 09a5c73eeb3a92d74b6844c6995841fbe33e9e88
+Purpose: force and verify the first GitHub Pages deployment containing O7 topology-safe LOD geometry.
