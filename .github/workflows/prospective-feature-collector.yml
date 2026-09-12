@@ -2,6 +2,13 @@ name: LPZ Prospective Native Feature Collector
 
 on:
   workflow_dispatch:
+  schedule:
+    # UTC. Offset five minutes from the public Pages production cycle.
+    - cron: "7,22,37,52 * * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/prospective-feature-collector.yml"
 
 permissions:
   contents: read
@@ -15,31 +22,47 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: "pip"
+
       - name: Install package
-        run: python -m pip install -e .
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
       - name: Verify ecCodes runtime
         run: python -m eccodes selfcheck
 
       - name: Decode current JMA radar palette
         run: python scripts/radar_scientific_decode_probe.py --output reports/scientific/radar_scientific_decode.json
+
       - name: Build current radar morphology
         run: python scripts/radar_morphology_probe.py --output reports/scientific/radar_morphology.json
+
       - name: Compare rainband orientation with 600-hPa wind
         run: python scripts/radar_wind_orientation_probe.py --morphology reports/scientific/radar_morphology.json --output reports/scientific/radar_wind_orientation.json
+
       - name: Build multi-frame radar object tracking
         run: python scripts/radar_tracking_probe.py --output reports/scientific/radar_tracking.json
+
       - name: Build parent/core hierarchy
         run: python scripts/radar_hierarchy_probe.py --tracking reports/scientific/radar_tracking.json --output reports/scientific/radar_hierarchy.json
+
       - name: Build parent temporal descriptors
         run: python scripts/radar_temporal_descriptor.py --tracking reports/scientific/radar_tracking.json --hierarchy reports/scientific/radar_hierarchy.json --output reports/scientific/radar_temporal.json
+
       - name: Build parent-motion-relative genesis geometry
         run: python scripts/radar_genesis_geometry_report.py --tracking reports/scientific/radar_tracking.json --hierarchy reports/scientific/radar_hierarchy.json --output reports/scientific/radar_genesis_geometry.json
+
       - name: Build 850-hPa inflow-relative genesis geometry
         run: python scripts/radar_inflow_geometry_probe.py --genesis reports/scientific/radar_genesis_geometry.json --output reports/scientific/radar_inflow_geometry.json
+
       - name: Build parent precursor feature table
         run: |
           python scripts/build_parent_precursor_report.py \
@@ -67,9 +90,11 @@ jobs:
           assert p['lpz_classification'] is None, p
           assert p['risk_score'] is None, p
           assert p['risk_engine_allowed'] is False, p
+          print('Prospective scientific lock invariant: PASS')
           PY
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload prospective feature bundle
+        uses: actions/upload-artifact@v6
         with:
           name: prospective-feature-bundle-${{ github.run_id }}
           path: reports/prospective/prospective_feature_bundle.json
