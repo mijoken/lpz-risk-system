@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from lpz_risk.public_web import build_public_products
 
 
@@ -113,10 +111,14 @@ def test_phase_l_seal_violation_is_rejected(tmp_path: Path):
     phase_l = _phase_l()
     phase_l["summary"]["risk_engine_allowed"] = True
 
-    with pytest.raises(RuntimeError, match="risk engine"):
+    try:
         build_public_products(
             source_health_report_path=_write(tmp_path / "l.json", phase_l),
             k2_freeze_path=_write(tmp_path / "k2.json", _k2()),
             geography_path=_write(tmp_path / "g.json", _geometry()),
             generated_at_utc="2026-09-12T10:30:00Z",
         )
+    except RuntimeError as exc:
+        assert "risk engine" in str(exc)
+    else:
+        raise AssertionError("Phase 2L-L risk-engine seal violation was not rejected")
