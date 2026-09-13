@@ -8,11 +8,6 @@ on:
         required: true
         default: false
         type: boolean
-  # One-time production bootstrap proof. Removed immediately after this run.
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/o9-v08-reentry-preflight.yml"
 
 permissions:
   contents: read
@@ -49,7 +44,7 @@ jobs:
             tests/test_o9_v08_required_coverage_gate.py
 
       - name: Optional metadata-only Final V08 availability probe
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.live_v08_probe }}
+        if: ${{ inputs.live_v08_probe }}
         shell: bash
         run: |
           mkdir -p reports/o9 research/o9/reentry
