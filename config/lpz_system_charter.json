@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "charter_id": "LPZ_SYSTEM_CHARTER",
   "recovery_keywords": [
     "LPZ憲章復元",
@@ -111,6 +111,29 @@
     "interpretation": "TEMPORARY_LOCAL_MIGRATION_FOR_DEVELOPMENT_NOT_FINAL_PRODUCTION_ARCHITECTURE",
     "production_go_live_requires_github_scheduling_restored_or_replaced": true
   },
+  "current_operational_transition_2026_09_13": {
+    "github_self_healing_prospective_collection_restored": true,
+    "scientific_slot_clock": "UTC_15_MIN_COLLECTION_SLOT",
+    "github_schedule_role": "WAKE_SIGNAL_ONLY_NOT_SCIENTIFIC_CLOCK",
+    "catchup_horizon_minutes": 120,
+    "o8_1_a_retention_state": "PASS",
+    "o8_1_b_slot_replay_asof_state": "PASS",
+    "o8_1_c_self_healing_collector_state": "PASS",
+    "o8_1_d_canonical_daily_consolidation_state": "PASS",
+    "o8_1_e_observer_implementation_state": "PASS",
+    "o8_1_e_operational_gate_state_at_amendment": "WAIT_REQUIRED_CONSECUTIVE_COMPLETE_DAYS",
+    "o8_1_f_final_cutover_audit_implementation_state": "PASS",
+    "o8_1_f_operational_gate_state_at_amendment": "WAIT_KEEP_WINDOWS_TASK",
+    "canonical_current_cutover_report": "research/operations/o8_1_f_final_cutover_latest.json",
+    "current_state_must_be_read_from_cutover_report": true,
+    "legacy_o8_scheduled_run_count_gate_retired": true,
+    "windows_task_name": "LPZ-Prospective-Collector-15min",
+    "windows_task_should_remain_enabled_at_amendment": true,
+    "windows_task_disable_authority": "O8_1_F_PASS_READY_TO_DISABLE_WINDOWS_TASK_ONLY",
+    "windows_task_disable_action": "MANUAL_ONLY",
+    "cutover_requirement": "LATEST_TWO_FINALIZED_UTC_DAYS_EACH_96_OF_96_CANONICAL_SLOTS_WITH_ZERO_EXPLICIT_GAPS_ZERO_TECHNICAL_INCOMPLETE_PLUS_RUNTIME_FRESHNESS_AND_SCIENTIFIC_LOCK_PASS",
+    "operational_cutover_does_not_unlock_risk_engine": true
+  },
   "recovery_protocol": [
     "READ_LPZ_SYSTEM_CHARTER_MD",
     "READ_THIS_JSON",
@@ -119,6 +142,7 @@
     "READ_PHASE2_K2_FREEZE",
     "INSPECT_GITHUB_WORKFLOWS",
     "INSPECT_WEB_DIRECTORY_AND_PUBLIC_DATA_CONTRACT",
+    "READ_O8_1_F_CURRENT_CUTOVER_REPORT",
     "SEPARATE_TEMPORARY_LOCAL_MECHANISMS_FROM_FINAL_GITHUB_PRODUCTION",
     "SUMMARIZE_RECOVERED_STATE_BEFORE_MODIFYING_CODE"
   ],
