@@ -74,14 +74,72 @@ The local environment is for:
 
 The Windows Task Scheduler collector (`LPZ-Prospective-Collector-15min`) is a **temporary development/verification harness**. It must not be mistaken for the final production scheduler.
 
-As of 2026-09-12, GitHub scheduled prospective collection/consolidation was temporarily disabled during local migration/testing. Before production go-live, scheduled processing must be restored/replaced on GitHub Actions and proven end-to-end.
+### Historical transition — 2026-09-12
 
-Relevant transition commits include:
+As of 2026-09-12, GitHub scheduled prospective collection/consolidation was temporarily disabled during local migration/testing. Relevant transition commits include:
 
 - `b905fc1` — removed the scheduled GitHub prospective collector cron during local migration.
 - `a184267` — removed the scheduled GitHub prospective daily consolidation cron during local migration.
 
-These commits are **not** a declaration that production should remain local.
+These commits were temporary migration steps, **not** a declaration that production should remain local.
+
+### Current operational transition — 2026-09-13
+
+GitHub-side prospective operation has now been restored and redesigned under **Phase 2L-O8.1** so that GitHub cron is only a wake-up signal, not the scientific clock. The canonical scientific clock is the UTC 15-minute `collection_slot_utc` grid.
+
+The operational chain is now:
+
+```text
+O8.1-A  JMA retention census
+   PASS
+     ↓
+O8.1-B  exact historical-slot replay + GFS as-of guard
+   PASS
+     ↓
+O8.1-C  self-healing batch collector
+   PASS
+   catch-up horizon = 120 minutes
+     ↓
+O8.1-D  canonical UTC daily consolidation
+   PASS
+   exactly 96 canonical 15-minute slots/day
+     ↓
+O8.1-E  consecutive-day completeness observer
+   implemented and operational
+     ↓
+O8.1-F  final GitHub-only cutover audit
+   canonical authority for Windows-task retirement
+```
+
+The legacy O8 rule that expected GitHub cron itself to execute roughly 96 times/day is **retired**. GitHub schedule timing is not treated as a scientific sampling clock. Missing slots within the audited horizon are recovered by the self-healing collector, with prospective as-of-time protection.
+
+The authoritative current cutover report is:
+
+```text
+research/operations/o8_1_f_final_cutover_latest.json
+```
+
+As of the 2026-09-13 charter amendment, O8.1-F is correctly in:
+
+```text
+WAIT_KEEP_WINDOWS_TASK
+```
+
+with the sole remaining operational evidence blocker:
+
+```text
+TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS
+```
+
+The temporary Windows task must therefore remain enabled until O8.1-F itself returns:
+
+```text
+PASS_READY_TO_DISABLE_WINDOWS_TASK
+```
+
+**Only O8.1-F may recommend retiring `LPZ-Prospective-Collector-15min`.** Even after O8.1-F passes, disabling the Windows task is a manual operational action; O8.1-F does not disable it automatically.
+
+This operational cutover gate is completely separate from the scientific LPZ Risk Engine release gate.
 
 ---
 
@@ -212,6 +270,12 @@ When documents disagree, use this order unless the user explicitly amends the ch
 
 The README may lag the true research phase; the charter and frozen protocol artifacts take precedence.
 
+For the **current operational cutover state**, always read the live O8.1-F report rather than relying on the amendment-time status written in this charter:
+
+```text
+research/operations/o8_1_f_final_cutover_latest.json
+```
+
 ---
 
 ## 8. Recovery keyword protocol
@@ -244,8 +308,9 @@ It must first perform this recovery sequence:
    - `.github/workflows/`
    - `web/`
    - public JSON/GeoJSON schema/output paths when present.
-6. Distinguish **temporary local development mechanisms** from **final GitHub production mechanisms**.
-7. Summarize the recovered current state, current scientific lock, production architecture, and next legitimate step **before modifying code**.
+6. Read `research/operations/o8_1_f_final_cutover_latest.json` to recover the current GitHub-only cutover state.
+7. Distinguish **temporary local development mechanisms** from **final GitHub production mechanisms**.
+8. Summarize the recovered current state, current scientific lock, production architecture, and next legitimate step **before modifying code**.
 
 The recovery keyword is a command to reconstruct state from GitHub, not a request to trust conversational memory.
 
@@ -261,6 +326,7 @@ Before proposing an architecture change, scheduling change, deployment change, o
 - Does the UI consume JSON/GeoJSON via JavaScript?
 - Does this accidentally expose an unvalidated risk score?
 - Does it violate K2/V8 deferred-validation rules?
+- If Windows-task retirement is being discussed, has O8.1-F actually returned `PASS_READY_TO_DISABLE_WINDOWS_TASK`?
 
 If any answer is unclear, read the charter/repository again before proceeding.
 
