@@ -6,6 +6,7 @@ GRIB payloads are never archived here. No risk score or LPZ classification is pr
 
 Normal live weather can stop at different descriptive stages without being a pipeline
 failure:
+- no precipitation at an exact O8.1 slot;
 - no temporally trackable precipitation component;
 - trackable components exist, but no embedded-core genesis event is observed;
 - full downstream precursor descriptors are available.
@@ -54,20 +55,33 @@ def _load(path: Path) -> dict:
 
 
 def _tracking_no_event(tracking: dict | None) -> bool:
-    """True only for a successful fixed-mosaic cycle with zero temporal match."""
+    """True only for a successful exact/no-match descriptive collection cycle."""
     if not isinstance(tracking, dict):
         return False
     gates = tracking.get("gates")
     if not isinstance(gates, dict):
         return False
+
+    frame_times = tracking.get("frame_valid_times")
+    exact_no_precip = (
+        tracking.get("execution_ok") is True
+        and tracking.get("scientific_tracking_proven") is False
+        and tracking.get("sample_status") == "NO_PRECIPITATION_AT_TARGET"
+        and gates.get("exact_four_frame_sequence") is True
+        and isinstance(frame_times, list)
+        and len(frame_times) == 4
+    )
+    if exact_no_precip:
+        return True
+
     return (
         tracking.get("execution_ok") is True
         and tracking.get("scientific_tracking_proven") is False
         and gates.get("fixed_multiframe_mosaic") is True
         and gates.get("component_tracking") is False
         and isinstance(tracking.get("tracking"), dict)
-        and isinstance(tracking.get("frame_valid_times"), list)
-        and len(tracking.get("frame_valid_times", [])) >= 2
+        and isinstance(frame_times, list)
+        and len(frame_times) >= 2
     )
 
 
@@ -87,7 +101,6 @@ def _component_failure(name: str, payload: dict) -> list[str]:
     failed: list[str] = []
     if payload.get("execution_ok") is False:
         failed.append(f"{name}:execution_ok")
-    # The decoder's palette/zoom proof is a transport-integrity prerequisite.
     if name == "radar_scientific_decode" and payload.get("scientific_decode_proven") is False:
         failed.append(f"{name}:scientific_decode_proven")
     return failed
@@ -127,24 +140,29 @@ def build_bundle(
             and not failed
             and missing_set.issubset(set(COMPONENTS) - TRACKING_STAGE)
         )
-        collection_status = (
-            "COMPLETE_NO_TRACKABLE_EVENT" if complete else "TECHNICAL_INCOMPLETE"
-        )
-        candidate_structure_state = "NO_TEMPORALLY_TRACKABLE_COMPONENT"
-        interpretation = (
-            "Collection completed normally, but this four-frame live tracking window "
-            "contained no temporally trackable precipitation component under the "
-            "conservative overlap association. This is not an LPZ-negative label."
-        )
+        collection_status = "COMPLETE_NO_TRACKABLE_EVENT" if complete else "TECHNICAL_INCOMPLETE"
+        tracking = components.get("radar_tracking") or {}
+        if tracking.get("sample_status") == "NO_PRECIPITATION_AT_TARGET":
+            candidate_structure_state = "NO_PRECIPITATION_AT_TARGET"
+            interpretation = (
+                "Collection completed normally for the exact four-frame slot, and the target "
+                "analysis contained no precipitation in the national scan. This is descriptive "
+                "absence only and is not an LPZ-negative label."
+            )
+        else:
+            candidate_structure_state = "NO_TEMPORALLY_TRACKABLE_COMPONENT"
+            interpretation = (
+                "Collection completed normally, but this four-frame live tracking window "
+                "contained no temporally trackable precipitation component under the "
+                "conservative overlap association. This is not an LPZ-negative label."
+            )
     elif no_embedded_genesis:
         complete = (
             HIERARCHY_STAGE.issubset(present)
             and not failed
             and missing_set.issubset(EVENT_STAGE)
         )
-        collection_status = (
-            "COMPLETE_NO_EMBEDDED_GENESIS" if complete else "TECHNICAL_INCOMPLETE"
-        )
+        collection_status = "COMPLETE_NO_EMBEDDED_GENESIS" if complete else "TECHNICAL_INCOMPLETE"
         candidate_structure_state = "TRACKABLE_COMPONENT_NO_EMBEDDED_GENESIS"
         interpretation = (
             "Collection completed normally with temporally trackable precipitation "
@@ -156,9 +174,7 @@ def build_bundle(
         complete = present == set(COMPONENTS) and not failed
         collection_status = "COMPLETE_FEATURES" if complete else "TECHNICAL_INCOMPLETE"
         candidate_structure_state = "TRACKABLE_COMPONENT_WITH_FEATURES" if complete else "UNKNOWN"
-        interpretation = (
-            "Prospective derived-feature collection only; no LPZ classification is produced."
-        )
+        interpretation = "Prospective derived-feature collection only; no LPZ classification is produced."
 
     generated = generated_at_utc or (
         datetime.now(timezone.utc)
@@ -182,7 +198,6 @@ def build_bundle(
         "candidate_structure_state": candidate_structure_state,
         "candidate_structure_is_lpz_classification": False,
         "no_event_state_is_negative_label": False,
-        # Retained for backward-compatible consumers introduced in v0.2.0.
         "no_trackable_event_is_negative_label": False,
         "raw_radar_archived": False,
         "raw_grib_archived": False,
