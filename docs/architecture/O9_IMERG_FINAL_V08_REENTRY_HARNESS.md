@@ -91,13 +91,78 @@ Risk Engine: LOCKED
 Public LPZ risk: LOCKED
 ```
 
-Only a later reconstruction-complete receipt may move the controller to Primary eligibility:
+### O9-G second half — Guarded ERA5 Retriever / Reconstruction Completion
+
+The authenticated reconstruction implementation is:
+
+```text
+scripts/o9_g_guarded_era5_reconstruction.py
+src/lpz_risk/o9_era5_reconstruction.py
+```
+
+The critical invariant is **authorization verification precedes client creation**. Before `cdsapi.Client()` can be constructed, the runner re-verifies:
+
+- the complete real O9-A through O9-F evidence chain;
+- the authoritative Phase H and K2 freeze hashes;
+- the exact frozen 92-case population SHA;
+- the O9-G authorization receipt fields and predecessor hashes;
+- the request-manifest SHA bound by the authorization receipt;
+- the frozen ERA5-config SHA and JMA geometry-registry SHA;
+- the request manifest's exact 92-case/368-snapshot structure and no-future-time invariant.
+
+`cdsapi` is imported lazily only inside the post-gate client factory. Therefore an invalid or tampered authorization context cannot even construct a CDS client.
+
+Retrieval is organized by the manifest's deterministic date × primary-subdivision request groups. Each successful request:
+
+1. downloads the authorized ERA5 pressure-level GRIB into a temporary working path;
+2. records the payload byte count and SHA-256;
+3. decodes **every** valid time in the multi-time GRIB without overwriting earlier hours;
+4. requires the exact expected valid-time set and rejects missing or unexpected hours;
+5. requires all nine frozen ERA5 fields at each valid time: RH500, RH700, U/V600, U/V850, q1000, q925, q850;
+6. computes the existing provenance-safe environment descriptors over the request bbox context;
+7. writes one immutable compact request descriptor bound to both the authorization-receipt SHA and request-manifest SHA;
+8. removes the temporary raw GRIB after validation.
+
+The process is checkpointed and resumable. The checkpoint itself is bound to the authorization and manifest SHA values. Existing valid descriptors are reused; an existing invalid descriptor causes a hard failure rather than silent overwrite. `--max-new-requests N` can be used to bound one execution; `0` means process all missing request groups.
+
+No fixed request-group count is assumed because the exact count depends on how the 368 mappings collapse onto common `(UTC date, primary subdivision)` requests. Scientific completeness is defined by the immutable 368 mappings, not by a historical request count.
+
+When every request descriptor validates, O9-G joins them back to the frozen snapshot mappings and writes exactly 368 feature rows. Every one of the 92 cases must have the exact four offsets `-12, -6, -3, 0`; duplicate snapshots, missing snapshots, non-finite required descriptors, changed case roles, or any ERA5 source time later than its requested time are fatal.
+
+The completion receipt is then issued:
 
 ```text
 PASS_O9_G_2025_ERA5_RECONSTRUCTION_COMPLETE_92_CASES_368_SNAPSHOTS
+ERA5 retrieval complete: YES
+Matched population changed by ERA5: NO
+Missing snapshots: 0
+Future ERA5 source times: 0
+Primary already run: NO
+Primary may now become eligible: YES
+Risk Engine: LOCKED
+Public LPZ risk: LOCKED
 ```
 
-ERA5 is never allowed to modify O9-F membership.
+The completion receipt SHA-binds the authorization receipt, request manifest, final snapshot CSV, and final snapshot JSON. It does **not** contain the Primary result and does not calculate Positive-vs-comparison outcome statistics. That irreversible read remains O9-H.
+
+A future real execution should be run in resumable batches if desired. Conceptually:
+
+```text
+python scripts/o9_g_guarded_era5_reconstruction.py \
+  --evidence-dir <real O9 evidence dir> \
+  --final-matched-population <o9_f_final_matched_population.csv> \
+  --authorization-receipt <o9_g_2025_era5_opening_receipt.json> \
+  --request-manifest <o9_g_era5_request_manifest.json> \
+  --descriptor-root <checkpointed descriptor dir> \
+  --checkpoint <checkpoint.json> \
+  --work-dir <temporary GRIB work dir> \
+  --snapshot-csv-output <o9_g_era5_snapshot_features.csv> \
+  --snapshot-json-output <o9_g_era5_snapshot_features.json> \
+  --completion-receipt-output <o9_g_2025_era5_reconstruction_complete.json> \
+  --max-new-requests 0
+```
+
+Until the real authorization receipt exists, this command must fail before CDS access.
 
 ## Re-entry state transitions around O9-G
 
@@ -139,6 +204,7 @@ This is not an operational error.
 - O9-E Development-only transform freeze and transfer to 2025;
 - O9-F frozen validation matching and immutable 92-case population freeze;
 - O9-G fail-closed, network-free ERA5 retrieval authorization gate;
+- O9-G guarded, checkpointed authenticated ERA5 retriever and 92×4 reconstruction-completion gate;
 - O9-G re-entry state split between authorization and reconstruction completion.
 
-The later authenticated ERA5 retrieval/reconstruction implementation and the O9-H one-shot confirmatory executor remain separate stages. No later unit may weaken the Phase H/K2 rules.
+O9-H, the one-shot frozen Primary executor/ledger, remains a separate later stage. No later unit may weaken the Phase H/K2 rules.
