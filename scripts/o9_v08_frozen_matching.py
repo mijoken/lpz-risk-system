@@ -26,6 +26,7 @@ from lpz_risk.o9_frozen_matching import (
     MATCH_COMPONENTS,
     MATCH_RATIO,
     MATCHING_CONTRACT,
+    POSITIVE_ROLE,
     SEASON_WINDOW_DAYS,
     frozen_match_2025,
 )
@@ -39,6 +40,9 @@ VAL_E_GATE = "PASS_O9_E_V08_VALIDATION_TRANSFORM_NO_REFIT"
 O9_F_GATE = "PASS_O9_F_V08_FROZEN_2025_MATCHING_23_POSITIVES_69_COMPARISONS"
 H_GATE = "PASS_PHASE2L_H_DISCOVERY_AND_VALIDATION_PROTOCOL_FREEZE_PRIMARY_Q850_T0H"
 K2_GATE = "PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE"
+TIME_ANCHOR_POLICY = "IMERG_3H_P95_MAX_WINDOW_START"
+TIME_ANCHOR_START_COLUMN = "imerg_3h_p95_window_start_utc"
+TIME_ANCHOR_END_COLUMN = "imerg_3h_p95_window_end_utc"
 DEFAULT_H_FREEZE = Path("research/phase2/phase2l_h_validation_protocol_freeze_20260911.json")
 DEFAULT_K2_FREEZE = Path("research/phase2/phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.json")
 
@@ -116,6 +120,7 @@ def verify_frozen_protocol(h_path: Path, k2_path: Path) -> dict[str, str]:
         "space": hp.get("rainfall_matching_space") == expected_space,
         "role": hp.get("comparison_role") == COMPARISON_ROLE,
         "environment_unused": hp.get("environment_variables_used_for_matching") is False,
+        "time_anchor": ((h.get("time_anchor") or {}).get("policy") == TIME_ANCHOR_POLICY),
         "risk_locked": h.get("risk_engine_allowed") is False,
     }
     k2_checks = {
@@ -135,7 +140,6 @@ def verify_frozen_protocol(h_path: Path, k2_path: Path) -> dict[str, str]:
     if not all(k2_checks.values()):
         raise ValueError(f"Phase 2L-K2 frozen matching contract mismatch: {k2_checks}")
 
-    # Code constants must themselves represent the frozen 1:3 contract.
     if MATCH_RATIO != 3 or tuple(MATCH_COMPONENTS) != ("rain_pca_pc1", "rain_pca_pc2"):
         raise AssertionError("O9-F code constants no longer match the frozen protocol")
     return {h_path.name: sha256_file(h_path), k2_path.name: sha256_file(k2_path)}
@@ -200,7 +204,13 @@ def read_validation_transformed_csv(path: Path) -> pd.DataFrame:
         set(KEY)
         | set(MATCH_COMPONENTS)
         | set(METRICS)
-        | {"is_official_positive", "source_id", "imerg_final_version"}
+        | {
+            "is_official_positive",
+            "source_id",
+            "imerg_final_version",
+            TIME_ANCHOR_START_COLUMN,
+            TIME_ANCHOR_END_COLUMN,
+        }
     )
     missing = sorted(required - set(df.columns))
     if missing:
@@ -229,6 +239,14 @@ def read_validation_transformed_csv(path: Path) -> pd.DataFrame:
     metrics = df.loc[:, list(METRICS)].astype(float).to_numpy()
     if not np.isfinite(metrics).all() or np.any(metrics < 0.0):
         raise ValueError("O9-F rainfall metrics must be finite and non-negative")
+
+    anchor_start = pd.to_datetime(df[TIME_ANCHOR_START_COLUMN], utc=True, errors="coerce")
+    anchor_end = pd.to_datetime(df[TIME_ANCHOR_END_COLUMN], utc=True, errors="coerce")
+    if anchor_start.isna().any() or anchor_end.isna().any():
+        raise ValueError("O9-F requires complete parseable IMERG P95 time anchors")
+    if (anchor_end <= anchor_start).any():
+        raise ValueError("O9-F IMERG P95 window end must be after window start")
+
     return df.sort_values(list(KEY), kind="mergesort").reset_index(drop=True)
 
 
@@ -262,6 +280,7 @@ def run(args: argparse.Namespace) -> int:
     positives = outputs["positive_population"]
     pairs = outputs["matched_pairs"]
     comparisons = outputs["comparison_population"]
+    final_population = outputs["final_matched_population"]
     eligibility = outputs["eligibility_audit"]
 
     if len(positives) != 23 or len(pairs) != 69 or len(comparisons) != 69:
@@ -269,25 +288,33 @@ def run(args: argparse.Namespace) -> int:
             f"frozen O9-F cardinality changed: positives={len(positives)} "
             f"pairs={len(pairs)} comparisons={len(comparisons)}"
         )
-    if comparisons[list(KEY)].duplicated().any():
-        raise AssertionError("O9-F comparison population is not globally no-replacement")
+    if len(final_population) != 92:
+        raise AssertionError(f"O9-F final matched population must contain 92 rows, got {len(final_population)}")
+    if comparisons[list(KEY)].duplicated().any() or final_population[list(KEY)].duplicated().any():
+        raise AssertionError("O9-F final population is not globally no-replacement")
     if not (pairs["comparison_role"] == COMPARISON_ROLE).all():
         raise AssertionError("O9-F comparison role changed")
+    if set(final_population["case_role"].astype(str)) != {POSITIVE_ROLE, COMPARISON_ROLE}:
+        raise AssertionError("O9-F final population roles changed")
     if int(pairs["season_day_difference"].max()) > SEASON_WINDOW_DAYS:
         raise AssertionError("O9-F season window exceeded frozen +/-60 days")
+    for label, frame in (("Positive", positives), ("Comparison", comparisons), ("Final", final_population)):
+        if TIME_ANCHOR_START_COLUMN not in frame.columns or frame[TIME_ANCHOR_START_COLUMN].isna().any():
+            raise AssertionError(f"O9-F {label} population lost frozen P95 time anchors")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     paths = {
         "positive_population": args.output_dir / "o9_f_validation_positive_region_days.csv",
         "matched_pairs": args.output_dir / "o9_f_rainfall_matched_pairs.csv",
         "comparison_population": args.output_dir / "o9_f_rainfall_matched_comparison_population.csv",
+        "final_matched_population": args.output_dir / "o9_f_final_matched_population.csv",
         "eligibility_audit": args.output_dir / "o9_f_matching_eligibility_audit.csv",
     }
     for key, path in paths.items():
         atomic_write_csv(path, outputs[key])
 
     evidence = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "phase": "O9-F-V08-frozen-2025-rainfall-matching",
         "gate": O9_F_GATE,
         "source_id": SOURCE_ID,
@@ -301,6 +328,7 @@ def run(args: argparse.Namespace) -> int:
         "match_ratio": "1_POSITIVE_TO_3_COMPARISONS",
         "matched_comparison_region_day_count": 69,
         "unique_comparison_region_day_count": 69,
+        "final_matched_population_region_day_count": 92,
         "replacement_used": False,
         "same_primary_subdivision_required": True,
         "season_window_circular_calendar_days": SEASON_WINDOW_DAYS,
@@ -310,6 +338,10 @@ def run(args: argparse.Namespace) -> int:
         "rainfall_match_distance": "SQRT_MEAN_SQUARED_DIFFERENCE_PC1_PC2",
         "allocation_policy": "DETERMINISTIC_GREEDY_SCARCE_POSITIVES_FIRST_GLOBAL_NO_REPLACEMENT",
         "comparison_population_role": COMPARISON_ROLE,
+        "time_anchor_policy": TIME_ANCHOR_POLICY,
+        "time_anchor_start_column": TIME_ANCHOR_START_COLUMN,
+        "time_anchor_end_column": TIME_ANCHOR_END_COLUMN,
+        "time_anchor_preserved_for_all_final_cases": True,
         "minimum_eligible_comparison_count_before_no_replacement": int(
             eligibility["eligible_comparison_count_before_no_replacement"].min()
         ),
@@ -344,6 +376,7 @@ def run(args: argparse.Namespace) -> int:
         "gate": O9_F_GATE,
         "positive_region_days": 23,
         "matched_comparisons": 69,
+        "final_matched_population": 92,
         "replacement_used": False,
         "validation_era5_environment_read": False,
         "risk_engine_allowed": False,
