@@ -219,18 +219,45 @@ def validate_era5_authorization(obj: dict[str, Any]) -> list[str]:
 
 def validate_era5_completion(obj: dict[str, Any]) -> list[str]:
     e: list[str] = []
+    request_groups = int(obj.get("request_group_count", -1))
+    successful_groups = int(obj.get("successful_request_group_count", -1))
     checks = {
+        "phase": obj.get("phase") == "O9-G-2025-ERA5-reconstruction-complete",
         "validation_year": int(obj.get("validation_year", -1)) == 2025,
         "era5_retrieval_authorized": obj.get("era5_retrieval_authorized") is True,
         "era5_retrieval_completed": obj.get("era5_retrieval_completed") is True,
+        "network_access_performed": obj.get("network_access_performed") is True,
+        "era5_environment_values_read": obj.get("era5_environment_values_read") is True,
         "matched_case_count": int(obj.get("matched_case_count", -1)) == 92,
+        "positive_case_count": int(obj.get("positive_case_count", -1)) == 23,
+        "comparison_case_count": int(obj.get("comparison_case_count", -1)) == 69,
         "snapshot_mapping_count": int(obj.get("snapshot_mapping_count", -1)) == 368,
-        "matching_membership_changed_by_era5": obj.get("matching_membership_changed_by_era5") is False,
+        "request_group_count_positive": request_groups > 0,
+        "all_request_groups_successful": successful_groups == request_groups,
+        "failed_request_group_count": int(obj.get("failed_request_group_count", -1)) == 0,
+        "missing_snapshot_count": int(obj.get("missing_snapshot_count", -1)) == 0,
+        "future_source_time_count": int(obj.get("future_source_time_count", -1)) == 0,
+        "snapshot_offsets": obj.get("snapshot_offsets_hours") == [-12, -6, -3, 0],
+        "time_anchor_policy": obj.get("time_anchor_policy") == "IMERG_3H_P95_MAX_WINDOW_START",
+        "future_source_time_allowed": obj.get("future_source_time_allowed") is False,
+        "membership_not_changed": obj.get("matching_membership_changed_by_era5") is False,
+        "environment_not_used_for_membership": obj.get("environment_variables_used_for_matching_membership") is False,
+        "comparison_role": obj.get("comparison_population_role") == "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL",
         "primary_confirmatory_test_run": obj.get("primary_confirmatory_test_run") is False,
+        "confirmatory_run_may_execute": obj.get("confirmatory_run_may_execute") is True,
         "risk_engine_allowed": obj.get("risk_engine_allowed") is False,
         "public_risk_release_allowed": obj.get("public_risk_release_allowed") is False,
     }
     e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
+    for key in (
+        "authorization_receipt_sha256",
+        "request_manifest_sha256",
+        "snapshot_feature_csv_sha256",
+        "snapshot_feature_json_sha256",
+    ):
+        value = obj.get(key)
+        if not isinstance(value, str) or len(value) != 64:
+            e.append(f"{key} must be a 64-character SHA256")
     return e
 
 
