@@ -1,7 +1,7 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "phase": "2L-O8-github-only-production-closure",
-  "generated_at_utc": "2026-09-13T05:46:30Z",
+  "generated_at_utc": "2026-09-13T05:49:29Z",
   "overall_state": "WAIT_KEEP_WINDOWS_TASK",
   "closure_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -52,14 +52,292 @@
         "minimum_runs_required": 80,
         "minimum_success_ratio": 0.9,
         "latest_success_created_at_utc": "2026-09-13T00:52:45Z",
-        "latest_success_age_minutes": 293.75940048333337,
+        "latest_success_age_minutes": 296.7352948166666,
         "freshness_limit_minutes": 60.0,
         "latest_success_run_id": 34729097597,
         "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34729097597",
         "reasons": [
           "LATEST_SUCCESS_STALE_OR_MISSING",
           "INSUFFICIENT_SCHEDULED_RUNS_IN_LOOKBACK"
-        ]
+        ],
+        "diagnostics": {
+          "rows_received": 26,
+          "event_counts": {
+            "push": 5,
+            "schedule": 21
+          },
+          "scheduled_conclusion_counts": {
+            "failure": 3,
+            "success": 18
+          },
+          "scheduled_rows_received": 21,
+          "latest_scheduled_created_at_utc": "2026-09-13T00:52:45Z",
+          "latest_scheduled_age_minutes": 296.7352948166666,
+          "max_gap_between_returned_scheduled_runs_minutes": 933.6,
+          "median_gap_between_returned_scheduled_runs_minutes": 152.85,
+          "recent_runs": [
+            {
+              "run_id": 34729097597,
+              "created_at_utc": "2026-09-13T00:52:45Z",
+              "updated_at_utc": "2026-09-13T00:53:57Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34729097597"
+            },
+            {
+              "run_id": 34724167436,
+              "created_at_utc": "2026-09-12T22:58:35Z",
+              "updated_at_utc": "2026-09-12T22:59:53Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34724167436"
+            },
+            {
+              "run_id": 34718389584,
+              "created_at_utc": "2026-09-12T20:53:23Z",
+              "updated_at_utc": "2026-09-12T20:54:44Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34718389584"
+            },
+            {
+              "run_id": 34711317923,
+              "created_at_utc": "2026-09-12T18:28:53Z",
+              "updated_at_utc": "2026-09-12T18:30:03Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34711317923"
+            },
+            {
+              "run_id": 34704601787,
+              "created_at_utc": "2026-09-12T16:14:06Z",
+              "updated_at_utc": "2026-09-12T16:15:08Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34704601787"
+            },
+            {
+              "run_id": 34695680221,
+              "created_at_utc": "2026-09-12T13:10:20Z",
+              "updated_at_utc": "2026-09-12T13:12:03Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "3d38b6d990b8e3e1eb46f87de416afee0f71af0b",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34695680221"
+            },
+            {
+              "run_id": 34695658672,
+              "created_at_utc": "2026-09-12T13:09:55Z",
+              "updated_at_utc": "2026-09-12T13:10:59Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "be6d9c4b88129615421c9b21b834e9864a8a2745",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34695658672"
+            },
+            {
+              "run_id": 34695525734,
+              "created_at_utc": "2026-09-12T13:07:04Z",
+              "updated_at_utc": "2026-09-12T13:08:13Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "failure",
+              "head_sha": "65538fed081f672a7a6753033f82b57940173152",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34695525734"
+            },
+            {
+              "run_id": 34695329009,
+              "created_at_utc": "2026-09-12T13:02:50Z",
+              "updated_at_utc": "2026-09-12T13:03:55Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "failure",
+              "head_sha": "c714542a522dec7ababf48df17e60fca54c49e67",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34695329009"
+            },
+            {
+              "run_id": 34662419219,
+              "created_at_utc": "2026-09-12T00:40:30Z",
+              "updated_at_utc": "2026-09-12T00:41:32Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "675f835bee7ec757990261f4bef87ed59711f756",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34662419219"
+            },
+            {
+              "run_id": 34654701319,
+              "created_at_utc": "2026-09-11T22:35:54Z",
+              "updated_at_utc": "2026-09-11T22:37:04Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "failure",
+              "head_sha": "0f49b6d9345e32a238af750e186f3bb2c9217731",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34654701319"
+            },
+            {
+              "run_id": 34642212729,
+              "created_at_utc": "2026-09-11T20:04:07Z",
+              "updated_at_utc": "2026-09-11T20:05:14Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "0f49b6d9345e32a238af750e186f3bb2c9217731",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34642212729"
+            },
+            {
+              "run_id": 34629432000,
+              "created_at_utc": "2026-09-11T17:45:00Z",
+              "updated_at_utc": "2026-09-11T17:46:04Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "0f49b6d9345e32a238af750e186f3bb2c9217731",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34629432000"
+            },
+            {
+              "run_id": 34608256694,
+              "created_at_utc": "2026-09-11T14:07:20Z",
+              "updated_at_utc": "2026-09-11T14:09:02Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "0f49b6d9345e32a238af750e186f3bb2c9217731",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34608256694"
+            },
+            {
+              "run_id": 34586666538,
+              "created_at_utc": "2026-09-11T09:55:42Z",
+              "updated_at_utc": "2026-09-11T09:56:30Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "failure",
+              "head_sha": "48a015f20fad6995c9f0e781fb2db150461ed479",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34586666538"
+            },
+            {
+              "run_id": 34565401065,
+              "created_at_utc": "2026-09-11T05:17:38Z",
+              "updated_at_utc": "2026-09-11T05:18:57Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "ff2d36a8ff28c8b23743db29e1989005cd011334",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34565401065"
+            },
+            {
+              "run_id": 34547031019,
+              "created_at_utc": "2026-09-11T00:34:03Z",
+              "updated_at_utc": "2026-09-11T00:35:14Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "ce72dec122a9a4c713890aa5d9ccc7d2c9a33dc6",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34547031019"
+            },
+            {
+              "run_id": 34538242674,
+              "created_at_utc": "2026-09-10T22:36:02Z",
+              "updated_at_utc": "2026-09-10T22:37:19Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "ce72dec122a9a4c713890aa5d9ccc7d2c9a33dc6",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34538242674"
+            },
+            {
+              "run_id": 34524023091,
+              "created_at_utc": "2026-09-10T20:03:11Z",
+              "updated_at_utc": "2026-09-10T20:04:25Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "ce72dec122a9a4c713890aa5d9ccc7d2c9a33dc6",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34524023091"
+            },
+            {
+              "run_id": 34509853852,
+              "created_at_utc": "2026-09-10T17:42:28Z",
+              "updated_at_utc": "2026-09-10T17:43:33Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "ce72dec122a9a4c713890aa5d9ccc7d2c9a33dc6",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34509853852"
+            },
+            {
+              "run_id": 34487300252,
+              "created_at_utc": "2026-09-10T14:10:24Z",
+              "updated_at_utc": "2026-09-10T14:11:21Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "a1aeec73f67181dd91d6ca5bb449d160125bda9b",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34487300252"
+            },
+            {
+              "run_id": 34463515989,
+              "created_at_utc": "2026-09-10T09:57:53Z",
+              "updated_at_utc": "2026-09-10T09:58:59Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "bc86db58f052a9137b14a8c44f2c3126172d7bec",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34463515989"
+            },
+            {
+              "run_id": 34440652453,
+              "created_at_utc": "2026-09-10T05:20:07Z",
+              "updated_at_utc": "2026-09-10T05:21:08Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "failure",
+              "head_sha": "69588f3ea7a28b7427113de83fd6f62577de03c4",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34440652453"
+            },
+            {
+              "run_id": 34422217658,
+              "created_at_utc": "2026-09-10T00:39:29Z",
+              "updated_at_utc": "2026-09-10T00:40:36Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "67f44b0661a767a957e6a26824e92508820e3348",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34422217658"
+            },
+            {
+              "run_id": 34413878453,
+              "created_at_utc": "2026-09-09T22:46:46Z",
+              "updated_at_utc": "2026-09-09T22:47:51Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "79976c659762005086932161bb31e648c39dc61a",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34413878453"
+            },
+            {
+              "run_id": 34403040464,
+              "created_at_utc": "2026-09-09T20:46:21Z",
+              "updated_at_utc": "2026-09-09T20:47:27Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "6074b6523c883b09fe3396c68f914fdaef5fe6f0",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34403040464"
+            }
+          ]
+        }
       },
       "public_pages": {
         "state": "WAIT",
@@ -72,13 +350,191 @@
         "minimum_runs_required": 80,
         "minimum_success_ratio": 0.9,
         "latest_success_created_at_utc": "2026-09-13T05:23:19Z",
-        "latest_success_age_minutes": 23.192733816666664,
+        "latest_success_age_minutes": 26.16862815,
         "freshness_limit_minutes": 60.0,
         "latest_success_run_id": 34740175437,
         "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34740175437",
         "reasons": [
           "INSUFFICIENT_SCHEDULED_RUNS_IN_LOOKBACK"
-        ]
+        ],
+        "diagnostics": {
+          "rows_received": 16,
+          "event_counts": {
+            "push": 8,
+            "schedule": 6,
+            "workflow_dispatch": 2
+          },
+          "scheduled_conclusion_counts": {
+            "success": 6
+          },
+          "scheduled_rows_received": 6,
+          "latest_scheduled_created_at_utc": "2026-09-13T05:23:19Z",
+          "latest_scheduled_age_minutes": 26.16862815,
+          "max_gap_between_returned_scheduled_runs_minutes": 285.28333333333336,
+          "median_gap_between_returned_scheduled_runs_minutes": 137.03333333333333,
+          "recent_runs": [
+            {
+              "run_id": 34740175437,
+              "created_at_utc": "2026-09-13T05:23:19Z",
+              "updated_at_utc": "2026-09-13T05:24:29Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "cedaa86cd79ccaab15b1773a8a2ccd1561146cdb",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34740175437"
+            },
+            {
+              "run_id": 34728462119,
+              "created_at_utc": "2026-09-13T00:38:02Z",
+              "updated_at_utc": "2026-09-13T00:39:09Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34728462119"
+            },
+            {
+              "run_id": 34723865558,
+              "created_at_utc": "2026-09-12T22:51:27Z",
+              "updated_at_utc": "2026-09-12T22:52:35Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34723865558"
+            },
+            {
+              "run_id": 34718108977,
+              "created_at_utc": "2026-09-12T20:47:18Z",
+              "updated_at_utc": "2026-09-12T20:48:33Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34718108977"
+            },
+            {
+              "run_id": 34710717842,
+              "created_at_utc": "2026-09-12T18:17:02Z",
+              "updated_at_utc": "2026-09-12T18:18:05Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34710717842"
+            },
+            {
+              "run_id": 34703889301,
+              "created_at_utc": "2026-09-12T16:00:00Z",
+              "updated_at_utc": "2026-09-12T16:01:14Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34703889301"
+            },
+            {
+              "run_id": 34699962863,
+              "created_at_utc": "2026-09-12T14:40:14Z",
+              "updated_at_utc": "2026-09-12T14:41:50Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34699962863"
+            },
+            {
+              "run_id": 34697812875,
+              "created_at_utc": "2026-09-12T13:56:18Z",
+              "updated_at_utc": "2026-09-12T13:58:28Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "9019b84e5a45858fa1481095a4ca4ba3ad7b9e58",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34697812875"
+            },
+            {
+              "run_id": 34697776110,
+              "created_at_utc": "2026-09-12T13:55:31Z",
+              "updated_at_utc": "2026-09-12T13:56:35Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "cancelled",
+              "head_sha": "6caf753fdeca461b99c1c2668d116a9b38850319",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34697776110"
+            },
+            {
+              "run_id": 34697752734,
+              "created_at_utc": "2026-09-12T13:55:03Z",
+              "updated_at_utc": "2026-09-12T13:55:44Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "cancelled",
+              "head_sha": "4ef6c905b1fa172bfee72961d825782f69917685",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34697752734"
+            },
+            {
+              "run_id": 34697707497,
+              "created_at_utc": "2026-09-12T13:54:02Z",
+              "updated_at_utc": "2026-09-12T13:55:10Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "cancelled",
+              "head_sha": "814be96bd2561223d770fd4a9c46736452357aea",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34697707497"
+            },
+            {
+              "run_id": 34697665436,
+              "created_at_utc": "2026-09-12T13:53:05Z",
+              "updated_at_utc": "2026-09-12T13:54:07Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "cancelled",
+              "head_sha": "f077cdff29a432bcc43b480078930bec40eaec8e",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34697665436"
+            },
+            {
+              "run_id": 34695042079,
+              "created_at_utc": "2026-09-12T12:56:29Z",
+              "updated_at_utc": "2026-09-12T12:57:49Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b5769ab0015db3456be8f5b80961a5e86e4cfabb",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34695042079"
+            },
+            {
+              "run_id": 34694950520,
+              "created_at_utc": "2026-09-12T12:54:21Z",
+              "updated_at_utc": "2026-09-12T12:55:31Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "97f14e705c3b93afef2fd9bf43b8da42116bb8ce",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34694950520"
+            },
+            {
+              "run_id": 34692494110,
+              "created_at_utc": "2026-09-12T12:00:23Z",
+              "updated_at_utc": "2026-09-12T12:00:55Z",
+              "event": "workflow_dispatch",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "7fda284fee15a2ea9b5fd4e28aeafb4f49d57f4a",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34692494110"
+            },
+            {
+              "run_id": 34692194427,
+              "created_at_utc": "2026-09-12T11:53:03Z",
+              "updated_at_utc": "2026-09-12T11:53:16Z",
+              "event": "workflow_dispatch",
+              "status": "completed",
+              "conclusion": "failure",
+              "head_sha": "fd0c1b69af35401a9bdd4f5b9fb2cadcc580defe",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34692194427"
+            }
+          ]
+        }
       },
       "daily_archive": {
         "state": "PASS",
@@ -91,11 +547,57 @@
         "minimum_runs_required": 1,
         "minimum_success_ratio": 0.9,
         "latest_success_created_at_utc": "2026-09-13T05:16:39Z",
-        "latest_success_age_minutes": 29.85940048333333,
+        "latest_success_age_minutes": 32.83529481666667,
         "freshness_limit_minutes": 2160.0,
         "latest_success_run_id": 34739899556,
         "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34739899556",
-        "reasons": []
+        "reasons": [],
+        "diagnostics": {
+          "rows_received": 3,
+          "event_counts": {
+            "schedule": 3
+          },
+          "scheduled_conclusion_counts": {
+            "success": 3
+          },
+          "scheduled_rows_received": 3,
+          "latest_scheduled_created_at_utc": "2026-09-13T05:16:39Z",
+          "latest_scheduled_age_minutes": 32.83529481666667,
+          "max_gap_between_returned_scheduled_runs_minutes": 2829.733333333333,
+          "median_gap_between_returned_scheduled_runs_minutes": 2829.733333333333,
+          "recent_runs": [
+            {
+              "run_id": 34739899556,
+              "created_at_utc": "2026-09-13T05:16:39Z",
+              "updated_at_utc": "2026-09-13T05:17:32Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "b8c2e341e8c8b9ba37707ed8be538862b072c003",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34739899556"
+            },
+            {
+              "run_id": 34568590545,
+              "created_at_utc": "2026-09-11T06:06:55Z",
+              "updated_at_utc": "2026-09-11T06:07:11Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "ff2d36a8ff28c8b23743db29e1989005cd011334",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34568590545"
+            },
+            {
+              "run_id": 34443657907,
+              "created_at_utc": "2026-09-10T06:04:48Z",
+              "updated_at_utc": "2026-09-10T06:04:59Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "69588f3ea7a28b7427113de83fd6f62577de03c4",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34443657907"
+            }
+          ]
+        }
       }
     },
     "archives": [
