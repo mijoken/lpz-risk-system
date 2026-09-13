@@ -13,6 +13,7 @@ from lpz_risk.o9_frozen_matching import (
     EVENT_BUFFER_DAYS,
     MATCH_COMPONENTS,
     MATCH_RATIO,
+    POSITIVE_ROLE,
     SEASON_WINDOW_DAYS,
     _eligible_pool_for_positive,
     circular_calendar_day_distance,
@@ -45,6 +46,8 @@ def _validation_frame() -> pd.DataFrame:
     for day_i, date in enumerate(dates):
         for region_i, region in enumerate(regions):
             phase = day_i * 0.071 + region_i * 0.19
+            anchor_start = date + pd.Timedelta(hours=12, minutes=30)
+            anchor_end = anchor_start + pd.Timedelta(hours=3)
             row = {
                 "date_utc": date.strftime("%Y-%m-%d"),
                 "primary_subdivision_code": region,
@@ -53,6 +56,8 @@ def _validation_frame() -> pd.DataFrame:
                 "is_official_positive": ordinal < 23,
                 "rain_pca_pc1": float(np.sin(phase) + 0.03 * region_i),
                 "rain_pca_pc2": float(np.cos(phase * 0.77) - 0.02 * region_i),
+                prod.TIME_ANCHOR_START_COLUMN: anchor_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                prod.TIME_ANCHOR_END_COLUMN: anchor_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
             for j, metric in enumerate(METRICS):
                 row[metric] = float(8.0 + j * 3.0 + 2.0 * np.sin(phase + j * 0.2))
@@ -89,6 +94,7 @@ def _freeze_files(tmp_path: Path) -> tuple[Path, Path]:
         {
             "gate": prod.H_GATE,
             "population_design": pop,
+            "time_anchor": {"policy": prod.TIME_ANCHOR_POLICY},
             "risk_engine_allowed": False,
         },
     )
@@ -176,7 +182,9 @@ def test_frozen_constants_are_exactly_prespecified():
     assert SEASON_WINDOW_DAYS == 60
     assert EVENT_BUFFER_DAYS == 3
     assert tuple(MATCH_COMPONENTS) == ("rain_pca_pc1", "rain_pca_pc2")
+    assert POSITIVE_ROLE == "POSITIVE"
     assert COMPARISON_ROLE == "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL"
+    assert prod.TIME_ANCHOR_POLICY == "IMERG_3H_P95_MAX_WINDOW_START"
 
 
 def test_circular_calendar_distance_preserves_year_boundary_and_feb29():
@@ -189,12 +197,12 @@ def test_eligibility_is_same_region_60_inclusive_61_excluded_and_actual_3day_buf
     frame = _kernel_frame(
         [
             ("2025-01-01", "000101", True, 0.0, 0.0),
-            ("2024-12-31", "000101", False, 0.1, 0.1),  # actual +/−1 => excluded
-            ("2025-01-04", "000101", False, 0.1, 0.1),  # actual +3 => excluded
-            ("2025-01-05", "000101", False, 0.1, 0.1),  # +4 => eligible
-            ("2025-03-01", "000101", False, 0.2, 0.2),  # circular distance 60 => eligible
-            ("2025-03-02", "000101", False, 0.01, 0.01), # 61 => excluded despite best PC
-            ("2025-01-05", "000102", False, 0.0, 0.0),  # wrong region => excluded
+            ("2024-12-31", "000101", False, 0.1, 0.1),
+            ("2025-01-04", "000101", False, 0.1, 0.1),
+            ("2025-01-05", "000101", False, 0.1, 0.1),
+            ("2025-03-01", "000101", False, 0.2, 0.2),
+            ("2025-03-02", "000101", False, 0.01, 0.01),
+            ("2025-01-05", "000102", False, 0.0, 0.0),
         ]
     )
     norm = normalize_matching_frame(frame)
@@ -212,7 +220,7 @@ def test_buffer_excludes_candidate_near_any_positive_in_same_region():
             ("2025-01-01", "000101", True, 0.0, 0.0),
             ("2025-01-20", "000101", True, 0.3, 0.3),
             ("2025-01-05", "000101", False, 0.1, 0.1),
-            ("2025-01-18", "000101", False, 0.1, 0.1), # near second positive
+            ("2025-01-18", "000101", False, 0.1, 0.1),
             ("2025-01-24", "000101", False, 0.1, 0.1),
         ]
     )
@@ -237,8 +245,6 @@ def test_distance_formula_and_tie_break_are_exact_phase2l_d_semantics():
         ]
     )
     out = frozen_match_2025(frame)["matched_pairs"]
-    # sqrt(mean([1^2,1^2])) = 1.  The +5 day candidate wins first, then equal
-    # distance/equal 10-day candidates are ordered by date.
     assert out.iloc[0]["comparison_date_utc"] == "2025-06-20"
     assert out.iloc[1]["comparison_date_utc"] == "2025-06-05"
     assert out.iloc[2]["comparison_date_utc"] == "2025-06-25"
@@ -277,16 +283,20 @@ def test_matching_is_input_order_invariant_and_environment_columns_are_inert():
     pd.testing.assert_frame_equal(a, b, check_exact=True)
 
 
-def test_positive_rows_are_never_controls_and_23_yields_69_unique_comparisons():
+def test_positive_rows_are_never_controls_and_final_population_is_92_unique_cases():
     base = _validation_frame()
     result = frozen_match_2025(base)
     pairs = result["matched_pairs"]
+    final = result["final_matched_population"]
     positive_keys = set(map(tuple, base.loc[base["is_official_positive"], list(prod.KEY)].astype(str).to_numpy()))
     comparison_keys = set(map(tuple, pairs[["comparison_date_utc", "primary_subdivision_code"]].astype(str).to_numpy()))
     assert len(result["positive_population"]) == 23
     assert len(pairs) == 69
     assert len(result["comparison_population"]) == 69
     assert len(comparison_keys) == 69
+    assert len(final) == 92
+    assert not final[list(prod.KEY)].duplicated().any()
+    assert set(final["case_role"]) == {POSITIVE_ROLE, COMPARISON_ROLE}
     assert positive_keys.isdisjoint(comparison_keys)
 
 
@@ -311,7 +321,15 @@ def test_protocol_drift_is_rejected(tmp_path: Path):
         prod.verify_frozen_protocol(h, k2)
 
 
-def test_production_run_freezes_23_to_69_without_opening_era5(tmp_path: Path):
+def test_missing_p95_time_anchor_is_rejected_before_matching(tmp_path: Path):
+    val_csv = tmp_path / "validation_transformed.csv"
+    frame = _validation_frame().drop(columns=[prod.TIME_ANCHOR_START_COLUMN])
+    _write_csv(val_csv, frame)
+    with pytest.raises(ValueError, match="missing required columns"):
+        prod.read_validation_transformed_csv(val_csv)
+
+
+def test_production_run_freezes_23_to_69_and_92_case_handoff_without_opening_era5(tmp_path: Path):
     val_csv = tmp_path / "validation_transformed.csv"
     _write_csv(val_csv, _validation_frame())
     dev_e, val_e = _evidence_files(tmp_path, val_csv)
@@ -324,6 +342,7 @@ def test_production_run_freezes_23_to_69_without_opening_era5(tmp_path: Path):
     assert evidence["official_positive_region_day_count"] == 23
     assert evidence["matched_comparison_region_day_count"] == 69
     assert evidence["unique_comparison_region_day_count"] == 69
+    assert evidence["final_matched_population_region_day_count"] == 92
     assert evidence["replacement_used"] is False
     assert evidence["same_primary_subdivision_required"] is True
     assert evidence["season_window_circular_calendar_days"] == 60
@@ -335,10 +354,20 @@ def test_production_run_freezes_23_to_69_without_opening_era5(tmp_path: Path):
     assert evidence["primary_confirmatory_test_run"] is False
     assert evidence["risk_engine_allowed"] is False
     assert evidence["public_risk_release_allowed"] is False
+    assert evidence["time_anchor_policy"] == prod.TIME_ANCHOR_POLICY
+    assert evidence["time_anchor_start_column"] == prod.TIME_ANCHOR_START_COLUMN
+    assert evidence["time_anchor_preserved_for_all_final_cases"] is True
     assert evidence["validation_transformed_csv_sha256"] == prod.sha256_file(val_csv)
     assert evidence["requires_sha256"][dev_e.name] == prod.sha256_file(dev_e)
     assert evidence["requires_sha256"][val_e.name] == prod.sha256_file(val_e)
     assert evidence["outputs"]["matched_pairs"]["rows"] == 69
+    assert evidence["outputs"]["final_matched_population"]["rows"] == 92
+
+    final_path = Path(evidence["outputs"]["final_matched_population"]["path"])
+    final = pd.read_csv(final_path, dtype={"primary_subdivision_code": "string"})
+    assert len(final) == 92
+    assert final[prod.TIME_ANCHOR_START_COLUMN].notna().all()
+    assert set(final["case_role"]) == {POSITIVE_ROLE, COMPARISON_ROLE}
 
 
 def test_structurally_valid_wrong_validation_csv_is_rejected_by_sha(tmp_path: Path):
