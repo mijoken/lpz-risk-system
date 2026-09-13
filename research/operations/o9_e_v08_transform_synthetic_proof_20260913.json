@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "O9-E-IMERG-Final-V08-development-only-transform-synthetic-proof",
+  "gate": "PASS_O9_E_V08_DEVELOPMENT_ONLY_TRANSFORM_SYNTHETIC_PROOF",
+  "proof_date_utc": "2026-09-13",
+  "branch": "o9-e-development-transform-freeze",
+  "proof_head_sha": "59c49ac96688726a0ae25d10cf1e931676fac1bc",
+  "github_actions": {
+    "workflow_name": "O9-E V08 Development Transform Synthetic Proof",
+    "run_id": 34759793318,
+    "job_id": 103730496879,
+    "conclusion": "success",
+    "pytest_result": "38 passed in 1.75s"
+  },
+  "prior_proof_diagnostic": {
+    "run_id": 34759455059,
+    "result": "38 passed / 1 failed",
+    "cause": "The first synthetic rainfall fixture was exactly rank-2, so PC3/PC4 occupied a degenerate zero-variance eigenspace and their basis vectors could rotate under row-order roundoff. This was a fixture identifiability issue, not an O9-E scientific-algorithm failure.",
+    "remediation": "Added very small independent third/fourth latent components to make the synthetic covariance full-rank while preserving the frozen PC1+PC2 >= 0.95 variance contract."
+  },
+  "verified_contracts": {
+    "phase2l_d_transform_math_equivalent": true,
+    "metric_order_frozen": [
+      "imerg_3h_mean_max_mm",
+      "imerg_3h_max_max_mm",
+      "imerg_3h_p90_max_mm",
+      "imerg_3h_p95_max_mm"
+    ],
+    "log1p_transform": true,
+    "development_global_zscore_ddof": 0,
+    "development_covariance_ddof": 0,
+    "pc1_sign_rule_preserved": true,
+    "pc2_sign_rule_preserved": true,
+    "matching_components": ["rain_pca_pc1", "rain_pca_pc2"],
+    "pc1_pc2_cumulative_variance_minimum": 0.95,
+    "development_fit_row_count": 5943,
+    "development_years": [2023, 2024],
+    "validation_fit_row_count": 0,
+    "validation_application_row_count": 1218,
+    "validation_official_positive_count": 23,
+    "validation_transform_is_apply_only": true,
+    "validation_statistics_cannot_modify_development_transform": true,
+    "extreme_validation_distribution_cannot_modify_development_parameters": true,
+    "development_o9_d_csv_sha256_binding": true,
+    "validation_o9_d_csv_sha256_binding": true,
+    "structurally_valid_but_wrong_validation_csv_rejected": true,
+    "v07_source_mix_rejected": true,
+    "negative_rainfall_metric_rejected": true,
+    "immutable_development_transform_evidence": true,
+    "immutable_validation_application_evidence": true,
+    "o9_d_evidence_hash_links_verified": true
+  },
+  "scientific_lock_state_after_proof": {
+    "imerg_final_v08_official_availability_proven": false,
+    "2025_era5_may_be_opened": false,
+    "confirmatory_run_may_execute": false,
+    "risk_engine_allowed": false,
+    "public_risk_release_allowed": false,
+    "reentry_state": "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN"
+  },
+  "data_access_during_proof": {
+    "live_imerg_v08_downloaded": false,
+    "earthdata_scientific_query_executed": false,
+    "validation_era5_environment_read": false,
+    "matching_performed": false,
+    "primary_confirmatory_test_run": false
+  },
+  "interpretation": "O9-E implementation is synthetically proven on GitHub Actions. It exactly preserves the frozen Phase 2L-D Development-only rainfall transform, permits only frozen-parameter application to 2025 Validation, and cryptographically binds both O9-D source CSVs to their immutable evidence. This proof does not establish Final V08 availability and does not authorize 2025 ERA5 opening, matching execution, the confirmatory Primary, Risk Engine use, or public risk release."
+}
