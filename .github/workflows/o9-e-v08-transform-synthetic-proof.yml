@@ -8,6 +8,7 @@ on:
       - "src/lpz_risk/o9_v08_transform.py"
       - "scripts/o9_v08_transform_freeze.py"
       - "tests/test_o9_e_v08_transform_freeze_synthetic.py"
+      - "tests/test_o9_e_validation_csv_hash_binding.py"
       - "scripts/phase2l_d_rainfall_matched_comparison.py"
       - "scripts/o9_v08_reentry_harness.py"
       - "tests/test_o9_v08_reentry_harness.py"
@@ -43,12 +44,14 @@ jobs:
           python -m compileall -q \
             src/lpz_risk/o9_v08_transform.py \
             scripts/o9_v08_transform_freeze.py \
-            tests/test_o9_e_v08_transform_freeze_synthetic.py
+            tests/test_o9_e_v08_transform_freeze_synthetic.py \
+            tests/test_o9_e_validation_csv_hash_binding.py
 
       - name: Run O9-E synthetic transform and regression proof
         run: |
           python -m pytest -q \
             tests/test_o9_e_v08_transform_freeze_synthetic.py \
+            tests/test_o9_e_validation_csv_hash_binding.py \
             tests/test_o9_d_v08_rainfall_rebuild_synthetic.py \
             tests/test_o9_v08_reentry_harness.py \
             tests/test_o9_v08_required_coverage_gate.py \
@@ -80,6 +83,7 @@ jobs:
           - Matching components: **PC1 + PC2**
           - Validation: **frozen transform application only**
           - Validation rows / positives: **1,218 / 23**
+          - Validation CSV binding: **must match O9-D SHA256 exactly**
           - 2025 ERA5: **SEALED**
           - Confirmatory Primary: **NOT RUN**
           - Risk Engine: **LOCKED**
