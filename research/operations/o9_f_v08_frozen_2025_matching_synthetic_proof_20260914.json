@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "O9-F-IMERG-Final-V08-frozen-2025-matching-synthetic-proof",
+  "gate": "PASS_O9_F_V08_FROZEN_2025_MATCHING_SYNTHETIC_PROOF",
+  "proof_date_utc": "2026-09-13",
+  "proof_date_jst": "2026-09-14",
+  "branch": "o9-f-frozen-2025-matching",
+  "proof_head_sha": "cba476a3b24c51e9a8d64cfc9945e4e3cdb22797",
+  "github_actions": {
+    "workflow_name": "O9-F V08 Frozen 2025 Matching Synthetic Proof",
+    "run_id": 34787495059,
+    "job_id": 103805516577,
+    "conclusion": "success",
+    "pytest_result": "51 passed in 2.43s"
+  },
+  "frozen_protocol_sources": {
+    "phase2l_h_gate": "PASS_PHASE2L_H_DISCOVERY_AND_VALIDATION_PROTOCOL_FREEZE_PRIMARY_Q850_T0H",
+    "phase2l_k2_gate": "PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE"
+  },
+  "verified_contracts": {
+    "validation_universe_region_days": 1218,
+    "official_positive_region_days": 23,
+    "comparison_pool_after_positive_exclusion": 1195,
+    "match_ratio": "1_POSITIVE_TO_3_COMPARISONS",
+    "matched_comparisons": 69,
+    "unique_matched_comparisons": 69,
+    "replacement_used": false,
+    "same_primary_subdivision_required": true,
+    "season_window_circular_calendar_days": 60,
+    "season_window_60_inclusive_61_excluded": true,
+    "positive_event_exclusion_buffer_actual_days": 3,
+    "buffer_applies_to_any_positive_in_same_region": true,
+    "calendar_year_boundary_verified": true,
+    "feb29_circular_calendar_semantics_verified": true,
+    "matching_components": [
+      "rain_pca_pc1",
+      "rain_pca_pc2"
+    ],
+    "rainfall_match_distance": "SQRT_MEAN_SQUARED_DIFFERENCE_PC1_PC2",
+    "allocation_policy": "DETERMINISTIC_GREEDY_SCARCE_POSITIVES_FIRST_GLOBAL_NO_REPLACEMENT",
+    "comparison_role": "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL",
+    "positive_rows_never_used_as_comparisons": true,
+    "input_row_order_invariant": true,
+    "environmental_columns_inert_to_selection": true,
+    "matching_tuning_cli_options_exposed": false,
+    "validation_balance_gate_added": false,
+    "phase2l_h_contract_checked_at_runtime": true,
+    "phase2l_k2_contract_checked_at_runtime": true,
+    "protocol_drift_rejected": true,
+    "development_transform_evidence_sha_link_checked": true,
+    "validation_transform_evidence_sha_link_checked": true,
+    "validation_transformed_csv_sha256_binding": true,
+    "structurally_valid_but_wrong_validation_csv_rejected": true,
+    "immutable_final_matching_evidence": true
+  },
+  "scientific_lock_state_after_proof": {
+    "imerg_final_v08_official_availability_proven": false,
+    "live_2025_matching_executed": false,
+    "2025_era5_may_be_opened": false,
+    "confirmatory_primary_run": false,
+    "risk_engine_allowed": false,
+    "public_risk_release_allowed": false,
+    "reentry_state": "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN"
+  },
+  "data_access_during_proof": {
+    "live_imerg_v08_downloaded": false,
+    "earthdata_scientific_query_executed": false,
+    "validation_era5_environment_read": false,
+    "matching_performed_on_real_2025_v08": false,
+    "primary_confirmatory_test_run": false
+  },
+  "interpretation": "O9-F implementation is synthetically proven on GitHub Actions. It re-applies the exact frozen Phase 2L-H/K2 rainfall matching policy to an O9-E-transformed 1,218-row validation universe without any 2025 PCA refit, environmental selection, matching tuning, replacement, or new balance gate. A complete real O9-F evidence artifact may be created only after official Final V08 availability and upstream O9-D/E real evidence exist. This synthetic proof does not authorize opening 2025 ERA5, running the frozen Primary, enabling the Risk Engine, or releasing public LPZ risk."
+}
