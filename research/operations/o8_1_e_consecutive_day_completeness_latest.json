@@ -1,0 +1,188 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8.1-E-consecutive-day-completeness-observer",
+  "generated_at_utc": "2026-09-13T12:00:15Z",
+  "latest_expected_finalized_date_utc": "2026-09-12",
+  "required_consecutive_complete_days": 2,
+  "history_days_examined": 14,
+  "current_consecutive_complete_day_streak": 0,
+  "gate_passed": false,
+  "state": "WAIT_REQUIRED_CONSECUTIVE_COMPLETE_DAYS",
+  "required_days": [
+    {
+      "date_utc": "2026-09-12",
+      "path": "research/prospective/2026/09/2026-09-12.manifest.json",
+      "state": "WAIT_NONCANONICAL_OR_LEGACY",
+      "complete_96_of_96": false,
+      "reason": "O8_1_D_CANONICAL_MANIFEST_REQUIRED",
+      "phase": "2E-prospective-daily-consolidation",
+      "schema_version": "0.1.0",
+      "checks": {
+        "risk_engine_locked": true,
+        "risk_score_absent": true,
+        "lpz_classification_absent": true,
+        "raw_radar_not_archived": true,
+        "raw_grib_not_archived": true,
+        "phase_is_o8_1_d": false
+      }
+    },
+    {
+      "date_utc": "2026-09-11",
+      "path": "research/prospective/2026/09/2026-09-11.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    }
+  ],
+  "history": [
+    {
+      "date_utc": "2026-09-12",
+      "path": "research/prospective/2026/09/2026-09-12.manifest.json",
+      "state": "WAIT_NONCANONICAL_OR_LEGACY",
+      "complete_96_of_96": false,
+      "reason": "O8_1_D_CANONICAL_MANIFEST_REQUIRED",
+      "phase": "2E-prospective-daily-consolidation",
+      "schema_version": "0.1.0",
+      "checks": {
+        "risk_engine_locked": true,
+        "risk_score_absent": true,
+        "lpz_classification_absent": true,
+        "raw_radar_not_archived": true,
+        "raw_grib_not_archived": true,
+        "phase_is_o8_1_d": false
+      }
+    },
+    {
+      "date_utc": "2026-09-11",
+      "path": "research/prospective/2026/09/2026-09-11.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-10",
+      "path": "research/prospective/2026/09/2026-09-10.manifest.json",
+      "state": "WAIT_NONCANONICAL_OR_LEGACY",
+      "complete_96_of_96": false,
+      "reason": "O8_1_D_CANONICAL_MANIFEST_REQUIRED",
+      "phase": "2E-prospective-daily-consolidation",
+      "schema_version": "0.1.0",
+      "checks": {
+        "risk_engine_locked": true,
+        "risk_score_absent": true,
+        "lpz_classification_absent": true,
+        "raw_radar_not_archived": true,
+        "raw_grib_not_archived": true,
+        "phase_is_o8_1_d": false
+      }
+    },
+    {
+      "date_utc": "2026-09-09",
+      "path": "research/prospective/2026/09/2026-09-09.manifest.json",
+      "state": "WAIT_NONCANONICAL_OR_LEGACY",
+      "complete_96_of_96": false,
+      "reason": "O8_1_D_CANONICAL_MANIFEST_REQUIRED",
+      "phase": "2E-prospective-daily-consolidation",
+      "schema_version": "0.1.0",
+      "checks": {
+        "risk_engine_locked": true,
+        "risk_score_absent": true,
+        "lpz_classification_absent": true,
+        "raw_radar_not_archived": true,
+        "raw_grib_not_archived": true,
+        "phase_is_o8_1_d": false
+      }
+    },
+    {
+      "date_utc": "2026-09-08",
+      "path": "research/prospective/2026/09/2026-09-08.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-07",
+      "path": "research/prospective/2026/09/2026-09-07.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-06",
+      "path": "research/prospective/2026/09/2026-09-06.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-05",
+      "path": "research/prospective/2026/09/2026-09-05.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-04",
+      "path": "research/prospective/2026/09/2026-09-04.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-03",
+      "path": "research/prospective/2026/09/2026-09-03.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-02",
+      "path": "research/prospective/2026/09/2026-09-02.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-09-01",
+      "path": "research/prospective/2026/09/2026-09-01.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-08-31",
+      "path": "research/prospective/2026/08/2026-08-31.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
+    {
+      "date_utc": "2026-08-30",
+      "path": "research/prospective/2026/08/2026-08-30.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    }
+  ],
+  "ready_for_o8_1_f_final_cutover_audit": false,
+  "windows_task_may_be_disabled": false,
+  "windows_task_recommendation": "KEEP_ENABLED_PENDING_O8_1_F",
+  "scientific_release_is_separate": true,
+  "risk_engine_allowed": false,
+  "lpz_classification": null,
+  "risk_score": null,
+  "structural_error_count": 0,
+  "safety_invariant_failure_count": 0
+}
