@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8.1-D-daily-consolidation-v2",
+  "recorded_at_utc": "2026-09-13T11:33:00Z",
+  "state": "PASS_PHASE2L_O8_1_D_CANONICAL_DAILY_CONSOLIDATION",
+  "production_workflow": ".github/workflows/prospective-daily-consolidation.yml",
+  "consolidator": "scripts/consolidate_prospective_feature_bundles.py",
+  "unit_tests": "tests/test_o8_1_daily_consolidation_v2.py",
+  "branch_proof": {
+    "run_id": 34754516800,
+    "head_sha": "d206cd669dc9ef2d16561e08496b3679030fdb6b",
+    "conclusion": "success",
+    "unit_tests_passed": 5,
+    "real_data_assertion": "PASS_PHASE2L_O8_1_D_REAL_DATA_BRANCH_PROOF",
+    "target_date_utc": "2026-09-13",
+    "canonical_slot_count": 96,
+    "complete_slot_count": 8,
+    "native_complete_slot_count": 2,
+    "recovered_complete_slot_count": 6,
+    "technical_incomplete_slot_count": 0,
+    "explicit_gap_count": 88,
+    "parse_error_count": 0
+  },
+  "verified_contract": {
+    "scientific_clock": "collection_slot_utc",
+    "canonical_slots_per_utc_day": 96,
+    "first_slot": "00:00",
+    "last_slot": "23:45",
+    "slot_states": [
+      "COMPLETE",
+      "TECHNICAL_INCOMPLETE",
+      "EXPLICIT_GAP"
+    ],
+    "native_and_recovered_preserved": true,
+    "same_slot_candidates_deduplicated_deterministically": true,
+    "complete_native_preferred_over_complete_recovered": true,
+    "missing_slots_are_explicit": true,
+    "technical_incomplete_is_not_converted_to_gap": true,
+    "failed_completed_collector_runs_are_audited_when_their_always-uploaded_index_exists": true,
+    "gzip_mtime_fixed": true,
+    "gzip_filename_header_fixed_empty": true,
+    "identical_inputs_produce_byte_identical_gzip": true,
+    "raw_radar_archived": false,
+    "raw_grib_archived": false,
+    "lpz_classification_emitted": false,
+    "risk_score_emitted": false,
+    "risk_engine_allowed": false
+  },
+  "production_schedule": {
+    "utc_cron": "30 2,8 * * *",
+    "primary_finalization_wake": "02:30 UTC",
+    "redundant_wake": "08:30 UTC",
+    "reason": "02:30 UTC is beyond the audited 120-minute recovery horizon for the previous UTC day's final 23:45 slot; 08:30 provides a redundant GitHub wake-up."
+  },
+  "archive_paths": {
+    "daily_jsonl_gzip": "research/prospective/YYYY/MM/YYYY-MM-DD.jsonl.gz",
+    "daily_manifest": "research/prospective/YYYY/MM/YYYY-MM-DD.manifest.json"
+  },
+  "closure_rule": {
+    "windows_task_may_be_disabled": false,
+    "required_before_disable": "Two consecutive completed UTC days must independently reach COMPLETE_96_OF_96 with zero explicit gaps and zero technical incomplete slots under O8.1-E/F."
+  },
+  "next_phase": "2L-O8.1-E-consecutive-day-completeness-observer"
+}
