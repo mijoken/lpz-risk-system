@@ -26,6 +26,18 @@ K2_FREEZE = ROOT / "research/phase2/phase2l_k2_v07_boundary_v08_deferred_validat
 H_GATE = "PASS_PHASE2L_H_DISCOVERY_AND_VALIDATION_PROTOCOL_FREEZE_PRIMARY_Q850_T0H"
 K2_GATE = "PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE"
 
+# Exact byte hashes of the committed authoritative freeze artifacts.  Git history
+# shows H has had exactly one commit (3944692...) and K2 exactly one commit
+# (c0c5dec...).  K2 also records a different H hash that was captured from the
+# local Windows working tree before/around commit time.  Preserve and verify that
+# historical value, but do not mistake it for the canonical committed-file hash.
+EXPECTED_H_COMMITTED_SHA256 = "0896cfae9be7785210b48f73fbce95fdfdda009c252838774d368c28819015fa"
+EXPECTED_K2_COMMITTED_SHA256 = "895ccc5520f6512b74f420707fad3ebfe9c5229c17f204e151852cf7c47fcfef"
+EXPECTED_K2_RECORDED_LOCAL_H_SHA256 = "6b3cac100513cb5be3e392eb3e9b68d250ddabd2c94c2c4ab93a0081b58b88fe"
+H_FREEZE_COMMIT = "3944692a5f4ed8b108a31b76477321abcf3d4bd5"
+H_FREEZE_GIT_BLOB = "bf8e2506e0a5dcad39f1bedf6ef7d544e5d72fae"
+K2_FREEZE_COMMIT = "c0c5dec2f138901db84316fd03e28e502a0a7e65"
+
 PRIMARY_METRIC = "q850_mean_kgkg"
 PRIMARY_CONTRAST = "t+0h"
 PRIMARY_TEST = "EXACT_ONE_SIDED_SIGN_TEST_ON_POSITIVE_DATE_UTC_CLUSTER_MEANS"
@@ -224,7 +236,17 @@ def verify_frozen_protocol(repo_root: Path) -> dict[str, Any]:
     k2_path = repo_root / K2_FREEZE.relative_to(ROOT)
     h = read_json(h_path)
     k2 = read_json(k2_path)
+    h_sha = sha256_file(h_path)
+    k2_sha = sha256_file(k2_path)
     errors: list[str] = []
+
+    # Canonical committed-file integrity.  These hashes correspond to the files
+    # that GitHub has served unchanged since their one-time freeze commits.
+    if h_sha != EXPECTED_H_COMMITTED_SHA256:
+        errors.append("Phase H committed-file SHA256 changed from authoritative freeze")
+    if k2_sha != EXPECTED_K2_COMMITTED_SHA256:
+        errors.append("K2 committed-file SHA256 changed from authoritative freeze")
+
     if h.get("gate") != H_GATE:
         errors.append("Phase H gate mismatch")
     if k2.get("gate") != K2_GATE:
@@ -248,20 +270,38 @@ def verify_frozen_protocol(repo_root: Path) -> dict[str, Any]:
     if test.get("test") != PRIMARY_TEST or float(test.get("alpha", -1)) != 0.05:
         errors.append("Phase H Primary test/alpha mismatch")
 
-    # K2 preserved a SHA256 of the authoritative H freeze. Verify it when present.
+    # K2's source_integrity block captured a local-Windows byte hash for H.  Git
+    # history proves the committed H blob has never changed; verify the historical
+    # local value remains intact, but do not compare that pre-commit/local byte
+    # representation directly to the canonical committed-file bytes.
     manifest = k2.get("source_integrity", {}).get("sha256", {})
     h_rel_win = str(H_FREEZE.relative_to(ROOT)).replace("/", "\\")
     h_meta = manifest.get(h_rel_win) or manifest.get(str(H_FREEZE.relative_to(ROOT)))
-    if isinstance(h_meta, dict) and h_meta.get("sha256"):
-        observed = sha256_file(h_path)
-        if observed != h_meta["sha256"]:
-            errors.append("Phase H file SHA256 no longer matches K2 freeze")
+    recorded_local_h_sha = h_meta.get("sha256") if isinstance(h_meta, dict) else None
+    if recorded_local_h_sha != EXPECTED_K2_RECORDED_LOCAL_H_SHA256:
+        errors.append("K2 historical local Phase H SHA256 record changed or is missing")
 
     return {
         "state": "PASS" if not errors else "FAIL",
         "errors": errors,
-        "h_sha256": sha256_file(h_path),
-        "k2_sha256": sha256_file(k2_path),
+        "h_sha256": h_sha,
+        "h_expected_committed_sha256": EXPECTED_H_COMMITTED_SHA256,
+        "h_freeze_commit": H_FREEZE_COMMIT,
+        "h_freeze_git_blob": H_FREEZE_GIT_BLOB,
+        "k2_sha256": k2_sha,
+        "k2_expected_committed_sha256": EXPECTED_K2_COMMITTED_SHA256,
+        "k2_freeze_commit": K2_FREEZE_COMMIT,
+        "k2_recorded_local_h_sha256": recorded_local_h_sha,
+        "k2_expected_recorded_local_h_sha256": EXPECTED_K2_RECORDED_LOCAL_H_SHA256,
+        "historical_local_h_sha_matches_committed_h_bytes": (
+            recorded_local_h_sha == h_sha
+        ),
+        "provenance_note": (
+            "K2 preserved a local pre/around-commit Phase H byte hash. Git history "
+            "shows the committed H blob has never changed since 3944692; O9 pins "
+            "the canonical committed H/K2 byte SHA256 values separately and also "
+            "verifies K2's historical local hash record remains unchanged."
+        ),
         "primary_metric": PRIMARY_METRIC,
         "primary_contrast": PRIMARY_CONTRAST,
         "primary_test": PRIMARY_TEST,
