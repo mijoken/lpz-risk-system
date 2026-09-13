@@ -46,7 +46,7 @@ jobs:
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
           echo "Target UTC date: $TARGET"
 
-      - name: Download collector artifacts for target day
+      - name: Download scheduled collector artifacts for target day
         shell: bash
         run: |
           mkdir -p incoming
@@ -60,20 +60,29 @@ jobs:
           target=os.environ['TARGET_DATE']
           rows=json.load(open('/tmp/runs.json',encoding='utf-8'))
           for r in rows:
-              if str(r.get('createdAt',''))[:10] == target and r.get('conclusion') == 'success':
+              if (
+                  str(r.get('createdAt',''))[:10] == target
+                  and r.get('conclusion') == 'success'
+                  and r.get('event') == 'schedule'
+              ):
                   print(r['databaseId'])
           PY
           count=0
+          failed=0
           while read -r rid; do
             [ -z "$rid" ] && continue
             mkdir -p "incoming/$rid"
-            gh run download "$rid" \
+            if gh run download "$rid" \
               --repo "$GITHUB_REPOSITORY" \
               --name "prospective-feature-bundle-$rid" \
-              --dir "incoming/$rid" || true
-            count=$((count+1))
+              --dir "incoming/$rid"; then
+              count=$((count+1))
+            else
+              failed=$((failed+1))
+            fi
           done < /tmp/run_ids.txt
-          echo "Collector runs selected: $count"
+          echo "Successful scheduled collector artifacts downloaded: $count"
+          echo "Scheduled collector artifact download failures: $failed"
         env:
           TARGET_DATE: ${{ steps.date.outputs.target }}
 
