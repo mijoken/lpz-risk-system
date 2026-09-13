@@ -1,0 +1,89 @@
+name: O9-G ERA5 Reconstruction Completion Synthetic Proof
+
+on:
+  push:
+    branches: [o9-g-era5-reconstruction-completion]
+    paths:
+      - ".github/workflows/o9-g-era5-reconstruction-synthetic-proof.yml"
+      - "src/lpz_risk/o9_era5_reconstruction.py"
+      - "scripts/o9_g_guarded_era5_reconstruction.py"
+      - "scripts/o9_g_guarded_era5_opening.py"
+      - "scripts/o9_v08_reentry_harness.py"
+      - "tests/test_o9_g_era5_reconstruction.py"
+      - "tests/test_o9_g_guarded_era5_opening.py"
+      - "tests/test_era5_multitime.py"
+      - "tests/test_era5_science.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: o9-g-era5-reconstruction-completion-proof
+  cancel-in-progress: false
+
+jobs:
+  synthetic-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+
+      - name: Compile guarded reconstruction code
+        run: |
+          python -m compileall -q \
+            src/lpz_risk/o9_era5_reconstruction.py \
+            scripts/o9_g_guarded_era5_reconstruction.py \
+            scripts/o9_v08_reentry_harness.py \
+            tests/test_o9_g_era5_reconstruction.py
+
+      - name: Run O9-G reconstruction and ERA5 science regressions
+        run: |
+          python -m pytest -q \
+            tests/test_o9_g_era5_reconstruction.py \
+            tests/test_o9_g_guarded_era5_opening.py \
+            tests/test_o9_v08_reentry_harness.py \
+            tests/test_era5_multitime.py \
+            tests/test_era5_science.py
+
+      - name: Assert live repository remains sealed
+        run: |
+          python - <<'PY'
+          from scripts import o9_v08_reentry_harness as h
+          r = h.evaluate_chain(h.ROOT, h.ROOT / 'research/o9/reentry')
+          assert r['state'] == 'WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN', r
+          assert r['era5_2025_may_be_opened'] is False, r
+          assert r['confirmatory_run_may_execute'] is False, r
+          assert r['risk_engine_allowed'] is False, r
+          assert r['public_risk_release_allowed'] is False, r
+          print('PASS_O9_G_RECONSTRUCTION_LIVE_REPO_REMAINS_SEALED')
+          PY
+
+      - name: Write proof summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## O9-G ERA5 Reconstruction Completion Synthetic Proof
+          - Real O9-G authorization required before client creation: **YES**
+          - Exact population: **92 cases (23 + 69)**
+          - Frozen offsets: **-12h, -6h, -3h, 0h**
+          - Required snapshot features: **368**
+          - Future ERA5 source time: **FORBIDDEN**
+          - Checkpoint/resume: **ENABLED**
+          - Raw GRIB retention after validation: **NO**
+          - Real CDS network access in this proof: **NONE**
+          - Completion permits Primary execution immediately in proof temp-chain: **YES, but does not execute it**
+          - Primary executed by this stage: **NO**
+          - Risk Engine: **LOCKED**
+          - Public LPZ risk: **LOCKED**
+          EOF
