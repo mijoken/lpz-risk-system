@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/o8-1-f-branch-proof.yml"
       - ".github/workflows/o8-1-f-final-cutover-audit.yml"
+      - ".github/workflows/production-closure-audit.yml"
       - "scripts/o8_1_final_cutover_audit.py"
       - "tests/test_o8_1_final_cutover_audit.py"
 
@@ -28,6 +29,16 @@ jobs:
         run: python -m pip install pytest
       - name: Unit tests
         run: python -m pytest -q tests/test_o8_1_final_cutover_audit.py
+      - name: Assert legacy O8 automatic gate is retired
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/production-closure-audit.yml').read_text(encoding='utf-8')
+          assert 'O8 Legacy' in p
+          assert 'schedule:' not in p
+          assert 'O8.1-F' in p
+          print('PASS_LEGACY_O8_AUTOMATIC_GATE_RETIRED')
+          PY
       - name: Collect current production runtime history
         shell: bash
         run: |
