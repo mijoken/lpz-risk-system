@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "O9-G-guarded-2025-ERA5-opening-synthetic-proof",
+  "gate": "PASS_O9_G_GUARDED_2025_ERA5_OPENING_SYNTHETIC_PROOF",
+  "proof_date_utc": "2026-09-13",
+  "proof_date_jst": "2026-09-14",
+  "branch": "o9-g-guarded-era5-opening",
+  "proof_head_sha": "73f2bc19dafe6fdafbdaffcfbeea4aee8ce1c1ec",
+  "github_actions": {
+    "workflow_name": "O9-G Guarded 2025 ERA5 Opening Synthetic Proof",
+    "run_id": 34789604971,
+    "job_id": 103811264521,
+    "conclusion": "success",
+    "pytest_result": "62 passed in 3.21s",
+    "live_repository_lock_assertion": "PASS_O9_G_LIVE_REPO_REMAINS_SEALED"
+  },
+  "authorization_contract": {
+    "authorization_gate": "PASS_O9_G_2025_ERA5_RETRIEVAL_AUTHORIZED_AFTER_MATCHING_FREEZE",
+    "real_o9_a_through_f_evidence_required": true,
+    "synthetic_evidence_may_authorize_real_era5": false,
+    "phase_h_and_k2_freeze_hashes_required": true,
+    "predecessor_sha256_chain_required": true,
+    "o9_f_final_population_sha256_binding_required": true,
+    "matched_case_count": 92,
+    "positive_case_count": 23,
+    "comparison_case_count": 69,
+    "comparison_role": "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL",
+    "match_set_count": 23,
+    "cases_per_match_set": 4,
+    "time_anchor_policy": "IMERG_3H_P95_MAX_WINDOW_START",
+    "time_anchor_start_column": "imerg_3h_p95_window_start_utc",
+    "snapshot_offsets_hours": [-12, -6, -3, 0],
+    "snapshot_mapping_count": 368,
+    "era5_source_time_policy": "FLOOR_TO_AVAILABLE_HOUR_NO_FUTURE_SOURCE_TIME",
+    "future_era5_source_time_allowed": false,
+    "era5_provider": "COPERNICUS_CDS_ERA5",
+    "era5_dataset": "reanalysis-era5-pressure-levels",
+    "bbox_padding_degrees": 0.5,
+    "spatial_semantics": "JMA_PRIMARY_SUBDIVISION_BBOX_CONTEXT_NOT_POLYGON_MEAN"
+  },
+  "fail_closed_proofs": {
+    "missing_predecessor_rejected": true,
+    "tampered_predecessor_hash_rejected": true,
+    "wrong_o9_f_population_sha_rejected": true,
+    "wrong_91_case_population_rejected": true,
+    "duplicate_region_day_rejected": true,
+    "case_role_integrity_failure_rejected": true,
+    "missing_p95_anchor_rejected": true,
+    "network_retrieval_imports_absent_from_authorization_gate": true,
+    "exact_four_offsets_per_case_verified": true,
+    "all_368_source_times_not_later_than_requested": true
+  },
+  "authorization_is_not_completion": {
+    "era5_retrieval_authorized_after_pass": true,
+    "era5_retrieval_completed_after_pass": false,
+    "primary_confirmatory_run_may_execute_after_authorization_only": false,
+    "later_reconstruction_completion_gate_required": "PASS_O9_G_2025_ERA5_RECONSTRUCTION_COMPLETE_92_CASES_368_SNAPSHOTS"
+  },
+  "live_repository_state_after_proof": {
+    "reentry_state": "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN",
+    "official_real_final_v08_chain_complete": false,
+    "2025_era5_may_be_opened": false,
+    "confirmatory_run_may_execute": false,
+    "risk_engine_allowed": false,
+    "public_risk_release_allowed": false
+  },
+  "data_access_during_proof": {
+    "live_imerg_v08_downloaded": false,
+    "real_o9_g_receipt_created": false,
+    "cds_network_access_performed": false,
+    "era5_environment_values_read": false,
+    "primary_confirmatory_test_run": false
+  },
+  "initial_proof_run_note": {
+    "run_id": 34789482728,
+    "result": "TEST_HARNESS_FALSE_POSITIVE_ONLY",
+    "detail": "61 substantive tests passed; one test falsely matched the phrase 'does not import cdsapi' inside a docstring. The guard was corrected to inspect actual Python AST imports before the successful final proof run."
+  },
+  "interpretation": "O9-G authorization is synthetically proven fail-closed. The gate cannot authorize ERA5 until real Final-V08 O9-A through O9-F evidence, authoritative H/K2 freeze hashes, and the exact immutable 92-case O9-F population are all verified. A passing authorization creates a deterministic 368-snapshot request manifest but performs no CDS network access and does not permit the Primary. The live repository remains sealed because the real Final-V08 re-entry chain is not yet complete. Risk Engine and public LPZ risk remain locked."
+}
