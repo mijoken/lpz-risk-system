@@ -1,0 +1,131 @@
+name: LPZ O8.1 Slot Replay Proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_valid_time:
+        description: "Optional exact UTC slot (ISO-8601 or YYYYmmddHHMMSS); empty = ~60 minutes old"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/o8-1-slot-replay-proof.yml"
+      - "scripts/o8_1_slot_replay_proof.py"
+      - "scripts/radar_morphology_probe.py"
+      - "scripts/radar_tracking_probe.py"
+      - "scripts/radar_wind_orientation_probe.py"
+      - "src/lpz_risk/radar_morphology.py"
+      - "src/lpz_risk/radar_science.py"
+      - "src/lpz_risk/radar_tracking.py"
+      - "src/lpz_risk/gfs_science.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lpz-o8-1-slot-replay-proof
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Verify ecCodes runtime
+        run: python -m eccodes selfcheck
+
+      - name: Replay exact historical slot
+        shell: bash
+        run: |
+          TARGET="${{ inputs.target_valid_time }}"
+          if [ -n "$TARGET" ]; then
+            python scripts/o8_1_slot_replay_proof.py \
+              --target-valid-time "$TARGET" \
+              --output research/operations/o8_1_slot_replay_latest.json \
+              --detail-dir reports/operations/o8_1_slot_replay
+          else
+            python scripts/o8_1_slot_replay_proof.py \
+              --target-age-minutes 60 \
+              --output research/operations/o8_1_slot_replay_latest.json \
+              --detail-dir reports/operations/o8_1_slot_replay
+          fi
+
+      - name: Assert O8.1-B replay contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/operations/o8_1_slot_replay_latest.json').read_text(encoding='utf-8'))
+          assert p['state'] == 'PASS_SLOT_REPLAY', p
+          assert p['exact_frame_sequence_match'] is True, p
+          assert p['gfs_as_of_guard']['all_candidate_cycles_asof_safe'] is True, p
+          assert p['archive_role_candidate'] in {'PROSPECTIVE_NATIVE','PROSPECTIVE_RECOVERED'}, p
+          assert p['raw_radar_archived'] is False, p
+          assert p['raw_grib_archived'] is False, p
+          assert p['lpz_classification'] is None, p
+          assert p['risk_score'] is None, p
+          assert p['risk_engine_allowed'] is False, p
+          print('O8.1-B exact-slot replay contract: PASS')
+          PY
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=Path('research/operations/o8_1_slot_replay_latest.json')
+          print('## O8.1-B — Slot-addressable replay proof')
+          if not p.exists():
+              print('- Report not produced.')
+              raise SystemExit(0)
+          r=json.loads(p.read_text(encoding='utf-8'))
+          print(f"- State: **{r.get('state')}**")
+          print(f"- Slot: **{r.get('collection_slot_utc')}**")
+          print(f"- Archive role candidate: **{r.get('archive_role_candidate')}**")
+          print(f"- Recovery age: **{r.get('recovery_age_minutes')} min**")
+          print(f"- Exact radar frame sequence: **{r.get('exact_frame_sequence_match')}**")
+          print(f"- GFS as-of guard: **{(r.get('gfs_as_of_guard') or {}).get('all_candidate_cycles_asof_safe')}**")
+          print('- Risk Engine: **LOCKED**')
+          PY
+
+      - name: Upload detailed replay evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: o8-1-slot-replay-${{ github.run_id }}
+          path: |
+            research/operations/o8_1_slot_replay_latest.json
+            reports/operations/o8_1_slot_replay/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit replay gate result
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/operations/o8_1_slot_replay_latest.json
+          if git diff --cached --quiet; then
+            echo "No O8.1-B gate result changes to commit."
+            exit 0
+          fi
+          git commit -m "ops: record O8.1 exact-slot replay proof"
+          git pull --rebase origin main
+          git push origin HEAD:main
