@@ -98,10 +98,29 @@ def payload_for(key: str, *, run_count: int = 1, outcome: str = "PASS") -> dict:
             "validation_year": 2025,
             "era5_retrieval_authorized": True,
             "era5_retrieval_completed": True,
+            "network_access_performed": True,
+            "era5_environment_values_read": True,
             "matched_case_count": 92,
+            "positive_case_count": 23,
+            "comparison_case_count": 69,
             "snapshot_mapping_count": 368,
+            "request_group_count": 92,
+            "successful_request_group_count": 92,
+            "failed_request_group_count": 0,
+            "missing_snapshot_count": 0,
+            "future_source_time_count": 0,
+            "snapshot_offsets_hours": [-12, -6, -3, 0],
+            "time_anchor_policy": "IMERG_3H_P95_MAX_WINDOW_START",
+            "future_source_time_allowed": False,
             "matching_membership_changed_by_era5": False,
+            "environment_variables_used_for_matching_membership": False,
+            "comparison_population_role": "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL",
+            "authorization_receipt_sha256": "a" * 64,
+            "request_manifest_sha256": "b" * 64,
+            "snapshot_feature_csv_sha256": "c" * 64,
+            "snapshot_feature_json_sha256": "d" * 64,
             "primary_confirmatory_test_run": False,
+            "confirmatory_run_may_execute": True,
             "risk_engine_allowed": False,
             "public_risk_release_allowed": False,
         }
@@ -158,6 +177,19 @@ def test_reconstruction_completion_is_required_before_primary(tmp_path: Path):
     report = mod.evaluate_chain(mod.ROOT, tmp_path)
     assert report["state"] == "READY_FOR_SINGLE_FROZEN_PRIMARY_CONFIRMATORY_RUN"
     assert report["confirmatory_run_may_execute"] is True
+    assert report["risk_engine_allowed"] is False
+
+
+def test_incomplete_reconstruction_receipt_is_blocked(tmp_path: Path):
+    seed_through(tmp_path, "era5_reconstruction")
+    path = tmp_path / mod.STAGE_BY_KEY["era5_reconstruction"].filename
+    obj = json.loads(path.read_text(encoding="utf-8"))
+    obj["missing_snapshot_count"] = 1
+    path.write_text(json.dumps(obj, sort_keys=True) + "\n", encoding="utf-8")
+    report = mod.evaluate_chain(mod.ROOT, tmp_path)
+    assert report["state"] == "BLOCKED_O9_SAFETY_INTEGRITY_VIOLATION"
+    assert any("missing_snapshot_count" in x for x in report["blockers"])
+    assert report["confirmatory_run_may_execute"] is False
     assert report["risk_engine_allowed"] is False
 
 
