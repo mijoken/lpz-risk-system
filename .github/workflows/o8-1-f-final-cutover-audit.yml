@@ -1,0 +1,155 @@
+name: LPZ O8.1-F Final GitHub-only Cutover Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      now_utc:
+        description: "Optional ISO-8601 audit time override"
+        required: false
+        default: ""
+  workflow_run:
+    workflows: ["LPZ O8.1-E Consecutive-Day Completeness Observer"]
+    types: [completed]
+  schedule:
+    # Redundant wake-ups after E's normal observation windows.
+    # GitHub schedule is only a wake-up signal, never the scientific clock.
+    - cron: "15 3,9 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/o8-1-f-final-cutover-audit.yml"
+      - "scripts/o8_1_final_cutover_audit.py"
+      - "tests/test_o8_1_final_cutover_audit.py"
+      - "research/operations/o8_1_*"
+      - "config/lpz_system_charter.json"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: lpz-o8-1-f-final-github-only-cutover-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Collect GitHub-native runtime history
+        shell: bash
+        run: |
+          mkdir -p reports/operations research/operations
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow prospective-feature-collector.yml \
+            --branch main \
+            --limit 80 \
+            --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url \
+            > reports/operations/o8_1_f_collector_runs.json
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow prospective-daily-consolidation.yml \
+            --branch main \
+            --limit 30 \
+            --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url \
+            > reports/operations/o8_1_f_daily_runs.json
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow public-pages-deploy.yml \
+            --branch main \
+            --limit 80 \
+            --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url \
+            > reports/operations/o8_1_f_public_runs.json
+
+      - name: Run final cutover audit
+        shell: bash
+        env:
+          INPUT_NOW: ${{ inputs.now_utc }}
+        run: |
+          EXTRA=()
+          if [ -n "$INPUT_NOW" ]; then
+            EXTRA=(--now-utc "$INPUT_NOW")
+          fi
+          python scripts/o8_1_final_cutover_audit.py \
+            --repo-root . \
+            --collector-runs reports/operations/o8_1_f_collector_runs.json \
+            --daily-runs reports/operations/o8_1_f_daily_runs.json \
+            --public-runs reports/operations/o8_1_f_public_runs.json \
+            --output research/operations/o8_1_f_final_cutover_latest.json \
+            "${EXTRA[@]}"
+
+      - name: Write final cutover summary
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=Path('research/operations/o8_1_f_final_cutover_latest.json')
+          print('## O8.1-F Final GitHub-only Cutover Audit')
+          if not p.exists():
+              print('- Final cutover report was not produced.')
+              raise SystemExit(0)
+          r=json.loads(p.read_text(encoding='utf-8'))
+          print(f"- State: **{r['state']}**")
+          print(f"- Cutover ready: **{r['cutover_ready']}**")
+          print(f"- Windows scheduler: **{r['windows_task_recommendation']}**")
+          print(f"- Risk engine allowed: **{r['risk_engine_allowed']}**")
+          print(f"- Blockers: **{', '.join(r.get('blockers') or []) or 'NONE'}**")
+          print('')
+          print('### O8.1 gates')
+          checks=r.get('checks') or {}
+          for key in ('o8_1_a_retention','o8_1_b_slot_replay','o8_1_c_self_healing','o8_1_d_daily_canonical','o8_1_e_consecutive_days'):
+              row=checks.get(key) or {}
+              print(f"- {key}: **{row.get('state')}**")
+          print('')
+          print('### Runtime freshness')
+          for key,row in (checks.get('runtime') or {}).items():
+              print(f"- {key}: **{row.get('state')}**, age={row.get('latest_success_age_minutes')} min")
+          print('')
+          print('Operational cutover never unlocks LPZ prediction/risk output.')
+          PY
+
+      - name: Upload final audit evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: o8-1-f-final-cutover-${{ github.run_id }}
+          path: |
+            research/operations/o8_1_f_final_cutover_latest.json
+            reports/operations/o8_1_f_collector_runs.json
+            reports/operations/o8_1_f_daily_runs.json
+            reports/operations/o8_1_f_public_runs.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit latest final cutover status
+        if: always()
+        shell: bash
+        run: |
+          test -f research/operations/o8_1_f_final_cutover_latest.json || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/operations/o8_1_f_final_cutover_latest.json
+          if git diff --cached --quiet; then
+            echo "Final cutover status unchanged."
+            exit 0
+          fi
+          git commit -m "ops: update O8.1-F final cutover status"
+          git pull --rebase origin main
+          git push origin HEAD:main
