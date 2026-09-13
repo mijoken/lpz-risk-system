@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8.1-F-final-github-only-cutover-audit",
+  "recorded_at_utc": "2026-09-13T12:29:00Z",
+  "implementation_state": "PASS_PHASE2L_O8_1_F_FINAL_CUTOVER_AUDIT_IMPLEMENTED",
+  "operational_gate_state": "WAIT_KEEP_WINDOWS_TASK",
+  "audit_script": "scripts/o8_1_final_cutover_audit.py",
+  "production_workflow": ".github/workflows/o8-1-f-final-cutover-audit.yml",
+  "unit_tests": "tests/test_o8_1_final_cutover_audit.py",
+  "canonical_live_report": "research/operations/o8_1_f_final_cutover_latest.json",
+  "legacy_o8_workflow": {
+    "path": ".github/workflows/production-closure-audit.yml",
+    "automatic_schedule_retired": true,
+    "automatic_push_gate_retired": true,
+    "manual_legacy_notice_only": true,
+    "reason": "Legacy O8 scheduled-run-count assumptions are superseded by slot-based self-healing O8.1-F."
+  },
+  "branch_proof": {
+    "run_id_initial": 34756925934,
+    "run_id_final": 34756987287,
+    "final_conclusion": "success",
+    "unit_tests_passed": 7,
+    "legacy_gate_retirement_assertion": "PASS_LEGACY_O8_AUTOMATIC_GATE_RETIRED",
+    "current_repository_wait_assertion": "PASS_PHASE2L_O8_1_F_CURRENT_REPOSITORY_WAIT_STATE"
+  },
+  "production_proof": {
+    "initial_run_id": 34757033214,
+    "post_charter_sync_run_id": 34757177360,
+    "conclusion": "success",
+    "latest_report_generated_at_utc": "2026-09-13T12:28:29Z",
+    "state": "WAIT_KEEP_WINDOWS_TASK",
+    "cutover_ready": false,
+    "windows_task_recommendation": "KEEP_ENABLED",
+    "o8_1_a_state": "PASS",
+    "o8_1_b_state": "PASS",
+    "o8_1_c_state": "PASS",
+    "o8_1_d_state": "PASS",
+    "o8_1_e_state": "WAIT",
+    "collector_runtime_state": "PASS",
+    "daily_runtime_state": "PASS",
+    "public_runtime_state": "PASS",
+    "scientific_lock_state": "PASS",
+    "blockers": [
+      "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS"
+    ]
+  },
+  "cutover_contract": {
+    "o8_1_f_is_only_windows_retirement_authority": true,
+    "github_schedule_is_scientific_clock": false,
+    "legacy_approximately_96_github_runs_per_day_requirement_retired": true,
+    "catchup_horizon_minutes": 120,
+    "collector_success_must_be_fresh_within_catchup_horizon": true,
+    "latest_finalized_consecutive_utc_days_required": 2,
+    "complete_canonical_slots_required_per_day": 96,
+    "explicit_gap_required": 0,
+    "technical_incomplete_required": 0,
+    "runtime_freshness_required": true,
+    "scientific_lock_required": true,
+    "windows_disable_is_manual_only": true,
+    "windows_disable_command_when_and_only_when_passed": "Disable-ScheduledTask -TaskName \"LPZ-Prospective-Collector-15min\""
+  },
+  "safety": {
+    "windows_task_may_be_disabled_now": false,
+    "risk_engine_allowed": false,
+    "public_risk_release_allowed": false,
+    "scientific_release_is_separate": true
+  },
+  "next_state": "OBSERVE_REAL_GITHUB_ONLY_CANONICAL_DAYS_UNTIL_O8_1_F_RETURNS_PASS_READY_TO_DISABLE_WINDOWS_TASK"
+}
