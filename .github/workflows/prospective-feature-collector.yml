@@ -1,28 +1,41 @@
-name: LPZ Prospective Native Feature Collector
+name: LPZ Prospective Self-Healing Batch Collector
 
 on:
   workflow_dispatch:
   schedule:
-    # UTC. Offset five minutes from the public Pages production cycle.
+    # GitHub cron is only a wake-up signal; slot time is deterministic UTC 15-minute grid.
     - cron: "7,22,37,52 * * * *"
+  workflow_run:
+    # Redundant GitHub-only wake-up path independent of this workflow's own cron.
+    workflows: ["LPZ Public Production Cycle (O6)"]
+    types: [completed]
   push:
     branches: [main]
     paths:
       - ".github/workflows/prospective-feature-collector.yml"
+      - "scripts/o8_1_self_healing_batch_collector.py"
+      - "scripts/o8_1_slot_replay_proof.py"
       - "scripts/build_prospective_feature_bundle.py"
-      - "tests/test_prospective_feature_bundle.py"
+      - "scripts/radar_*.py"
+      - "scripts/build_parent_precursor_report.py"
+      - "src/lpz_risk/**"
+      - "tests/test_o8_1_self_healing_batch.py"
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: lpz-prospective-native-feature-collector
+  group: lpz-prospective-self-healing-batch
   cancel-in-progress: false
 
 jobs:
   collect:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -41,118 +54,123 @@ jobs:
       - name: Verify ecCodes runtime
         run: python -m eccodes selfcheck
 
-      - name: Decode current JMA radar palette
-        run: python scripts/radar_scientific_decode_probe.py --output reports/scientific/radar_scientific_decode.json
+      - name: Run O8.1 collector unit tests
+        run: python -m pytest -q tests/test_o8_1_self_healing_batch.py
 
-      - name: Build current radar morphology
-        run: python scripts/radar_morphology_probe.py --output reports/scientific/radar_morphology.json
-
-      - name: Compare rainband orientation with 600-hPa wind
-        run: python scripts/radar_wind_orientation_probe.py --morphology reports/scientific/radar_morphology.json --output reports/scientific/radar_wind_orientation.json
-
-      - name: Build multi-frame radar object tracking
-        run: python scripts/radar_tracking_probe.py --output reports/scientific/radar_tracking.json
-
-      - name: Classify tracking-cycle applicability
-        id: tracking_state
+      - name: Download recent lightweight batch indexes
         shell: bash
         run: |
-          python - <<'PY'
-          import json, os
-
-          p=json.load(open('reports/scientific/radar_tracking.json',encoding='utf-8'))
-          if p.get('execution_ok') is not True:
-              raise SystemExit('radar tracking transport/execution failed; this is not a no-event cycle')
-
-          proven = p.get('scientific_tracking_proven') is True
-          gates = p.get('gates') or {}
-          if not proven:
-              assert gates.get('fixed_multiframe_mosaic') is True, p
-              assert gates.get('component_tracking') is False, p
-              assert isinstance(p.get('tracking'), dict), p
-              assert len(p.get('frame_valid_times') or []) >= 2, p
-
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh:
-              fh.write(f"trackable={'true' if proven else 'false'}\n")
-          print('TRACKABLE_COMPONENT_PRESENT' if proven else 'COMPLETE_NO_TRACKABLE_EVENT_CANDIDATE')
+          mkdir -p incoming/indexes
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow prospective-feature-collector.yml \
+            --limit 30 \
+            --json databaseId,conclusion,status \
+            > /tmp/o81-runs.json
+          python - <<'PY' > /tmp/o81-run-ids.txt
+          import json
+          rows=json.load(open('/tmp/o81-runs.json',encoding='utf-8'))
+          for row in rows:
+              if row.get('status') == 'completed' and row.get('conclusion') == 'success':
+                  print(row['databaseId'])
           PY
+          downloaded=0
+          while read -r rid; do
+            [ -z "$rid" ] && continue
+            mkdir -p "incoming/indexes/$rid"
+            if gh run download "$rid" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "prospective-batch-index-*" \
+              --dir "incoming/indexes/$rid" >/dev/null 2>&1; then
+              downloaded=$((downloaded+1))
+            fi
+          done < /tmp/o81-run-ids.txt
+          echo "Prior lightweight batch indexes downloaded: $downloaded"
 
-      - name: Build parent/core hierarchy
-        if: steps.tracking_state.outputs.trackable == 'true'
-        run: python scripts/radar_hierarchy_probe.py --tracking reports/scientific/radar_tracking.json --output reports/scientific/radar_hierarchy.json
-
-      - name: Classify embedded-genesis applicability
-        id: hierarchy_state
-        if: steps.tracking_state.outputs.trackable == 'true'
+      - name: Build self-healing prospective batch
         shell: bash
         run: |
-          python - <<'PY'
-          import json, os
-
-          p=json.load(open('reports/scientific/radar_hierarchy.json',encoding='utf-8'))
-          if p.get('execution_ok') is not True or p.get('scientific_hierarchy_proven') is not True:
-              raise SystemExit('hierarchy execution/integrity failed; this is not a normal no-genesis cycle')
-          count = int(p.get('embedded_core_genesis_event_count') or 0)
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as fh:
-              fh.write(f"genesis_required={'true' if count > 0 else 'false'}\n")
-          print(f"EMBEDDED_CORE_GENESIS_EVENT_COUNT={count}")
-          PY
-
-      - name: Build parent temporal descriptors
-        if: steps.tracking_state.outputs.trackable == 'true'
-        run: python scripts/radar_temporal_descriptor.py --tracking reports/scientific/radar_tracking.json --hierarchy reports/scientific/radar_hierarchy.json --output reports/scientific/radar_temporal.json
-
-      - name: Build parent-motion-relative genesis geometry
-        if: steps.tracking_state.outputs.trackable == 'true' && steps.hierarchy_state.outputs.genesis_required == 'true'
-        run: python scripts/radar_genesis_geometry_report.py --tracking reports/scientific/radar_tracking.json --hierarchy reports/scientific/radar_hierarchy.json --output reports/scientific/radar_genesis_geometry.json
-
-      - name: Build 850-hPa inflow-relative genesis geometry
-        if: steps.tracking_state.outputs.trackable == 'true' && steps.hierarchy_state.outputs.genesis_required == 'true'
-        run: python scripts/radar_inflow_geometry_probe.py --genesis reports/scientific/radar_genesis_geometry.json --output reports/scientific/radar_inflow_geometry.json
-
-      - name: Build parent precursor feature table
-        if: steps.tracking_state.outputs.trackable == 'true' && steps.hierarchy_state.outputs.genesis_required == 'true'
-        run: |
-          python scripts/build_parent_precursor_report.py \
-            --temporal reports/scientific/radar_temporal.json \
-            --inflow reports/scientific/radar_inflow_geometry.json \
-            --output reports/scientific/parent_precursor_features.json \
-            --csv-output reports/scientific/parent_precursor_features.csv
-
-      - name: Build prospective derived-feature bundle
-        run: |
-          python scripts/build_prospective_feature_bundle.py \
-            --scientific-dir reports/scientific \
-            --output reports/prospective/prospective_feature_bundle.json \
+          python scripts/o8_1_self_healing_batch_collector.py \
+            --output-root reports/prospective/o8_1_batch \
+            --represented-root incoming/indexes \
             --run-id "${{ github.run_id }}" \
-            --commit-sha "${{ github.sha }}"
+            --commit-sha "${{ github.sha }}" \
+            --trigger-type "${{ github.event_name }}" \
+            --catchup-horizon-minutes 120 \
+            --settlement-lag-minutes 15 \
+            --native-max-age-minutes 30 \
+            --max-slots 8
 
-      - name: Assert prospective scientific lock
+      - name: Assert O8.1-C batch contract
         run: |
           python - <<'PY'
           import json
-          p=json.load(open('reports/prospective/prospective_feature_bundle.json',encoding='utf-8'))
-          assert p['bundle_complete'] is True, p
-          assert p['collection_status'] in {
-              'COMPLETE_FEATURES',
-              'COMPLETE_NO_TRACKABLE_EVENT',
-              'COMPLETE_NO_EMBEDDED_GENESIS',
-          }, p
-          assert p['candidate_structure_is_lpz_classification'] is False, p
-          assert p['no_event_state_is_negative_label'] is False, p
+          p=json.load(open('reports/prospective/o8_1_batch/batch_manifest.json',encoding='utf-8'))
+          assert p['risk_engine_allowed'] is False, p
           assert p['raw_radar_archived'] is False, p
           assert p['raw_grib_archived'] is False, p
-          assert p['lpz_classification'] is None, p
-          assert p['risk_score'] is None, p
-          assert p['risk_engine_allowed'] is False, p
-          print(f"Prospective collection status: {p['collection_status']}")
-          print('Prospective scientific lock invariant: PASS')
+          assert p['catchup_horizon_minutes'] <= 120, p
+          assert p['settlement_lag_minutes'] == 15, p
+          assert p['technical_failure_count'] == 0, p
+          assert p['explicit_gap_count'] == 0, p
+          assert p['deferred_due_run_cap_count'] == 0, p
+          for row in p.get('slot_results', []):
+              assert row['bundle_complete'] is True, row
+              assert row['risk_engine_allowed'] is False, row
+              assert row['collection_status'] in {
+                  'COMPLETE_FEATURES',
+                  'COMPLETE_NO_TRACKABLE_EVENT',
+                  'COMPLETE_NO_EMBEDDED_GENESIS',
+              }, row
+              assert row['as_of_time_guard_pass'] is True, row
+          print('PASS_PHASE2L_O8_1_C_SELF_HEALING_BATCH')
+          print(json.dumps({
+              'state': p['state'],
+              'processed': p['requested_slot_count'],
+              'native': p['native_slot_count'],
+              'recovered': p['recovered_slot_count'],
+              'represented_before': p['represented_slot_count_in_horizon'],
+          }, indent=2))
           PY
 
-      - name: Upload prospective feature bundle
+      - name: Write O8.1-C workflow summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=Path('reports/prospective/o8_1_batch/batch_manifest.json')
+          print('## LPZ O8.1-C Self-Healing Batch Collector')
+          if not p.exists():
+              print('- Batch manifest was not produced.')
+              raise SystemExit(0)
+          r=json.loads(p.read_text(encoding='utf-8'))
+          print(f"- State: **{r['state']}**")
+          print(f"- Trigger: **{r['trigger_type']}**")
+          print(f"- Expected slots in 120m horizon: **{r['expected_slot_count_in_horizon']}**")
+          print(f"- Already represented: **{r['represented_slot_count_in_horizon']}**")
+          print(f"- Processed this run: **{r['requested_slot_count']}**")
+          print(f"- Native / recovered: **{r['native_slot_count']} / {r['recovered_slot_count']}**")
+          print(f"- Explicit gaps: **{r['explicit_gap_count']}**")
+          print(f"- Technical failures: **{r['technical_failure_count']}**")
+          print(f"- Deferred by run cap: **{r['deferred_due_run_cap_count']}**")
+          print('- Risk Engine: **LOCKED**')
+          PY
+
+      - name: Upload full prospective batch
+        if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: prospective-feature-bundle-${{ github.run_id }}
-          path: reports/prospective/prospective_feature_bundle.json
+          name: prospective-batch-${{ github.run_id }}
+          path: reports/prospective/o8_1_batch/
+          if-no-files-found: error
+          retention-days: 10
+
+      - name: Upload lightweight batch index
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: prospective-batch-index-${{ github.run_id }}
+          path: reports/prospective/o8_1_batch/batch_manifest.json
           if-no-files-found: error
           retention-days: 10
