@@ -1,7 +1,7 @@
 {
   "schema_version": "1.1.0",
   "phase": "2L-O8-github-only-production-closure",
-  "generated_at_utc": "2026-09-13T08:24:45Z",
+  "generated_at_utc": "2026-09-13T11:30:18Z",
   "overall_state": "WAIT_KEEP_WINDOWS_TASK",
   "closure_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -26,11 +26,11 @@
         "reason": null
       },
       "daily_archive": {
-        "state": "PASS",
+        "state": "FAIL",
         "workflow": "daily_archive",
         "path": ".github/workflows/prospective-daily-consolidation.yml",
         "expected_cron": "30 0 * * *",
-        "reason": null
+        "reason": "EXPECTED_SCHEDULE_NOT_FOUND"
       },
       "public_pages": {
         "state": "PASS",
@@ -52,7 +52,7 @@
         "minimum_runs_required": 80,
         "minimum_success_ratio": 0.9,
         "latest_success_created_at_utc": "2026-09-13T05:59:19Z",
-        "latest_success_age_minutes": 145.43851551666666,
+        "latest_success_age_minutes": 330.99825658333333,
         "freshness_limit_minutes": 60.0,
         "latest_success_run_id": 34741630745,
         "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34741630745",
@@ -61,10 +61,11 @@
           "INSUFFICIENT_SCHEDULED_RUNS_IN_LOOKBACK"
         ],
         "diagnostics": {
-          "rows_received": 28,
+          "rows_received": 30,
           "event_counts": {
-            "push": 6,
-            "schedule": 22
+            "push": 7,
+            "schedule": 22,
+            "workflow_run": 1
           },
           "scheduled_conclusion_counts": {
             "failure": 3,
@@ -72,17 +73,37 @@
           },
           "scheduled_rows_received": 22,
           "latest_scheduled_created_at_utc": "2026-09-13T05:59:19Z",
-          "latest_scheduled_age_minutes": 145.43851551666666,
+          "latest_scheduled_age_minutes": 330.99825658333333,
           "max_gap_between_returned_scheduled_runs_minutes": 933.6,
           "median_gap_between_returned_scheduled_runs_minutes": 152.85,
           "recent_runs": [
             {
+              "run_id": 34752059547,
+              "created_at_utc": "2026-09-13T10:31:03Z",
+              "updated_at_utc": "2026-09-13T10:33:39Z",
+              "event": "workflow_run",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "f08fd655af6f92da7f036f3df728e5e0ef7b02cc",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34752059547"
+            },
+            {
+              "run_id": 34747798967,
+              "created_at_utc": "2026-09-13T08:29:11Z",
+              "updated_at_utc": "2026-09-13T08:30:45Z",
+              "event": "push",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "c579803a732aefb83806361e5520684c724d3c08",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34747798967"
+            },
+            {
               "run_id": 34747609351,
               "created_at_utc": "2026-09-13T08:24:36Z",
-              "updated_at_utc": "2026-09-13T08:24:41Z",
+              "updated_at_utc": "2026-09-13T08:27:34Z",
               "event": "push",
-              "status": "in_progress",
-              "conclusion": "",
+              "status": "completed",
+              "conclusion": "success",
               "head_sha": "5acbb2ba9638224eb613087cf7cff00d5979367b",
               "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34747609351"
             },
@@ -363,37 +384,47 @@
         "state": "WAIT",
         "cadence": "15_MINUTES",
         "lookback_hours": 24.0,
-        "scheduled_runs_in_lookback": 6,
-        "completed_runs_in_lookback": 6,
-        "successful_runs_in_lookback": 6,
+        "scheduled_runs_in_lookback": 7,
+        "completed_runs_in_lookback": 7,
+        "successful_runs_in_lookback": 7,
         "success_ratio": 1.0,
         "minimum_runs_required": 80,
         "minimum_success_ratio": 0.9,
-        "latest_success_created_at_utc": "2026-09-13T05:23:19Z",
-        "latest_success_age_minutes": 181.43851551666666,
+        "latest_success_created_at_utc": "2026-09-13T10:29:35Z",
+        "latest_success_age_minutes": 60.731589916666664,
         "freshness_limit_minutes": 60.0,
-        "latest_success_run_id": 34740175437,
-        "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34740175437",
+        "latest_success_run_id": 34751987561,
+        "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34751987561",
         "reasons": [
           "LATEST_SUCCESS_STALE_OR_MISSING",
           "INSUFFICIENT_SCHEDULED_RUNS_IN_LOOKBACK"
         ],
         "diagnostics": {
-          "rows_received": 16,
+          "rows_received": 17,
           "event_counts": {
             "push": 8,
-            "schedule": 6,
+            "schedule": 7,
             "workflow_dispatch": 2
           },
           "scheduled_conclusion_counts": {
-            "success": 6
+            "success": 7
           },
-          "scheduled_rows_received": 6,
-          "latest_scheduled_created_at_utc": "2026-09-13T05:23:19Z",
-          "latest_scheduled_age_minutes": 181.43851551666666,
-          "max_gap_between_returned_scheduled_runs_minutes": 285.28333333333336,
-          "median_gap_between_returned_scheduled_runs_minutes": 137.03333333333333,
+          "scheduled_rows_received": 7,
+          "latest_scheduled_created_at_utc": "2026-09-13T10:29:35Z",
+          "latest_scheduled_age_minutes": 60.731589916666664,
+          "max_gap_between_returned_scheduled_runs_minutes": 306.26666666666665,
+          "median_gap_between_returned_scheduled_runs_minutes": 150.26666666666668,
           "recent_runs": [
+            {
+              "run_id": 34751987561,
+              "created_at_utc": "2026-09-13T10:29:35Z",
+              "updated_at_utc": "2026-09-13T10:31:01Z",
+              "event": "schedule",
+              "status": "completed",
+              "conclusion": "success",
+              "head_sha": "f08fd655af6f92da7f036f3df728e5e0ef7b02cc",
+              "url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34751987561"
+            },
             {
               "run_id": 34740175437,
               "created_at_utc": "2026-09-13T05:23:19Z",
@@ -568,7 +599,7 @@
         "minimum_runs_required": 1,
         "minimum_success_ratio": 0.9,
         "latest_success_created_at_utc": "2026-09-13T05:16:39Z",
-        "latest_success_age_minutes": 188.10518218333334,
+        "latest_success_age_minutes": 373.66492325,
         "freshness_limit_minutes": 2160.0,
         "latest_success_run_id": 34739899556,
         "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34739899556",
@@ -583,7 +614,7 @@
           },
           "scheduled_rows_received": 3,
           "latest_scheduled_created_at_utc": "2026-09-13T05:16:39Z",
-          "latest_scheduled_age_minutes": 188.10518218333334,
+          "latest_scheduled_age_minutes": 373.66492325,
           "max_gap_between_returned_scheduled_runs_minutes": 2829.733333333333,
           "median_gap_between_returned_scheduled_runs_minutes": 2829.733333333333,
           "recent_runs": [
@@ -668,6 +699,7 @@
     }
   },
   "blockers": [
+    "GITHUB_PRODUCTION_SCHEDULE_CONFIGURATION",
     "PROSPECTIVE_COLLECTOR_RUNTIME_HEALTH",
     "PUBLIC_PAGES_RUNTIME_HEALTH",
     "CONSECUTIVE_DAILY_ARCHIVE_COVERAGE"
