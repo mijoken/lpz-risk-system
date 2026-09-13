@@ -247,8 +247,8 @@ def write_archive(path: Path, records: list[dict[str, Any]]) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     sha = hashlib.sha256()
     with path.open("wb") as raw:
-        # mtime=0 makes reruns byte-for-byte reproducible when scientific inputs are unchanged.
-        with gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=9, mtime=0) as gz:
+        # mtime=0 plus filename="" makes identical inputs byte-for-byte reproducible.
+        with gzip.GzipFile(filename="", fileobj=raw, mode="wb", compresslevel=9, mtime=0) as gz:
             for record in records:
                 line = json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
                 encoded = line.encode("utf-8")
