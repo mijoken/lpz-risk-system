@@ -1,0 +1,106 @@
+name: LPZ O8.1 JMA Retention Census
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Retention stability does not require a precise clock. Four observations/day are enough.
+    - cron: "13 0,6,12,18 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/o8-1-jma-retention-census.yml"
+      - "scripts/o8_1_jma_retention_census.py"
+      - "docs/architecture/O8_1_SELF_HEALING_PROSPECTIVE_COLLECTION.md"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lpz-o8-1-jma-retention-census
+  cancel-in-progress: false
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Deterministic self-test
+        run: python scripts/o8_1_jma_retention_census.py --self-test
+
+      - name: Measure live JMA replay retention
+        run: |
+          python scripts/o8_1_jma_retention_census.py \
+            --output research/operations/o8_1_jma_retention_latest.json \
+            --history-output research/operations/o8_1_jma_retention_history.jsonl
+
+      - name: Assert O8.1 scientific lock
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/operations/o8_1_jma_retention_latest.json').read_text(encoding='utf-8'))
+          assert p['risk_engine_allowed'] is False, p
+          assert p['scientific_release_changed'] is False, p
+          assert p['state'] != 'FAIL_TECHNICAL', p
+          if p['state'] == 'PASS_RETENTION_CANDIDATE':
+              assert p['direct_tile_replay_probes']['all_pass'] is True, p
+              assert p['policy_candidate']['recommended_catchup_horizon_minutes'] >= 60, p
+          print('O8.1-A scientific lock: PASS')
+          print('Retention state:', p['state'])
+          PY
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=Path('research/operations/o8_1_jma_retention_latest.json')
+          print('## O8.1-A — JMA source-retention census')
+          if not p.exists():
+              print('- Report not produced.')
+              raise SystemExit(0)
+          r=json.loads(p.read_text(encoding='utf-8'))
+          print(f"- State: **{r.get('state')}**")
+          if 'frame_history' in r:
+              print(f"- Continuous 5-min frames: **{r['frame_history']['continuous_trailing_frame_count']}**")
+              print(f"- Continuous metadata span: **{r['frame_history']['continuous_metadata_span_minutes']} min**")
+              print(f"- Recoverable 15-min slots visible now: **{r['slot_replay']['recoverable_slot_count_in_visible_window']}**")
+              print(f"- Old/mid/new PNG replay probes: **{r['direct_tile_replay_probes']['all_pass']}**")
+              print(f"- Candidate catch-up horizon: **{r['policy_candidate']['recommended_catchup_horizon_minutes']} min**")
+          print('- Risk Engine: **LOCKED**')
+          PY
+
+      - name: Upload census evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: o8-1-jma-retention-${{ github.run_id }}
+          path: |
+            research/operations/o8_1_jma_retention_latest.json
+            research/operations/o8_1_jma_retention_history.jsonl
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit retention evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/operations/o8_1_jma_retention_latest.json research/operations/o8_1_jma_retention_history.jsonl
+          if git diff --cached --quiet; then
+            echo "No O8.1 retention evidence changes to commit."
+            exit 0
+          fi
+          git commit -m "ops: record O8.1 JMA retention census"
+          git pull --rebase origin main
+          git push origin HEAD:main
