@@ -50,7 +50,7 @@ jobs:
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
           echo "Target UTC date: $TARGET"
 
-      - name: Discover successful collector runs that could contain target-day slots
+      - name: Discover completed collector runs that could contain target-day slots
         shell: bash
         env:
           TARGET_DATE: ${{ steps.date.outputs.target }}
@@ -71,13 +71,17 @@ jobs:
           end=target + timedelta(days=1, hours=3)
           rows=json.load(open('/tmp/o81d-runs.json',encoding='utf-8'))
           for row in rows:
-              if row.get('status') != 'completed' or row.get('conclusion') != 'success':
+              # O8.1-C uploads its full batch and lightweight index with if: always().
+              # A failed collector run may therefore contain the only auditable
+              # TECHNICAL_INCOMPLETE representation of a scientific slot. Excluding
+              # it here would incorrectly turn that state into EXPLICIT_GAP.
+              if row.get('status') != 'completed':
                   continue
               created=datetime.fromisoformat(str(row['createdAt']).replace('Z','+00:00')).astimezone(timezone.utc)
               if target <= created <= end:
                   print(row['databaseId'])
           PY
-          echo "Candidate collector runs: $(wc -l < /tmp/o81d-candidate-run-ids.txt)"
+          echo "Candidate completed collector runs: $(wc -l < /tmp/o81d-candidate-run-ids.txt)"
 
       - name: Download lightweight O8.1-C batch indexes
         shell: bash
