@@ -1,0 +1,91 @@
+name: O9-G Guarded 2025 ERA5 Opening Synthetic Proof
+
+on:
+  push:
+    branches: [o9-g-guarded-era5-opening]
+    paths:
+      - ".github/workflows/o9-g-guarded-era5-opening-synthetic-proof.yml"
+      - "src/lpz_risk/o9_era5_opening.py"
+      - "scripts/o9_g_guarded_era5_opening.py"
+      - "scripts/o9_v08_reentry_harness.py"
+      - "tests/test_o9_g_guarded_era5_opening.py"
+      - "tests/test_o9_v08_reentry_harness.py"
+      - "scripts/o9_v08_frozen_matching.py"
+      - "src/lpz_risk/o9_frozen_matching.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: o9-g-guarded-era5-opening-synthetic-proof
+  cancel-in-progress: false
+
+jobs:
+  synthetic-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+
+      - name: Compile O9-G code
+        run: |
+          python -m compileall -q \
+            src/lpz_risk/o9_era5_opening.py \
+            scripts/o9_g_guarded_era5_opening.py \
+            scripts/o9_v08_reentry_harness.py \
+            tests/test_o9_g_guarded_era5_opening.py \
+            tests/test_o9_v08_reentry_harness.py
+
+      - name: Run O9-G and O9-D/E/F regression proof
+        run: |
+          python -m pytest -q \
+            tests/test_o9_g_guarded_era5_opening.py \
+            tests/test_o9_v08_reentry_harness.py \
+            tests/test_o9_f_v08_frozen_matching_synthetic.py \
+            tests/test_o9_e_v08_transform_freeze_synthetic.py \
+            tests/test_o9_e_validation_csv_hash_binding.py \
+            tests/test_o9_d_v08_rainfall_rebuild_synthetic.py \
+            tests/test_o9_v08_required_coverage_gate.py \
+            tests/test_imerg_final_versioned.py
+
+      - name: Assert live repository remains sealed without real V08 chain
+        run: |
+          python - <<'PY'
+          from scripts import o9_v08_reentry_harness as h
+          r = h.evaluate_chain(h.ROOT, h.ROOT / 'research/o9/reentry')
+          assert r['state'] == 'WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN', r
+          assert r['era5_2025_may_be_opened'] is False, r
+          assert r['confirmatory_run_may_execute'] is False, r
+          assert r['risk_engine_allowed'] is False, r
+          assert r['public_risk_release_allowed'] is False, r
+          print('PASS_O9_G_LIVE_REPO_REMAINS_SEALED')
+          PY
+
+      - name: Write proof summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## O9-G Guarded ERA5 Opening Synthetic Proof
+          - Real O9-A..F evidence required: **YES**
+          - Final matched population: **92 immutable cases (23 + 69)**
+          - Frozen ERA5 offsets: **-12h, -6h, -3h, 0h**
+          - Snapshot mappings: **368**
+          - IMERG anchor: **P95-max 3h window start**
+          - Future ERA5 source time: **FORBIDDEN**
+          - CDS/network access during gate: **NONE**
+          - O9-G authorization means retrieval completed: **NO**
+          - Primary allowed immediately after authorization: **NO**
+          - Risk Engine: **LOCKED**
+          - Public LPZ risk: **LOCKED**
+          EOF
