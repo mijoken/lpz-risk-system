@@ -1,0 +1,64 @@
+name: O8.1-F Branch Proof
+
+on:
+  push:
+    branches: [o8-1-f-final-cutover-audit]
+    paths:
+      - ".github/workflows/o8-1-f-branch-proof.yml"
+      - ".github/workflows/o8-1-f-final-cutover-audit.yml"
+      - "scripts/o8_1_final_cutover_audit.py"
+      - "tests/test_o8_1_final_cutover_audit.py"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install pytest
+      - name: Unit tests
+        run: python -m pytest -q tests/test_o8_1_final_cutover_audit.py
+      - name: Collect current production runtime history
+        shell: bash
+        run: |
+          mkdir -p reports/operations research/operations
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow prospective-feature-collector.yml --branch main --limit 80 --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url > reports/operations/o8_1_f_collector_runs.json
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow prospective-daily-consolidation.yml --branch main --limit 30 --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url > reports/operations/o8_1_f_daily_runs.json
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow public-pages-deploy.yml --branch main --limit 80 --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url > reports/operations/o8_1_f_public_runs.json
+      - name: Audit current repository without false-positive cutover
+        run: |
+          python scripts/o8_1_final_cutover_audit.py \
+            --repo-root . \
+            --collector-runs reports/operations/o8_1_f_collector_runs.json \
+            --daily-runs reports/operations/o8_1_f_daily_runs.json \
+            --public-runs reports/operations/o8_1_f_public_runs.json \
+            --output research/operations/o8_1_f_branch_current.json
+      - name: Assert current state remains safely waiting
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('research/operations/o8_1_f_branch_current.json',encoding='utf-8'))
+          assert p['phase'] == '2L-O8.1-F-final-github-only-cutover-audit', p
+          assert p['cutover_ready'] is False, p
+          assert p['windows_task_may_be_disabled'] is False, p
+          assert p['windows_task_recommendation'] == 'KEEP_ENABLED', p
+          assert p['risk_engine_allowed'] is False, p
+          assert 'TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS' in p['blockers'], p
+          print('PASS_PHASE2L_O8_1_F_CURRENT_REPOSITORY_WAIT_STATE')
+          print(json.dumps({
+              'state': p['state'],
+              'cutover_ready': p['cutover_ready'],
+              'blockers': p['blockers'],
+              'collector_runtime': p['checks']['runtime']['collector']['state'],
+          }, indent=2))
+          PY
