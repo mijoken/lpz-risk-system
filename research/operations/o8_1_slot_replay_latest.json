@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8.1-B-slot-addressable-replay-proof",
+  "generated_at_utc": "2026-09-13T08:07:35Z",
+  "state": "PASS_SLOT_REPLAY",
+  "collection_slot_utc": "2026-09-13T07:00:00Z",
+  "prospective_as_of_utc": "2026-09-13T07:15:00Z",
+  "archive_role_candidate": "PROSPECTIVE_RECOVERED",
+  "recovery_age_minutes": 67.59185123333333,
+  "requested_exact_frame_times": [
+    "2026-09-13T06:45:00Z",
+    "2026-09-13T06:50:00Z",
+    "2026-09-13T06:55:00Z",
+    "2026-09-13T07:00:00Z"
+  ],
+  "exact_frame_sequence_match": true,
+  "morphology": {
+    "execution_ok": true,
+    "scientific_morphology_proven": true,
+    "sample_status": "OBJECTS_EXTRACTED",
+    "frame": {
+      "basetime": "20260913070000",
+      "validtime": "20260913070000",
+      "valid_time_utc": "2026-09-13T07:00:00Z"
+    },
+    "national_discovery": {
+      "tiles_attempted": 49,
+      "tiles_ok": 49,
+      "tiles_with_precipitation": 19
+    },
+    "object_counts": {
+      "30": 29,
+      "50": 17,
+      "80": 7
+    },
+    "gates": {
+      "target_frame_exact": true,
+      "national_reference_scan_complete": true,
+      "z8_mosaic": true,
+      "object_geometry": true,
+      "risk_engine_allowed": false
+    }
+  },
+  "tracking": {
+    "execution_ok": true,
+    "scientific_tracking_proven": true,
+    "sample_status": "TRACKABLE_COMPONENT_PRESENT",
+    "frame_valid_times": [
+      "2026-09-13T06:45:00Z",
+      "2026-09-13T06:50:00Z",
+      "2026-09-13T06:55:00Z",
+      "2026-09-13T07:00:00Z"
+    ],
+    "primary_match_counts": {
+      "30": 31,
+      "50": 13,
+      "80": 5
+    },
+    "gates": {
+      "exact_four_frame_sequence": true,
+      "fixed_multiframe_mosaic": true,
+      "component_tracking": true,
+      "risk_engine_allowed": false
+    }
+  },
+  "gfs_as_of_guard": {
+    "prospective_as_of_utc": "2026-09-13T07:15:00Z",
+    "minimum_cycle_age_hours_at_slot": 4,
+    "candidate_count": 2,
+    "all_candidate_cycles_asof_safe": true,
+    "candidates": [
+      {
+        "cycle_utc": "2026-09-13T00:00:00Z",
+        "forecast_hour": 7,
+        "forecast_valid_time_utc": "2026-09-13T07:00:00Z",
+        "valid_time_error_minutes": 0.0,
+        "conservative_cycle_age_guard_pass": true,
+        "prospective_as_of_guard_pass": true
+      },
+      {
+        "cycle_utc": "2026-09-12T18:00:00Z",
+        "forecast_hour": 13,
+        "forecast_valid_time_utc": "2026-09-13T07:00:00Z",
+        "valid_time_error_minutes": 0.0,
+        "conservative_cycle_age_guard_pass": true,
+        "prospective_as_of_guard_pass": true
+      }
+    ]
+  },
+  "raw_radar_archived": false,
+  "raw_grib_archived": false,
+  "lpz_classification": null,
+  "risk_score": null,
+  "risk_engine_allowed": false,
+  "interpretation": "Exact historical-slot replay proof only. No newer radar frame or future model cycle may substitute for the requested slot."
+}
