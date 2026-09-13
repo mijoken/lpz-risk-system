@@ -1,0 +1,131 @@
+name: LPZ GitHub-only Production Closure Audit (O8)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run after the 00:30 UTC daily archive has had time to finish.
+    - cron: "45 1 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/production-closure-audit.yml"
+      - ".github/workflows/prospective-feature-collector.yml"
+      - ".github/workflows/prospective-daily-consolidation.yml"
+      - ".github/workflows/public-pages-deploy.yml"
+      - "scripts/audit_production_closure.py"
+      - "scripts/consolidate_prospective_feature_bundles.py"
+      - "config/lpz_system_charter.json"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: lpz-github-only-production-closure-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Collect GitHub production run history
+        shell: bash
+        run: |
+          mkdir -p reports/operations research/operations
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow prospective-feature-collector.yml \
+            --limit 200 \
+            --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url \
+            > reports/operations/o8_collector_runs.json
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow public-pages-deploy.yml \
+            --limit 200 \
+            --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url \
+            > reports/operations/o8_public_runs.json
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow prospective-daily-consolidation.yml \
+            --limit 30 \
+            --json databaseId,createdAt,updatedAt,conclusion,event,status,headSha,url \
+            > reports/operations/o8_daily_runs.json
+
+      - name: Audit GitHub-only production closure
+        run: |
+          python scripts/audit_production_closure.py \
+            --repo-root . \
+            --collector-runs reports/operations/o8_collector_runs.json \
+            --public-runs reports/operations/o8_public_runs.json \
+            --daily-runs reports/operations/o8_daily_runs.json \
+            --output research/operations/o8_production_closure_latest.json
+
+      - name: Write O8 workflow summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          p=Path('research/operations/o8_production_closure_latest.json')
+          print('## LPZ GitHub-only Production Closure Audit (O8)')
+          if not p.exists():
+              print('- Audit report was not produced.')
+              raise SystemExit(0)
+          r=json.loads(p.read_text(encoding='utf-8'))
+          print(f"- Overall: **{r['overall_state']}**")
+          print(f"- Closure ready: **{r['closure_ready']}**")
+          print(f"- Windows task recommendation: **{r['windows_task_recommendation']}**")
+          print(f"- Risk engine allowed: **{r['risk_engine_allowed']}**")
+          blockers=r.get('blockers') or []
+          print(f"- Blockers: **{', '.join(blockers) if blockers else 'NONE'}**")
+          print('')
+          print('### Daily archive checks')
+          for row in r['checks']['archives']:
+              print(
+                  f"- {row['date_utc']}: **{row['state']}**, "
+                  f"coverage={row.get('coverage_fraction')}, "
+                  f"bundles={row.get('bundle_count')}"
+              )
+          print('')
+          print('This operational gate does not unlock the scientific Risk Engine.')
+          PY
+
+      - name: Upload O8 audit evidence
+        uses: actions/upload-artifact@v6
+        with:
+          name: o8-production-closure-${{ github.run_id }}
+          path: |
+            research/operations/o8_production_closure_latest.json
+            reports/operations/o8_collector_runs.json
+            reports/operations/o8_public_runs.json
+            reports/operations/o8_daily_runs.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit latest O8 closure status
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/operations/o8_production_closure_latest.json
+          if git diff --cached --quiet; then
+            echo "No O8 report changes to commit."
+            exit 0
+          fi
+          git commit -m "ops: update O8 production closure status"
+          git pull --rebase origin main
+          git push origin HEAD:main
