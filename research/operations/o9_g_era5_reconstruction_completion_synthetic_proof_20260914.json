@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "O9-G-ERA5-reconstruction-completion-synthetic-proof",
+  "gate": "PASS_O9_G_ERA5_RECONSTRUCTION_COMPLETION_SYNTHETIC_PROOF",
+  "proof_date_utc": "2026-09-13",
+  "proof_date_jst": "2026-09-14",
+  "branch": "o9-g-era5-reconstruction-completion",
+  "proof_head_sha": "c7b082264d65aa4368cff5a195e90e657523be33",
+  "github_actions": {
+    "workflow_name": "O9-G ERA5 Reconstruction Completion Synthetic Proof",
+    "run_id": 34790390050,
+    "job_id": 103813390157,
+    "conclusion": "success",
+    "pytest_result": "35 passed in 2.92s",
+    "live_repository_lock_assertion": "PASS_O9_G_RECONSTRUCTION_LIVE_REPO_REMAINS_SEALED"
+  },
+  "guarded_network_boundary": {
+    "real_o9_a_through_f_chain_revalidated_before_client": true,
+    "phase_h_and_k2_freezes_revalidated_before_client": true,
+    "exact_o9_f_92_case_population_sha_revalidated_before_client": true,
+    "authorization_receipt_revalidated_before_client": true,
+    "request_manifest_sha_revalidated_before_client": true,
+    "era5_config_sha_revalidated_before_client": true,
+    "geometry_registry_sha_revalidated_before_client": true,
+    "authorization_predecessor_hash_chain_revalidated_before_client": true,
+    "cdsapi_import_is_lazy_after_authorization_boundary": true,
+    "invalid_authorization_client_factory_calls": 0,
+    "tampered_manifest_client_factory_calls": 0,
+    "tampered_predecessor_evidence_client_factory_calls": 0,
+    "tampered_final_population_client_factory_calls": 0,
+    "checkpoint_binding_mismatch_client_factory_calls": 0
+  },
+  "reconstruction_contract": {
+    "matched_case_count": 92,
+    "positive_case_count": 23,
+    "comparison_case_count": 69,
+    "comparison_role": "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL",
+    "snapshot_offsets_hours": [-12, -6, -3, 0],
+    "snapshot_mapping_count": 368,
+    "time_anchor_policy": "IMERG_3H_P95_MAX_WINDOW_START",
+    "era5_source_time_policy": "FLOOR_TO_AVAILABLE_HOUR_NO_FUTURE_SOURCE_TIME",
+    "future_source_time_allowed": false,
+    "provider": "COPERNICUS_CDS_ERA5",
+    "dataset": "reanalysis-era5-pressure-levels",
+    "spatial_semantics": "JMA_PRIMARY_SUBDIVISION_BBOX_PLUS_FROZEN_0P5_DEG_PADDING_CONTEXT_NOT_POLYGON_MEAN",
+    "derived_field_spatial_semantics": "REQUEST_BBOX_CONTEXT_NOT_SUBDIVISION_POLYGON_MEAN",
+    "environment_variables_used_for_matching_membership": false
+  },
+  "checkpoint_and_artifact_contract": {
+    "request_group_checkpoint_resume": true,
+    "checkpoint_binds_authorization_sha256": true,
+    "checkpoint_binds_request_manifest_sha256": true,
+    "existing_invalid_descriptor_is_not_silently_overwritten": true,
+    "descriptor_binds_authorization_sha256": true,
+    "descriptor_binds_request_manifest_sha256": true,
+    "each_grib_payload_sha256_recorded_before_cleanup": true,
+    "raw_grib_deleted_after_validation": true,
+    "all_expected_valid_times_required_per_request": true,
+    "all_required_era5_fields_required_per_valid_time": true,
+    "final_snapshot_csv_sha256_recorded": true,
+    "final_snapshot_json_sha256_recorded": true
+  },
+  "completion_contract": {
+    "completion_gate": "PASS_O9_G_2025_ERA5_RECONSTRUCTION_COMPLETE_92_CASES_368_SNAPSHOTS",
+    "all_request_groups_must_validate": true,
+    "failed_request_group_count": 0,
+    "missing_snapshot_count": 0,
+    "future_source_time_count": 0,
+    "matching_membership_changed_by_era5": false,
+    "primary_confirmatory_test_run": false,
+    "confirmatory_run_may_execute_after_completion": true,
+    "risk_engine_allowed": false,
+    "public_risk_release_allowed": false
+  },
+  "synthetic_proof_scope": {
+    "real_cds_network_access_performed": false,
+    "real_2025_era5_environment_values_read": false,
+    "real_completion_receipt_created_in_repository": false,
+    "real_primary_confirmatory_test_run": false,
+    "temporary_real_style_evidence_chain_used_only_inside_pytest_tmpdir": true
+  },
+  "live_repository_state_after_proof": {
+    "reentry_state": "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN",
+    "official_real_final_v08_chain_complete": false,
+    "2025_era5_may_be_opened": false,
+    "confirmatory_run_may_execute": false,
+    "risk_engine_allowed": false,
+    "public_risk_release_allowed": false
+  },
+  "interpretation": "The second half of O9-G is synthetically proven as a fail-closed, checkpointed retrieval/reconstruction boundary. No CDS client may be created until the real immutable authorization context is revalidated. Scientific completion requires every frozen request group and all 368 snapshot mappings to reconstruct without future ERA5 source times or membership changes. Completion only makes the separately frozen O9-H Primary eligible; it does not execute the Primary and does not unlock either the Risk Engine or public LPZ risk."
+}
