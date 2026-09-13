@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 from pathlib import Path
 
@@ -248,10 +249,16 @@ def test_complete_real_style_a_to_f_authorizes_92x4_without_network(tmp_path: Pa
         assert 0 <= int(m["era5_source_lag_minutes"]) <= 59
 
 
-def test_gate_has_no_cdsapi_or_network_retrieval_import():
+def test_gate_has_no_network_retrieval_imports():
     source = (harness.ROOT / "scripts/o9_g_guarded_era5_opening.py").read_text(encoding="utf-8")
-    assert "import cdsapi" not in source
-    assert "cdsapi.Client" not in source
+    tree = ast.parse(source)
+    imported_roots: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_roots.update(alias.name.split(".", 1)[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported_roots.add(node.module.split(".", 1)[0])
+    assert imported_roots.isdisjoint({"cdsapi", "earthaccess", "requests", "urllib"})
 
 
 def test_missing_predecessor_denies_authorization(tmp_path: Path):
