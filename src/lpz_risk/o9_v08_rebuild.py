@@ -1,8 +1,7 @@
 """Pure scientific core for O9-D IMERG Final V08 rainfall rebuilding.
 
 This module contains no network, Earthdata, ERA5, matching, or risk code.  It
-receives exactly 58 V08 half-hour CanonicalRainfallField objects for one UTC
-region-day and reproduces the frozen Phase 2L-C/K rolling-3h semantics:
+reproduces the frozen Phase 2L-C/K rolling-3h semantics:
 
 - native interval = 30 minutes, mean rain rate in mm/hr
 - each interval contributes rate * 0.5 mm
@@ -12,6 +11,10 @@ region-day and reproduces the frozen Phase 2L-C/K rolling-3h semantics:
 - retain the maximum of each statistic; strict greater-than preserves earliest
   winning window on ties
 - no interpolation and no cross-version/source mixture
+
+The production orchestrator decodes one global V08 field at a time and retains
+only small regional 30-minute amount arrays, keeping memory bounded.  The full
+CanonicalRainfallField entry point remains useful for tests and small fixtures.
 """
 from __future__ import annotations
 
@@ -20,7 +23,7 @@ from typing import Iterable
 
 import numpy as np
 
-from .canonical_rainfall import CanonicalRainfallField, integrate_consecutive_fields
+from .canonical_rainfall import CanonicalRainfallField
 
 EXPECTED_VERSION = "08"
 EXPECTED_SLOT_COUNT = 58
@@ -106,26 +109,36 @@ def bbox_indices(
     return iy, ix
 
 
-def compute_region_day_metrics(
+def compute_metrics_from_slot_amounts(
     *,
     day: str | datetime,
-    fields: Iterable[CanonicalRainfallField],
-    bbox_wsen: tuple[float, float, float, float],
+    slot_amounts_mm: Iterable[np.ndarray],
 ) -> dict[str, object]:
-    ordered = validate_exact_v08_fields(day, fields)
-    rolling = expected_rolling_starts(day)
-    iy, ix = bbox_indices(ordered[0], bbox_wsen)
+    """Compute frozen rolling statistics from 58 regional 30-minute amounts.
 
+    Every array must represent the same regional grid and already be integrated
+    over one 30-minute native interval. NaN propagation is intentional: a pixel
+    missing in any of the six native slots is missing in that 3-hour field.
+    """
+    slots = [np.asarray(x, dtype=float) for x in slot_amounts_mm]
+    if len(slots) != EXPECTED_SLOT_COUNT:
+        raise ValueError(f"expected {EXPECTED_SLOT_COUNT} regional slot arrays, got {len(slots)}")
+    if not slots[0].ndim == 2:
+        raise ValueError("regional slot arrays must be 2-D")
+    shape = slots[0].shape
+    if any(x.shape != shape for x in slots):
+        raise ValueError("regional slot array shape changed within target day")
+
+    rolling = expected_rolling_starts(day)
     best: dict[str, tuple[float, datetime, datetime]] = {}
     valid_windows = 0
 
     for start_index, start in enumerate(rolling):
-        six = ordered[start_index:start_index + SLOTS_PER_WINDOW]
+        six = slots[start_index:start_index + SLOTS_PER_WINDOW]
         if len(six) != SLOTS_PER_WINDOW:
             raise AssertionError("incomplete six-slot rolling window")
-        accum = integrate_consecutive_fields(six)
-        sub = np.asarray(accum[np.ix_(iy, ix)], dtype=float)
-        vals = sub[np.isfinite(sub) & (sub >= 0.0)]
+        accum = np.sum(np.stack(six, axis=0), axis=0)
+        vals = accum[np.isfinite(accum) & (accum >= 0.0)]
         if vals.size == 0:
             continue
         valid_windows += 1
@@ -156,3 +169,18 @@ def compute_region_day_metrics(
         out[f"imerg_3h_{name}_window_start_utc"] = start.isoformat()
         out[f"imerg_3h_{name}_window_end_utc"] = end.isoformat()
     return out
+
+
+def compute_region_day_metrics(
+    *,
+    day: str | datetime,
+    fields: Iterable[CanonicalRainfallField],
+    bbox_wsen: tuple[float, float, float, float],
+) -> dict[str, object]:
+    ordered = validate_exact_v08_fields(day, fields)
+    iy, ix = bbox_indices(ordered[0], bbox_wsen)
+    amounts = [
+        np.asarray(f.accumulation_mm[np.ix_(iy, ix)], dtype=float)
+        for f in ordered
+    ]
+    return compute_metrics_from_slot_amounts(day=day, slot_amounts_mm=amounts)
