@@ -67,3 +67,15 @@ def test_represented_slots_accept_only_complete_locked_rows(tmp_path: Path) -> N
     path.write_text(json.dumps(manifest), encoding="utf-8")
     represented = module.represented_slots([tmp_path])
     assert represented == {dt("2026-09-13T07:00:00Z")}
+
+
+def test_represented_slots_accept_direct_complete_bundle(tmp_path: Path) -> None:
+    bundle = {
+        "collection_slot_utc": "2026-09-13T08:00:00Z",
+        "collection_status": "COMPLETE_FEATURES",
+        "bundle_complete": True,
+        "risk_engine_allowed": False,
+    }
+    path = tmp_path / "20260913T080000Z.json"
+    path.write_text(json.dumps(bundle), encoding="utf-8")
+    assert module.represented_slots([tmp_path]) == {dt("2026-09-13T08:00:00Z")}
