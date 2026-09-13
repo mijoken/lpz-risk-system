@@ -11,6 +11,7 @@ on:
       - "scripts/o9_v08_reentry_harness.py"
       - "tests/test_o9_g_era5_reconstruction.py"
       - "tests/test_o9_g_guarded_era5_opening.py"
+      - "tests/test_o9_v08_reentry_harness.py"
       - "tests/test_era5_multitime.py"
       - "tests/test_era5_science.py"
   workflow_dispatch:
