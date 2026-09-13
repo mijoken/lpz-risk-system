@@ -39,6 +39,13 @@ jobs:
             scripts/o9_v08_availability_probe.py \
             scripts/o9_v08_required_coverage_gate.py \
             src/lpz_risk/imerg_final.py
+      - name: Diagnose frozen H/K2 protocol integrity
+        run: |
+          python - <<'PY'
+          import json
+          from scripts import o9_v08_reentry_harness as m
+          print(json.dumps(m.verify_frozen_protocol(m.ROOT), ensure_ascii=False, indent=2))
+          PY
       - name: Run O9 A-B-C tests
         run: |
           python -m pytest -q \
