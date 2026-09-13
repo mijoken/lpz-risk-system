@@ -1,0 +1,96 @@
+name: O9-F V08 Frozen 2025 Matching Synthetic Proof
+
+on:
+  push:
+    branches: [o9-f-frozen-2025-matching]
+    paths:
+      - ".github/workflows/o9-f-v08-frozen-matching-synthetic-proof.yml"
+      - "src/lpz_risk/o9_frozen_matching.py"
+      - "scripts/o9_v08_frozen_matching.py"
+      - "tests/test_o9_f_v08_frozen_matching_synthetic.py"
+      - "src/lpz_risk/o9_v08_transform.py"
+      - "scripts/o9_v08_transform_freeze.py"
+      - "tests/test_o9_e_v08_transform_freeze_synthetic.py"
+      - "tests/test_o9_e_validation_csv_hash_binding.py"
+      - "scripts/o9_v08_reentry_harness.py"
+      - "tests/test_o9_v08_reentry_harness.py"
+      - "research/phase2/phase2l_h_validation_protocol_freeze_20260911.json"
+      - "research/phase2/phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: o9-f-v08-frozen-matching-synthetic-proof
+  cancel-in-progress: false
+
+jobs:
+  synthetic-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+
+      - name: Compile O9-F code
+        run: |
+          python -m compileall -q \
+            src/lpz_risk/o9_frozen_matching.py \
+            scripts/o9_v08_frozen_matching.py \
+            tests/test_o9_f_v08_frozen_matching_synthetic.py
+
+      - name: Run O9-F synthetic matching and regression proof
+        run: |
+          python -m pytest -q \
+            tests/test_o9_f_v08_frozen_matching_synthetic.py \
+            tests/test_o9_e_v08_transform_freeze_synthetic.py \
+            tests/test_o9_e_validation_csv_hash_binding.py \
+            tests/test_o9_d_v08_rainfall_rebuild_synthetic.py \
+            tests/test_o9_v08_reentry_harness.py \
+            tests/test_o9_v08_required_coverage_gate.py \
+            tests/test_imerg_final_versioned.py
+
+      - name: Assert 2025 ERA5 and Risk Engine remain sealed
+        run: |
+          python - <<'PY'
+          from scripts import o9_v08_reentry_harness as h
+          report = h.evaluate_chain(h.ROOT, h.ROOT / 'research/o9/reentry')
+          assert report['state'] == 'WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN', report
+          assert report['era5_2025_may_be_opened'] is False, report
+          assert report['confirmatory_run_may_execute'] is False, report
+          assert report['risk_engine_allowed'] is False, report
+          assert report['public_risk_release_allowed'] is False, report
+          print('PASS_O9_F_SYNTHETIC_PROOF_REMAINS_SCIENTIFICALLY_LOCKED')
+          PY
+
+      - name: Write proof summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## O9-F V08 Frozen 2025 Matching Synthetic Proof
+          - Validation universe: **1,218 region-days / 23 official Positives**
+          - Match ratio: **1:3**
+          - Matched comparisons: **69 unique region-days**
+          - Final frozen matched population: **92 unique cases**
+          - Same JMA primary subdivision: **required**
+          - Season window: **±60 circular calendar days**
+          - Positive-event exclusion: **±3 actual days in same region**
+          - Rainfall distance: **frozen Development-V08 PC1+PC2 RMS**
+          - Allocation: **deterministic scarce-first global no-replacement**
+          - O9-G time anchor: **IMERG P95-max 3h window start preserved for all 92 cases**
+          - Environmental variables: **not used for selection**
+          - Validation tuning/balance gate: **none**
+          - 2025 ERA5: **SEALED**
+          - Frozen Primary: **NOT RUN**
+          - Risk Engine: **LOCKED**
+          EOF
