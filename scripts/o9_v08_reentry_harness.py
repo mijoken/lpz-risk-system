@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""O9 — IMERG Final V08 re-entry one-shot harness state machine.
+"""O9 Final-V08 re-entry state machine.
 
-This controller does not itself open ERA5 or execute the confirmatory test.  It
-verifies the frozen Phase 2L-H/K2 protocol and a hash-linked chain of O9 evidence.
-Later execution stages are not considered eligible until every earlier stage is
-present, valid, and linked to the exact predecessor artifacts.
-
-The design deliberately makes a WAIT state successful and normal while Final V08
-is unavailable.  Any out-of-order later artifact is treated as a safety violation.
+Fail-closed controller for the immutable O9 evidence chain.  It never downloads
+IMERG/ERA5 and never runs the Primary.  O9-G is intentionally split into:
+1) guarded retrieval authorization after the frozen 92-case O9-F population;
+2) later ERA5 reconstruction completion.
+The Primary is not eligible until the second receipt exists and validates.
 """
 from __future__ import annotations
 
@@ -25,12 +23,6 @@ K2_FREEZE = ROOT / "research/phase2/phase2l_k2_v07_boundary_v08_deferred_validat
 
 H_GATE = "PASS_PHASE2L_H_DISCOVERY_AND_VALIDATION_PROTOCOL_FREEZE_PRIMARY_Q850_T0H"
 K2_GATE = "PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE"
-
-# Exact byte hashes of the committed authoritative freeze artifacts.  Git history
-# shows H has had exactly one commit (3944692...) and K2 exactly one commit
-# (c0c5dec...).  K2 also records a different H hash that was captured from the
-# local Windows working tree before/around commit time.  Preserve and verify that
-# historical value, but do not mistake it for the canonical committed-file hash.
 EXPECTED_H_COMMITTED_SHA256 = "0896cfae9be7785210b48f73fbce95fdfdda009c252838774d368c28819015fa"
 EXPECTED_K2_COMMITTED_SHA256 = "895ccc5520f6512b74f420707fad3ebfe9c5229c17f204e151852cf7c47fcfef"
 EXPECTED_K2_RECORDED_LOCAL_H_SHA256 = "6b3cac100513cb5be3e392eb3e9b68d250ddabd2c94c2c4ab93a0081b58b88fe"
@@ -41,6 +33,9 @@ K2_FREEZE_COMMIT = "c0c5dec2f138901db84316fd03e28e502a0a7e65"
 PRIMARY_METRIC = "q850_mean_kgkg"
 PRIMARY_CONTRAST = "t+0h"
 PRIMARY_TEST = "EXACT_ONE_SIDED_SIGN_TEST_ON_POSITIVE_DATE_UTC_CLUSTER_MEANS"
+F_GATE = "PASS_O9_F_V08_FROZEN_2025_MATCHING_23_POSITIVES_69_COMPARISONS"
+G_AUTH_GATE = "PASS_O9_G_2025_ERA5_RETRIEVAL_AUTHORIZED_AFTER_MATCHING_FREEZE"
+G_COMPLETE_GATE = "PASS_O9_G_2025_ERA5_RECONSTRUCTION_COMPLETE_92_CASES_368_SNAPSHOTS"
 
 
 @dataclass(frozen=True)
@@ -75,34 +70,37 @@ def _bool_error(obj: dict[str, Any], key: str, expected: bool) -> list[str]:
     return [] if obj.get(key) is expected else [f"{key} must be {expected}"]
 
 
-def _version_errors(obj: dict[str, Any]) -> list[str]:
-    errors: list[str] = []
-    if str(obj.get("imerg_final_version")) != "08":
-        errors.append("imerg_final_version must be 08")
-    if str(obj.get("short_name")) != "GPM_3IMERGHH":
-        errors.append("short_name must be GPM_3IMERGHH")
-    errors.extend(_bool_error(obj, "risk_engine_allowed", False))
-    return errors
+def _version_errors(obj: dict[str, Any], *, source_required: bool = False) -> list[str]:
+    e: list[str] = []
+    if str(obj.get("imerg_final_version")).replace(".0", "").zfill(2) != "08":
+        e.append("imerg_final_version must be 08")
+    if obj.get("short_name") != "GPM_3IMERGHH":
+        e.append("short_name must be GPM_3IMERGHH")
+    if obj.get("official_final_product") is not True:
+        e.append("official_final_product must be true")
+    if source_required and obj.get("source_id") != "NASA_IMERG_FINAL_V08":
+        e.append("source_id must be NASA_IMERG_FINAL_V08")
+    e.extend(_bool_error(obj, "risk_engine_allowed", False))
+    if "SYNTHETIC" in str(obj.get("phase", "")).upper() or obj.get("synthetic") is True:
+        e.append("synthetic evidence cannot enter real O9 re-entry chain")
+    return e
 
 
 def validate_availability(obj: dict[str, Any]) -> list[str]:
     e = _version_errors(obj)
-    if obj.get("official_final_product") is not True:
-        e.append("official_final_product must be true")
-    if obj.get("metadata_result_count", 0) < 1:
+    if int(obj.get("metadata_result_count", 0)) < 1:
         e.append("metadata_result_count must be >=1")
     return e
 
 
 def validate_coverage(obj: dict[str, Any]) -> list[str]:
     e = _version_errors(obj)
-    expected = {
+    for key, value in {
         "development_region_day_count": 5943,
         "validation_region_day_count": 1218,
         "development_missing_slot_count": 0,
         "validation_missing_slot_count": 0,
-    }
-    for key, value in expected.items():
+    }.items():
         if int(obj.get(key, -1)) != value:
             e.append(f"{key} must be {value}")
     if obj.get("all_required_slots_covered") is not True:
@@ -111,89 +109,128 @@ def validate_coverage(obj: dict[str, Any]) -> list[str]:
 
 
 def validate_dev_rebuild(obj: dict[str, Any]) -> list[str]:
-    e = _version_errors(obj)
-    if int(obj.get("region_day_count", -1)) != 5943:
-        e.append("region_day_count must be 5943")
-    if obj.get("split") != "DEVELOPMENT":
-        e.append("split must be DEVELOPMENT")
-    if obj.get("candidate_membership_changed") is not False:
-        e.append("candidate_membership_changed must be false")
-    if obj.get("environment_variables_used") is not False:
-        e.append("environment_variables_used must be false")
+    e = _version_errors(obj, source_required=True)
+    checks = {
+        "region_day_count": int(obj.get("region_day_count", -1)) == 5943,
+        "split": obj.get("split") == "DEVELOPMENT",
+        "candidate_membership_changed": obj.get("candidate_membership_changed") is False,
+        "environment_variables_used": obj.get("environment_variables_used") is False,
+        "validation_era5_environment_read": obj.get("validation_era5_environment_read") is False,
+    }
+    e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
     return e
 
 
 def validate_validation_rebuild(obj: dict[str, Any]) -> list[str]:
-    e = _version_errors(obj)
-    if int(obj.get("region_day_count", -1)) != 1218:
-        e.append("region_day_count must be 1218")
-    if int(obj.get("official_positive_region_day_count", -1)) != 23:
-        e.append("official_positive_region_day_count must be 23")
-    if obj.get("split") != "VALIDATION_2025":
-        e.append("split must be VALIDATION_2025")
-    if obj.get("environment_variables_used") is not False:
-        e.append("environment_variables_used must be false")
+    e = _version_errors(obj, source_required=True)
+    checks = {
+        "region_day_count": int(obj.get("region_day_count", -1)) == 1218,
+        "official_positive_region_day_count": int(obj.get("official_positive_region_day_count", -1)) == 23,
+        "split": obj.get("split") == "VALIDATION_2025",
+        "environment_variables_used": obj.get("environment_variables_used") is False,
+        "validation_era5_environment_read": obj.get("validation_era5_environment_read") is False,
+    }
+    e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
     return e
 
 
 def validate_transform_freeze(obj: dict[str, Any]) -> list[str]:
-    e = _version_errors(obj)
-    if obj.get("fit_population") != "DEVELOPMENT_V08_ONLY":
-        e.append("fit_population must be DEVELOPMENT_V08_ONLY")
-    if int(obj.get("development_fit_row_count", -1)) != 5943:
-        e.append("development_fit_row_count must be 5943")
-    if int(obj.get("validation_fit_row_count", -1)) != 0:
-        e.append("validation_fit_row_count must be 0")
-    if obj.get("matching_components") != ["rain_pca_pc1", "rain_pca_pc2"]:
-        e.append("matching_components must be PC1/PC2")
+    e = _version_errors(obj, source_required=True)
+    checks = {
+        "fit_population": obj.get("fit_population") == "DEVELOPMENT_V08_ONLY",
+        "development_fit_row_count": int(obj.get("development_fit_row_count", -1)) == 5943,
+        "validation_fit_row_count": int(obj.get("validation_fit_row_count", -1)) == 0,
+        "matching_components": obj.get("matching_components") == ["rain_pca_pc1", "rain_pca_pc2"],
+        "pca_refit_on_2025": obj.get("pca_refit_on_2025") is False,
+        "standardization_refit_on_2025": obj.get("standardization_refit_on_2025") is False,
+        "validation_era5_environment_read": obj.get("validation_era5_environment_read") is False,
+    }
+    e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
     return e
 
 
 def validate_validation_transform(obj: dict[str, Any]) -> list[str]:
-    e = _version_errors(obj)
-    if int(obj.get("validation_row_count", -1)) != 1218:
-        e.append("validation_row_count must be 1218")
-    if obj.get("pca_refit_on_2025") is not False:
-        e.append("pca_refit_on_2025 must be false")
-    if obj.get("standardization_refit_on_2025") is not False:
-        e.append("standardization_refit_on_2025 must be false")
-    if obj.get("transform_source") != "FROZEN_DEVELOPMENT_V08_TRANSFORM":
-        e.append("transform_source must be FROZEN_DEVELOPMENT_V08_TRANSFORM")
+    e = _version_errors(obj, source_required=True)
+    checks = {
+        "validation_row_count": int(obj.get("validation_row_count", -1)) == 1218,
+        "official_positive_region_day_count": int(obj.get("official_positive_region_day_count", -1)) == 23,
+        "pca_refit_on_2025": obj.get("pca_refit_on_2025") is False,
+        "standardization_refit_on_2025": obj.get("standardization_refit_on_2025") is False,
+        "validation_statistics_used_to_modify_transform": obj.get("validation_statistics_used_to_modify_transform") is False,
+        "transform_source": obj.get("transform_source") == "FROZEN_DEVELOPMENT_V08_TRANSFORM",
+        "validation_era5_environment_read": obj.get("validation_era5_environment_read") is False,
+    }
+    e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
     return e
 
 
 def validate_matching_freeze(obj: dict[str, Any]) -> list[str]:
-    e = _version_errors(obj)
-    expected_int = {
-        "positive_match_set_count": 23,
-        "comparison_case_count": 69,
-        "match_ratio": 3,
-        "season_window_days": 60,
-        "positive_event_buffer_days": 3,
+    e = _version_errors(obj, source_required=True)
+    checks = {
+        "validation_region_day_count": int(obj.get("validation_region_day_count", -1)) == 1218,
+        "official_positive_region_day_count": int(obj.get("official_positive_region_day_count", -1)) == 23,
+        "matched_comparison_region_day_count": int(obj.get("matched_comparison_region_day_count", -1)) == 69,
+        "unique_comparison_region_day_count": int(obj.get("unique_comparison_region_day_count", -1)) == 69,
+        "final_matched_population_region_day_count": int(obj.get("final_matched_population_region_day_count", -1)) == 92,
+        "match_ratio": obj.get("match_ratio") == "1_POSITIVE_TO_3_COMPARISONS",
+        "same_primary_subdivision_required": obj.get("same_primary_subdivision_required") is True,
+        "season_window": int(obj.get("season_window_circular_calendar_days", -1)) == 60,
+        "positive_event_buffer": int(obj.get("same_region_positive_event_buffer_actual_days", -1)) == 3,
+        "replacement_used": obj.get("replacement_used") is False,
+        "environment_variables_used_for_selection": obj.get("environment_variables_used_for_selection") is False,
+        "pca_refit_on_2025": obj.get("pca_refit_on_2025") is False,
+        "standardization_refit_on_2025": obj.get("standardization_refit_on_2025") is False,
+        "time_anchor_policy": obj.get("time_anchor_policy") == "IMERG_3H_P95_MAX_WINDOW_START",
+        "time_anchor_start_column": obj.get("time_anchor_start_column") == "imerg_3h_p95_window_start_utc",
+        "time_anchor_preserved": obj.get("time_anchor_preserved_for_all_final_cases") is True,
+        "validation_era5_environment_read": obj.get("validation_era5_environment_read") is False,
     }
-    for key, value in expected_int.items():
-        if int(obj.get(key, -1)) != value:
-            e.append(f"{key} must be {value}")
-    for key, value in {
-        "same_primary_subdivision_required": True,
-        "replacement_used": False,
-        "environment_variables_used_for_selection": False,
-        "pca_refit_on_2025": False,
-    }.items():
-        if obj.get(key) is not value:
-            e.append(f"{key} must be {value}")
+    e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
+    meta = ((obj.get("outputs") or {}).get("final_matched_population") or {})
+    if int(meta.get("rows", -1)) != 92 or not isinstance(meta.get("sha256"), str):
+        e.append("final_matched_population output metadata invalid")
     return e
 
 
-def validate_era5_opening(obj: dict[str, Any]) -> list[str]:
+def validate_era5_authorization(obj: dict[str, Any]) -> list[str]:
     e: list[str] = []
-    if obj.get("validation_year") != 2025:
-        e.append("validation_year must be 2025")
-    if obj.get("opened_after_matching_freeze") is not True:
-        e.append("opened_after_matching_freeze must be true")
-    if obj.get("matching_membership_changed_by_era5") is not False:
-        e.append("matching_membership_changed_by_era5 must be false")
-    e.extend(_bool_error(obj, "risk_engine_allowed", False))
+    checks = {
+        "validation_year": int(obj.get("validation_year", -1)) == 2025,
+        "opened_after_matching_freeze": obj.get("opened_after_matching_freeze") is True,
+        "era5_retrieval_authorized": obj.get("era5_retrieval_authorized") is True,
+        "era5_retrieval_completed": obj.get("era5_retrieval_completed") is False,
+        "matching_membership_changed_by_era5": obj.get("matching_membership_changed_by_era5") is False,
+        "matched_case_count": int(obj.get("matched_case_count", -1)) == 92,
+        "positive_case_count": int(obj.get("positive_case_count", -1)) == 23,
+        "comparison_case_count": int(obj.get("comparison_case_count", -1)) == 69,
+        "snapshot_mapping_count": int(obj.get("snapshot_mapping_count", -1)) == 368,
+        "time_anchor_policy": obj.get("time_anchor_policy") == "IMERG_3H_P95_MAX_WINDOW_START",
+        "future_source_time_allowed": obj.get("future_source_time_allowed") is False,
+        "network_access_performed": obj.get("network_access_performed") is False,
+        "era5_environment_values_read": obj.get("era5_environment_values_read") is False,
+        "primary_confirmatory_test_run": obj.get("primary_confirmatory_test_run") is False,
+        "confirmatory_run_may_execute": obj.get("confirmatory_run_may_execute") is False,
+        "risk_engine_allowed": obj.get("risk_engine_allowed") is False,
+        "public_risk_release_allowed": obj.get("public_risk_release_allowed") is False,
+    }
+    e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
+    return e
+
+
+def validate_era5_completion(obj: dict[str, Any]) -> list[str]:
+    e: list[str] = []
+    checks = {
+        "validation_year": int(obj.get("validation_year", -1)) == 2025,
+        "era5_retrieval_authorized": obj.get("era5_retrieval_authorized") is True,
+        "era5_retrieval_completed": obj.get("era5_retrieval_completed") is True,
+        "matched_case_count": int(obj.get("matched_case_count", -1)) == 92,
+        "snapshot_mapping_count": int(obj.get("snapshot_mapping_count", -1)) == 368,
+        "matching_membership_changed_by_era5": obj.get("matching_membership_changed_by_era5") is False,
+        "primary_confirmatory_test_run": obj.get("primary_confirmatory_test_run") is False,
+        "risk_engine_allowed": obj.get("risk_engine_allowed") is False,
+        "public_risk_release_allowed": obj.get("public_risk_release_allowed") is False,
+    }
+    e.extend([f"{k} invalid" for k, ok in checks.items() if not ok])
     return e
 
 
@@ -221,12 +258,13 @@ STAGES = (
     Stage("availability", "o9_a_v08_availability.json", "PASS_O9_A_V08_OFFICIAL_FINAL_AVAILABILITY", (), validate_availability),
     Stage("coverage", "o9_c_v08_required_coverage.json", "PASS_O9_C_V08_FULL_REQUIRED_COVERAGE", ("availability",), validate_coverage),
     Stage("development_rebuild", "o9_d_development_v08_rebuild.json", "PASS_O9_D_V08_DEVELOPMENT_REBUILD_5943", ("coverage",), validate_dev_rebuild),
-    Stage("validation_rebuild", "o9_d_validation_v08_rebuild.json", "PASS_O9_D_V08_VALIDATION_REBUILD_1218", ("development_rebuild",), validate_validation_rebuild),
+    Stage("validation_rebuild", "o9_d_validation_v08_rebuild.json", "PASS_O9_D_V08_VALIDATION_REBUILD_1218", ("coverage", "development_rebuild"), validate_validation_rebuild),
     Stage("transform_freeze", "o9_e_development_v08_transform_freeze.json", "PASS_O9_E_V08_DEVELOPMENT_ONLY_TRANSFORM_FREEZE", ("development_rebuild", "validation_rebuild"), validate_transform_freeze),
     Stage("validation_transform", "o9_e_validation_v08_transform_application.json", "PASS_O9_E_V08_VALIDATION_TRANSFORM_NO_REFIT", ("transform_freeze", "validation_rebuild"), validate_validation_transform),
-    Stage("matching_freeze", "o9_f_validation_matching_freeze.json", "PASS_O9_F_V08_2025_MATCHING_FREEZE", ("validation_transform",), validate_matching_freeze),
-    Stage("era5_opening", "o9_g_2025_era5_opening_receipt.json", "PASS_O9_G_2025_ERA5_OPENED_AFTER_MATCHING_FREEZE", ("matching_freeze",), validate_era5_opening),
-    Stage("primary_confirmatory", "o9_h_primary_confirmatory_result.json", None, ("era5_opening",), validate_primary),
+    Stage("matching_freeze", "o9_f_validation_matching_freeze.json", F_GATE, ("validation_transform",), validate_matching_freeze),
+    Stage("era5_authorization", "o9_g_2025_era5_opening_receipt.json", G_AUTH_GATE, ("matching_freeze",), validate_era5_authorization),
+    Stage("era5_reconstruction", "o9_g_2025_era5_reconstruction_complete.json", G_COMPLETE_GATE, ("era5_authorization",), validate_era5_completion),
+    Stage("primary_confirmatory", "o9_h_primary_confirmatory_result.json", None, ("era5_reconstruction",), validate_primary),
 )
 STAGE_BY_KEY = {s.key: s for s in STAGES}
 
@@ -239,48 +277,35 @@ def verify_frozen_protocol(repo_root: Path) -> dict[str, Any]:
     h_sha = sha256_file(h_path)
     k2_sha = sha256_file(k2_path)
     errors: list[str] = []
-
-    # Canonical committed-file integrity.  These hashes correspond to the files
-    # that GitHub has served unchanged since their one-time freeze commits.
     if h_sha != EXPECTED_H_COMMITTED_SHA256:
         errors.append("Phase H committed-file SHA256 changed from authoritative freeze")
     if k2_sha != EXPECTED_K2_COMMITTED_SHA256:
         errors.append("K2 committed-file SHA256 changed from authoritative freeze")
-
     if h.get("gate") != H_GATE:
         errors.append("Phase H gate mismatch")
     if k2.get("gate") != K2_GATE:
         errors.append("K2 gate mismatch")
-    state = k2.get("validation_state", {})
+    state = k2.get("validation_state") or {}
     if state.get("status") != "DEFERRED_PENDING_IMERG_FINAL_V08":
-        errors.append("K2 is no longer in deferred V08 state")
+        errors.append("K2 deferred V08 state changed")
     if state.get("primary_confirmatory_test_run") is not False:
-        errors.append("K2 says confirmatory test already ran")
+        errors.append("K2 says Primary already ran")
     if state.get("primary_outcome_opened") is not False:
         errors.append("K2 says Primary outcome already opened")
-    if state.get("2025_era5_environment_outcomes_may_be_opened_now") is not False:
-        errors.append("K2 unexpectedly allows ERA5 opening before O9 matching freeze")
     if state.get("risk_engine_allowed") is not False:
         errors.append("K2 unexpectedly allows Risk Engine")
-
-    primary = h.get("primary_hypothesis", {})
-    test = h.get("primary_validation_test", {})
+    primary = h.get("primary_hypothesis") or {}
+    test = h.get("primary_validation_test") or {}
     if primary.get("metric") != PRIMARY_METRIC or primary.get("contrast") != PRIMARY_CONTRAST:
         errors.append("Phase H Primary metric/contrast mismatch")
     if test.get("test") != PRIMARY_TEST or float(test.get("alpha", -1)) != 0.05:
         errors.append("Phase H Primary test/alpha mismatch")
-
-    # K2's source_integrity block captured a local-Windows byte hash for H.  Git
-    # history proves the committed H blob has never changed; verify the historical
-    # local value remains intact, but do not compare that pre-commit/local byte
-    # representation directly to the canonical committed-file bytes.
-    manifest = k2.get("source_integrity", {}).get("sha256", {})
+    manifest = (k2.get("source_integrity") or {}).get("sha256") or {}
     h_rel_win = str(H_FREEZE.relative_to(ROOT)).replace("/", "\\")
     h_meta = manifest.get(h_rel_win) or manifest.get(str(H_FREEZE.relative_to(ROOT)))
     recorded_local_h_sha = h_meta.get("sha256") if isinstance(h_meta, dict) else None
     if recorded_local_h_sha != EXPECTED_K2_RECORDED_LOCAL_H_SHA256:
         errors.append("K2 historical local Phase H SHA256 record changed or is missing")
-
     return {
         "state": "PASS" if not errors else "FAIL",
         "errors": errors,
@@ -292,27 +317,13 @@ def verify_frozen_protocol(repo_root: Path) -> dict[str, Any]:
         "k2_expected_committed_sha256": EXPECTED_K2_COMMITTED_SHA256,
         "k2_freeze_commit": K2_FREEZE_COMMIT,
         "k2_recorded_local_h_sha256": recorded_local_h_sha,
-        "k2_expected_recorded_local_h_sha256": EXPECTED_K2_RECORDED_LOCAL_H_SHA256,
-        "historical_local_h_sha_matches_committed_h_bytes": (
-            recorded_local_h_sha == h_sha
-        ),
-        "provenance_note": (
-            "K2 preserved a local pre/around-commit Phase H byte hash. Git history "
-            "shows the committed H blob has never changed since 3944692; O9 pins "
-            "the canonical committed H/K2 byte SHA256 values separately and also "
-            "verifies K2's historical local hash record remains unchanged."
-        ),
-        "primary_metric": PRIMARY_METRIC,
-        "primary_contrast": PRIMARY_CONTRAST,
-        "primary_test": PRIMARY_TEST,
-        "risk_engine_allowed": False,
     }
 
 
 def evaluate_chain(repo_root: Path, evidence_dir: Path) -> dict[str, Any]:
     frozen = verify_frozen_protocol(repo_root)
     report: dict[str, Any] = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "phase": "O9-IMERG-Final-V08-reentry-one-shot-harness",
         "generated_at_utc": utc_now(),
         "frozen_protocol": frozen,
@@ -326,123 +337,93 @@ def evaluate_chain(repo_root: Path, evidence_dir: Path) -> dict[str, Any]:
     if frozen["state"] != "PASS":
         report.update({
             "state": "BLOCKED_O9_FROZEN_PROTOCOL_INTEGRITY_FAILURE",
-            "blockers": frozen["errors"],
-            "next_action": "RESTORE_AND_REVIEW_PHASE_H_K2_FREEZE",
+            "blockers": list(frozen["errors"]),
+            "next_stage_key": None,
         })
         return report
 
-    existing = {s.key: (evidence_dir / s.filename).exists() for s in STAGES}
-    seen_missing = False
-    order_violations: list[str] = []
-    for s in STAGES:
-        if not existing[s.key]:
-            seen_missing = True
-        elif seen_missing:
-            order_violations.append(s.key)
-    if order_violations:
+    present = {s.key: (evidence_dir / s.filename).exists() for s in STAGES}
+    first_missing_idx = next((i for i, s in enumerate(STAGES) if not present[s.key]), len(STAGES))
+    later_present = [s.key for s in STAGES[first_missing_idx + 1 :] if present[s.key]] if first_missing_idx < len(STAGES) else []
+    if later_present:
         report.update({
             "state": "BLOCKED_O9_SAFETY_ORDER_VIOLATION",
-            "blockers": ["OUT_OF_ORDER_EVIDENCE:" + ",".join(order_violations)],
-            "next_action": "REMOVE_OR_QUARANTINE_OUT_OF_ORDER_EVIDENCE_AND_REVIEW",
+            "blockers": [f"later evidence exists before {STAGES[first_missing_idx].key}: {later_present}"],
+            "next_stage_key": STAGES[first_missing_idx].key,
         })
         return report
 
     hashes: dict[str, str] = {}
-    invalid: list[str] = []
-    completed: list[str] = []
-    for s in STAGES:
-        path = evidence_dir / s.filename
-        if not path.exists():
-            report["stages"].append({"key": s.key, "filename": s.filename, "state": "WAIT"})
-            continue
+    blockers: list[str] = []
+    for stage in STAGES[:first_missing_idx]:
+        path = evidence_dir / stage.filename
         try:
             obj = read_json(path)
         except Exception as exc:  # noqa: BLE001
-            invalid.append(f"{s.key}: unreadable evidence: {type(exc).__name__}: {exc}")
-            report["stages"].append({"key": s.key, "filename": s.filename, "state": "FAIL"})
+            blockers.append(f"{stage.key}: unreadable evidence: {type(exc).__name__}: {exc}")
             continue
-
-        errors: list[str] = []
-        if s.gate is not None and obj.get("gate") != s.gate:
-            errors.append(f"gate must be {s.gate}")
-        errors.extend(s.validator(obj))
-
-        requires = obj.get("requires_sha256", {})
-        if not isinstance(requires, dict):
-            errors.append("requires_sha256 must be an object")
-            requires = {}
-        for req_key in s.requires:
-            req_stage = STAGE_BY_KEY[req_key]
+        if stage.gate is not None and obj.get("gate") != stage.gate:
+            blockers.append(f"{stage.key}: gate must be {stage.gate}, got {obj.get('gate')!r}")
+        blockers.extend(f"{stage.key}: {x}" for x in stage.validator(obj))
+        requires = obj.get("requires_sha256") or {}
+        for req_key in stage.requires:
+            req = STAGE_BY_KEY[req_key]
             expected = hashes.get(req_key)
-            observed = requires.get(req_stage.filename)
-            if expected is None:
-                errors.append(f"prerequisite hash unavailable: {req_key}")
-            elif observed != expected:
-                errors.append(
-                    f"requires_sha256[{req_stage.filename}] mismatch: expected {expected}, got {observed}"
-                )
-
+            if expected is None or requires.get(req.filename) != expected:
+                blockers.append(f"{stage.key}: requires_sha256 mismatch for {req.filename}")
         digest = sha256_file(path)
-        hashes[s.key] = digest
-        state = "PASS" if not errors else "FAIL"
+        hashes[stage.key] = digest
         report["stages"].append({
-            "key": s.key,
-            "filename": s.filename,
-            "state": state,
+            "key": stage.key,
+            "filename": stage.filename,
             "sha256": digest,
-            "errors": errors,
+            "gate": obj.get("gate"),
         })
-        if errors:
-            invalid.extend(f"{s.key}: {x}" for x in errors)
-        else:
-            completed.append(s.key)
 
-    if invalid:
+    if blockers:
         report.update({
             "state": "BLOCKED_O9_SAFETY_INTEGRITY_VIOLATION",
-            "blockers": invalid,
-            "completed_stage_keys": completed,
-            "next_action": "REVIEW_INVALID_O9_EVIDENCE",
+            "blockers": blockers,
+            "next_stage_key": STAGES[first_missing_idx].key if first_missing_idx < len(STAGES) else None,
         })
         return report
 
-    next_stage = next((s for s in STAGES if not existing[s.key]), None)
-    report["completed_stage_keys"] = completed
-    report["completed_stage_count"] = len(completed)
-
-    if next_stage is None:
-        result = read_json(evidence_dir / STAGE_BY_KEY["primary_confirmatory"].filename)
-        outcome = result["primary_outcome"]
-        report.update({
-            "state": f"O9_CONFIRMATORY_COMPLETE_{outcome}",
-            "primary_outcome": outcome,
-            "confirmatory_run_count": 1,
-            "next_action": "FREEZE_RESULT_NO_RETUNING_AND_KEEP_RISK_ENGINE_LOCKED_PENDING_SEPARATE_RELEASE_GATES",
-        })
+    if first_missing_idx < len(STAGES):
+        next_stage = STAGES[first_missing_idx]
+        report["next_stage_key"] = next_stage.key
+        if next_stage.key == "availability":
+            state = "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN"
+            next_action = "PROVE_OFFICIAL_NASA_IMERG_FINAL_V08_AVAILABILITY"
+        elif next_stage.key == "era5_authorization":
+            state = "READY_TO_CREATE_2025_ERA5_RETRIEVAL_AUTHORIZATION"
+            next_action = "RUN_O9_G_GUARDED_ERA5_AUTHORIZATION_GATE"
+        elif next_stage.key == "era5_reconstruction":
+            state = "READY_TO_RETRIEVE_2025_ERA5_WITH_GUARDED_RECEIPT"
+            next_action = "RETRIEVE_AND_RECONSTRUCT_92_CASES_X_4_FROZEN_SNAPSHOTS"
+            report["era5_2025_may_be_opened"] = True
+        elif next_stage.key == "primary_confirmatory":
+            state = "READY_FOR_SINGLE_FROZEN_PRIMARY_CONFIRMATORY_RUN"
+            next_action = "RUN_FROZEN_Q850_T0H_CONFIRMATORY_TEST_EXACTLY_ONCE"
+            report["era5_2025_may_be_opened"] = True
+            report["confirmatory_run_may_execute"] = True
+        else:
+            state = "WAIT_O9_NEXT_REENTRY_STAGE"
+            next_action = f"COMPLETE_{next_stage.key.upper()}"
+        report.update({"state": state, "next_action": next_action, "blockers": []})
         return report
 
-    if next_stage.key == "availability":
-        state = "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN"
-        next_action = "PROVE_OFFICIAL_NASA_IMERG_FINAL_V08_AVAILABILITY"
-    elif next_stage.key == "era5_opening":
-        state = "READY_TO_OPEN_2025_ERA5_AFTER_MATCHING_FREEZE"
-        next_action = "OPEN_2025_ERA5_USING_FROZEN_MATCHING_MEMBERSHIP_ONLY"
-        report["era5_2025_may_be_opened"] = True
-    elif next_stage.key == "primary_confirmatory":
-        state = "READY_FOR_SINGLE_FROZEN_PRIMARY_CONFIRMATORY_RUN"
-        next_action = "RUN_FROZEN_Q850_T0H_CONFIRMATORY_TEST_EXACTLY_ONCE"
-        report["era5_2025_may_be_opened"] = True
-        report["confirmatory_run_may_execute"] = True
-    else:
-        state = "WAIT_O9_NEXT_REENTRY_STAGE"
-        next_action = f"COMPLETE_{next_stage.key.upper()}"
-
+    # Entire chain including Primary exists and validated.
+    primary = read_json(evidence_dir / STAGE_BY_KEY["primary_confirmatory"].filename)
+    outcome = primary.get("primary_outcome")
     report.update({
-        "state": state,
-        "next_stage_key": next_stage.key,
-        "next_stage_filename": next_stage.filename,
-        "next_action": next_action,
-        "blockers": [] if next_stage.key != "availability" else ["OFFICIAL_FINAL_V08_AVAILABILITY_NOT_PROVEN"],
+        "state": f"O9_CONFIRMATORY_COMPLETE_{outcome}",
+        "next_stage_key": None,
+        "next_action": "NO_RETUNING;_PRESERVE_RESULT_AND_KEEP_PUBLIC_RISK_LEGAL_GATE_SEPARATE",
+        "blockers": [],
+        "era5_2025_may_be_opened": True,
+        "confirmatory_run_may_execute": False,
+        "confirmatory_run_count": int(primary.get("confirmatory_run_count", -1)),
+        "primary_outcome": outcome,
     })
     return report
 
@@ -450,18 +431,19 @@ def evaluate_chain(repo_root: Path, evidence_dir: Path) -> dict[str, Any]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--repo-root", type=Path, default=ROOT)
-    ap.add_argument("--evidence-dir", type=Path, default=ROOT / "research/o9/reentry")
-    ap.add_argument("--output", type=Path, default=ROOT / "research/operations/o9_v08_reentry_latest.json")
+    ap.add_argument("--evidence-dir", type=Path, required=True)
+    ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()
-
-    repo_root = args.repo_root.resolve()
-    evidence_dir = args.evidence_dir.resolve()
-    report = evaluate_chain(repo_root, evidence_dir)
+    report = evaluate_chain(args.repo_root, args.evidence_dir)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"O9 state={report['state']}")
-    print(f"next_action={report.get('next_action')}")
-    print("Risk Engine remains LOCKED.")
+    print(json.dumps({
+        "state": report["state"],
+        "next_action": report.get("next_action"),
+        "era5_2025_may_be_opened": report["era5_2025_may_be_opened"],
+        "confirmatory_run_may_execute": report["confirmatory_run_may_execute"],
+        "risk_engine_allowed": False,
+    }))
     return 2 if report["state"].startswith("BLOCKED_") else 0
 
 
