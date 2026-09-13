@@ -315,6 +315,15 @@ def apply_validation(args: argparse.Namespace) -> int:
         raise ValueError("Validation O9-D evidence does not contain exactly 23 official positives")
     if val_obj.get("validation_era5_environment_read") is not False:
         raise ValueError("Validation O9-D evidence indicates ERA5 was read")
+
+    # Bind the exact Validation CSV bytes to the immutable O9-D rebuild evidence.
+    # A structurally valid 1,218-row file is not sufficient: it must be the exact
+    # rainfall population frozen by O9-D, otherwise O9-E refuses to transform it.
+    validation_csv_sha = sha256_file(args.validation_csv)
+    if val_obj.get("output_csv_sha256") != validation_csv_sha:
+        raise ValueError(
+            "Validation O9-D CSV SHA256 does not match the immutable rebuild evidence"
+        )
     val_evidence_sha = sha256_file(args.validation_evidence)
 
     transform, transform_sha = verify_transform_evidence(
@@ -349,7 +358,7 @@ def apply_validation(args: argparse.Namespace) -> int:
         "pca_refit_on_2025": False,
         "standardization_refit_on_2025": False,
         "validation_statistics_used_to_modify_transform": False,
-        "validation_source_csv_sha256": sha256_file(args.validation_csv),
+        "validation_source_csv_sha256": validation_csv_sha,
         "validation_transformed_csv": str(args.output_csv),
         "validation_transformed_csv_sha256": sha256_file(args.output_csv),
         "requires_sha256": {
