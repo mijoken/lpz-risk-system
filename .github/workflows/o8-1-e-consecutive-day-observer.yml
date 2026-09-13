@@ -1,0 +1,108 @@
+name: LPZ O8.1-E Consecutive-Day Completeness Observer
+
+on:
+  workflow_dispatch:
+    inputs:
+      as_of_utc:
+        description: "Optional ISO-8601 observer time override"
+        required: false
+        default: ""
+  workflow_run:
+    workflows: ["LPZ Prospective Daily Consolidation v2"]
+    types: [completed]
+  schedule:
+    # Redundant wake-ups after the 02:30/08:30 UTC O8.1-D consolidation wakes.
+    # GitHub schedule is a wake-up mechanism, not the scientific clock.
+    - cron: "0 3,9 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/o8-1-e-consecutive-day-observer.yml"
+      - "scripts/observe_consecutive_daily_completeness.py"
+      - "tests/test_o8_1_consecutive_day_observer.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lpz-o8-1-e-consecutive-day-observer
+  cancel-in-progress: true
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout latest main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Observe latest finalized UTC days
+        shell: bash
+        env:
+          INPUT_AS_OF: ${{ inputs.as_of_utc }}
+        run: |
+          mkdir -p research/operations
+          EXTRA=()
+          if [ -n "$INPUT_AS_OF" ]; then
+            EXTRA=(--as-of-utc "$INPUT_AS_OF")
+          fi
+          python scripts/observe_consecutive_daily_completeness.py \
+            --repo-root . \
+            --required-days 2 \
+            --history-days 14 \
+            --output research/operations/o8_1_e_consecutive_day_completeness_latest.json \
+            "${EXTRA[@]}"
+
+      - name: Write observer summary
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          p=Path('research/operations/o8_1_e_consecutive_day_completeness_latest.json')
+          print('## O8.1-E Consecutive-Day Completeness Observer')
+          if not p.exists():
+              print('- Observer report was not produced.')
+              raise SystemExit(0)
+          r=json.loads(p.read_text(encoding='utf-8'))
+          print(f"- State: **{r['state']}**")
+          print(f"- Consecutive complete-day streak: **{r['current_consecutive_complete_day_streak']}**")
+          print(f"- Two-day gate passed: **{r['gate_passed']}**")
+          print(f"- Ready for O8.1-F cutover audit: **{r['ready_for_o8_1_f_final_cutover_audit']}**")
+          print(f"- Windows scheduler: **{r['windows_task_recommendation']}**")
+          print(f"- Risk engine allowed: **{r['risk_engine_allowed']}**")
+          print('')
+          print('### Required latest UTC days')
+          for row in r['required_days']:
+              print(
+                  f"- {row['date_utc']}: **{row['state']}**, "
+                  f"complete={row.get('complete_slot_count')}, "
+                  f"technical={row.get('technical_incomplete_slot_count')}, "
+                  f"gaps={row.get('explicit_gap_count')}"
+              )
+          PY
+
+      - name: Commit latest O8.1-E observer status
+        if: always()
+        shell: bash
+        run: |
+          test -f research/operations/o8_1_e_consecutive_day_completeness_latest.json || exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/operations/o8_1_e_consecutive_day_completeness_latest.json
+          if git diff --cached --quiet; then
+            echo "Observer status unchanged."
+            exit 0
+          fi
+          git commit -m "ops: update O8.1-E consecutive-day completeness"
+          git pull --rebase origin main
+          git push origin HEAD:main
