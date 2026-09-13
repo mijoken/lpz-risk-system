@@ -1,0 +1,172 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8.1-F-final-github-only-cutover-audit",
+  "generated_at_utc": "2026-09-13T12:25:15Z",
+  "state": "WAIT_KEEP_WINDOWS_TASK",
+  "cutover_ready": false,
+  "windows_task_name": "LPZ-Prospective-Collector-15min",
+  "windows_task_may_be_disabled": false,
+  "windows_task_recommendation": "KEEP_ENABLED",
+  "windows_disable_command": null,
+  "old_o8_run_count_requirement_retired": true,
+  "github_schedule_is_scientific_clock": false,
+  "criteria": {
+    "catchup_horizon_minutes": 120,
+    "collector_freshness_must_be_within_catchup_horizon": true,
+    "required_consecutive_complete_utc_days": 2,
+    "required_complete_slots_per_day": 96,
+    "explicit_gap_required": 0,
+    "technical_incomplete_required": 0,
+    "scientific_risk_release_separate": true
+  },
+  "checks": {
+    "o8_1_a_retention": {
+      "state": "PASS",
+      "checks": {
+        "phase": true,
+        "state_pass": true,
+        "direct_tile_replay_all_pass": true,
+        "continuous_5min_history": true,
+        "recommended_horizon_at_least_120m": true,
+        "risk_engine_locked": true
+      }
+    },
+    "o8_1_b_slot_replay": {
+      "state": "PASS",
+      "checks": {
+        "phase": true,
+        "state_pass": true,
+        "exact_frame_sequence_match": true,
+        "gfs_asof_safe": true,
+        "risk_engine_locked": true,
+        "risk_score_absent": true,
+        "classification_absent": true
+      }
+    },
+    "o8_1_c_self_healing": {
+      "state": "PASS",
+      "checks": {
+        "phase": true,
+        "state_pass": true,
+        "catchup_horizon_120m": true,
+        "max_slots_can_cover_120m_grid": true,
+        "multi_slot_recovery": true,
+        "deduplication": true,
+        "as_of_guard": true,
+        "risk_engine_locked": true
+      }
+    },
+    "o8_1_d_daily_canonical": {
+      "state": "PASS",
+      "checks": {
+        "phase": true,
+        "state_pass": true,
+        "canonical_96_slots": true,
+        "missing_slots_explicit": true,
+        "technical_not_rewritten_as_gap": true,
+        "native_recovered_preserved": true,
+        "production_schedule_redundant": true,
+        "risk_engine_locked": true
+      }
+    },
+    "o8_1_e_consecutive_days": {
+      "state": "WAIT",
+      "checks": {
+        "phase": true,
+        "latest_expected_matches_today": true,
+        "required_days_is_2": true,
+        "gate_passed": false,
+        "streak_at_least_2": false,
+        "required_rows_complete": false,
+        "safety_failures_zero": true,
+        "structural_errors_zero": true,
+        "risk_engine_locked": true
+      },
+      "current_streak": 0,
+      "latest_expected_finalized_date_utc": "2026-09-12",
+      "required_days": [
+        {
+          "date_utc": "2026-09-12",
+          "path": "research/prospective/2026/09/2026-09-12.manifest.json",
+          "state": "WAIT_NONCANONICAL_OR_LEGACY",
+          "complete_96_of_96": false,
+          "reason": "O8_1_D_CANONICAL_MANIFEST_REQUIRED",
+          "phase": "2E-prospective-daily-consolidation",
+          "schema_version": "0.1.0",
+          "checks": {
+            "risk_engine_locked": true,
+            "risk_score_absent": true,
+            "lpz_classification_absent": true,
+            "raw_radar_not_archived": true,
+            "raw_grib_not_archived": true,
+            "phase_is_o8_1_d": false
+          }
+        },
+        {
+          "date_utc": "2026-09-11",
+          "path": "research/prospective/2026/09/2026-09-11.manifest.json",
+          "state": "WAIT_MISSING",
+          "complete_96_of_96": false,
+          "reason": "DAILY_MANIFEST_MISSING",
+          "checks": {}
+        }
+      ]
+    },
+    "runtime": {
+      "collector": {
+        "name": "prospective_self_healing_collector",
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-13T11:40:54Z",
+        "latest_success_run_id": 34755070282,
+        "latest_success_event": "schedule",
+        "latest_success_age_minutes": 44.36454083333333,
+        "freshness_limit_minutes": 120.0,
+        "latest_completed_conclusion": "success",
+        "latest_failure_after_success": false,
+        "runs_examined": 31
+      },
+      "daily": {
+        "name": "canonical_daily_consolidation",
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-13T05:16:39Z",
+        "latest_success_run_id": 34739899556,
+        "latest_success_event": "schedule",
+        "latest_success_age_minutes": 428.6145408333333,
+        "freshness_limit_minutes": 2880.0,
+        "latest_completed_conclusion": "success",
+        "latest_failure_after_success": false,
+        "runs_examined": 3
+      },
+      "public": {
+        "name": "public_pages_production",
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-13T10:29:35Z",
+        "latest_success_run_id": 34751987561,
+        "latest_success_event": "schedule",
+        "latest_success_age_minutes": 115.6812075,
+        "freshness_limit_minutes": 240.0,
+        "latest_completed_conclusion": "success",
+        "latest_failure_after_success": false,
+        "runs_examined": 17
+      }
+    },
+    "scientific_lock": {
+      "state": "PASS",
+      "checks": {
+        "validation_deferred_pending_v08": true,
+        "validation_2025_era5_still_sealed": true,
+        "primary_confirmatory_test_not_run": true,
+        "risk_engine_locked": true,
+        "public_validated_risk_locked": true
+      },
+      "risk_engine_allowed": false,
+      "validation_status": "DEFERRED_PENDING_IMERG_FINAL_V08"
+    }
+  },
+  "blockers": [
+    "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS"
+  ],
+  "risk_engine_allowed": false,
+  "public_risk_release_allowed": false,
+  "interpretation": "Keep the temporary Windows collector enabled until every O8.1-F operational gate passes. Risk Engine remains locked independently."
+}
