@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Audit whether LPZ production is ready to retire the temporary Windows scheduler.
 
-Phase 2L-O8 is an operational closure gate, not a scientific release gate.  It verifies
+Phase 2L-O8 is an operational closure gate, not a scientific release gate. It verifies
 that the GitHub-native collector, daily archive, and public Pages production cycles are
 actually healthy before the local Windows Task Scheduler is disabled.
 
-The audit never authorizes the Risk Engine.  Scientific release remains governed by the
+The audit never authorizes the Risk Engine. Scientific release remains governed by the
 frozen Phase 2 validation protocol and IMERG Final V08 re-entry rules.
 """
 from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ DEFAULT_MIN_15MIN_RUNS_24H = 80
 DEFAULT_MIN_SUCCESS_RATIO = 0.90
 DEFAULT_15MIN_FRESHNESS_MINUTES = 60
 DEFAULT_DAILY_FRESHNESS_HOURS = 36
+DEFAULT_TIMELINE_ROWS = 40
 
 
 def _load_json(path: Path) -> Any:
@@ -63,6 +65,69 @@ def _workflow_schedule_check(root: Path, key: str, rel: Path, cron: str) -> dict
         "path": str(rel),
         "expected_cron": cron,
         "reason": None if present else "EXPECTED_SCHEDULE_NOT_FOUND",
+    }
+
+
+def _sort_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def key(row: dict[str, Any]) -> datetime:
+        try:
+            return _parse_utc(str(row.get("createdAt") or "1970-01-01T00:00:00Z"))
+        except Exception:
+            return datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+    return sorted(rows, key=key, reverse=True)
+
+
+def _timeline_diagnostics(rows: list[dict[str, Any]], *, now: datetime) -> dict[str, Any]:
+    ordered = _sort_rows(rows)
+    scheduled = [r for r in ordered if r.get("event") == "schedule"]
+    event_counts = Counter(str(r.get("event") or "UNKNOWN") for r in rows)
+    conclusion_counts = Counter(str(r.get("conclusion") or r.get("status") or "UNKNOWN") for r in scheduled)
+
+    schedule_times: list[datetime] = []
+    for row in scheduled:
+        try:
+            schedule_times.append(_parse_utc(str(row.get("createdAt"))))
+        except Exception:
+            pass
+    schedule_times.sort()
+
+    gaps_minutes = [
+        (b - a).total_seconds() / 60.0
+        for a, b in zip(schedule_times, schedule_times[1:])
+    ]
+    latest_scheduled_dt = schedule_times[-1] if schedule_times else None
+
+    compact: list[dict[str, Any]] = []
+    for row in ordered[:DEFAULT_TIMELINE_ROWS]:
+        compact.append(
+            {
+                "run_id": row.get("databaseId"),
+                "created_at_utc": row.get("createdAt"),
+                "updated_at_utc": row.get("updatedAt"),
+                "event": row.get("event"),
+                "status": row.get("status"),
+                "conclusion": row.get("conclusion"),
+                "head_sha": row.get("headSha"),
+                "url": row.get("url"),
+            }
+        )
+
+    return {
+        "rows_received": len(rows),
+        "event_counts": dict(sorted(event_counts.items())),
+        "scheduled_conclusion_counts": dict(sorted(conclusion_counts.items())),
+        "scheduled_rows_received": len(scheduled),
+        "latest_scheduled_created_at_utc": _iso_utc(latest_scheduled_dt) if latest_scheduled_dt else None,
+        "latest_scheduled_age_minutes": (
+            max((now - latest_scheduled_dt).total_seconds() / 60.0, 0.0)
+            if latest_scheduled_dt else None
+        ),
+        "max_gap_between_returned_scheduled_runs_minutes": max(gaps_minutes) if gaps_minutes else None,
+        "median_gap_between_returned_scheduled_runs_minutes": (
+            sorted(gaps_minutes)[len(gaps_minutes) // 2] if gaps_minutes else None
+        ),
+        "recent_runs": compact,
     }
 
 
@@ -142,6 +207,7 @@ def _run_health(
         "latest_success_run_id": latest_success.get("databaseId") if latest_success else None,
         "latest_success_url": latest_success.get("url") if latest_success else None,
         "reasons": reasons,
+        "diagnostics": _timeline_diagnostics(rows, now=now),
     }
 
 
@@ -295,10 +361,7 @@ def main() -> int:
     scientific_lock = _scientific_lock_check(root)
 
     schedule_pass = all(v["state"] == "PASS" for v in schedules.values())
-    runtime_pass = all(
-        v["state"] == "PASS"
-        for v in (collector_health, public_health, daily_health)
-    )
+    runtime_pass = all(v["state"] == "PASS" for v in (collector_health, public_health, daily_health))
     archive_pass = len(archive_days) == args.required_archive_days and all(
         v["state"] == "PASS" for v in archive_days
     )
@@ -320,7 +383,7 @@ def main() -> int:
         blockers.append("SCIENTIFIC_LOCK_INVARIANT")
 
     report = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "phase": "2L-O8-github-only-production-closure",
         "generated_at_utc": _iso_utc(now),
         "overall_state": "PASS_READY_TO_RETIRE_WINDOWS_TASK" if closure_ready else "WAIT_KEEP_WINDOWS_TASK",
@@ -366,6 +429,12 @@ def main() -> int:
     print(f"closure_ready={closure_ready}")
     print(f"windows_task_recommendation={report['windows_task_recommendation']}")
     print(f"blockers={','.join(blockers) if blockers else 'NONE'}")
+    print(
+        "collector diagnostic: "
+        f"event_counts={collector_health['diagnostics']['event_counts']} "
+        f"latest_scheduled={collector_health['diagnostics']['latest_scheduled_created_at_utc']} "
+        f"max_gap_min={collector_health['diagnostics']['max_gap_between_returned_scheduled_runs_minutes']}"
+    )
     for row in archive_days:
         print(
             "archive "
