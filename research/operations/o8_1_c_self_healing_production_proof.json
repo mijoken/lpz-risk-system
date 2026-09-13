@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8.1-C-self-healing-batch-collector",
+  "recorded_at_utc": "2026-09-13T08:33:30Z",
+  "state": "PASS_PHASE2L_O8_1_C_SELF_HEALING_BATCH",
+  "main_commit_verified": "c579803a732aefb83806361e5520684c724d3c08",
+  "risk_engine_allowed": false,
+  "windows_task_may_be_disabled": false,
+  "catchup_policy": {
+    "catchup_horizon_minutes": 120,
+    "settlement_lag_minutes": 15,
+    "native_max_age_minutes": 30,
+    "max_slots_per_run": 8
+  },
+  "production_runs": [
+    {
+      "run_id": 34747609351,
+      "event": "push",
+      "conclusion": "success",
+      "wake_time_utc": "2026-09-13T08:25:15Z",
+      "expected_slot_count_in_horizon": 7,
+      "represented_slot_count_in_horizon": 0,
+      "requested_slot_count": 7,
+      "native_slot_count": 1,
+      "recovered_slot_count": 6,
+      "explicit_gap_count": 0,
+      "technical_failure_count": 0,
+      "deferred_due_run_cap_count": 0,
+      "all_processed_slots_complete": true,
+      "all_processed_slots_as_of_guard_pass": true,
+      "risk_engine_allowed": false
+    },
+    {
+      "run_id": 34747798967,
+      "event": "push",
+      "conclusion": "success",
+      "wake_time_utc": "2026-09-13T08:30:21Z",
+      "expected_slot_count_in_horizon": 7,
+      "represented_slot_count_in_horizon": 6,
+      "requested_slot_count": 1,
+      "native_slot_count": 1,
+      "recovered_slot_count": 0,
+      "explicit_gap_count": 0,
+      "technical_failure_count": 0,
+      "deferred_due_run_cap_count": 0,
+      "all_processed_slots_complete": true,
+      "all_processed_slots_as_of_guard_pass": true,
+      "idempotent_prior_slot_reuse_proven": true,
+      "risk_engine_allowed": false
+    }
+  ],
+  "verified_behaviour": {
+    "single_run_multi_slot_recovery": true,
+    "oldest_first_catchup": true,
+    "lightweight_prior_index_download": true,
+    "complete_slot_deduplication": true,
+    "new_slot_only_processing_on_next_run": true,
+    "prospective_native_and_recovered_separated": true,
+    "as_of_time_guard_enforced": true,
+    "raw_radar_archived": false,
+    "raw_grib_archived": false,
+    "lpz_classification_emitted": false,
+    "risk_score_emitted": false,
+    "risk_engine_allowed": false
+  },
+  "wake_paths_configured": [
+    "prospective workflow schedule",
+    "workflow_run after successful LPZ Public Production Cycle (O6)",
+    "workflow_dispatch",
+    "relevant main push"
+  ],
+  "next_phase": "2L-O8.1-D-daily-consolidation-v2",
+  "closure_requirement": "Keep LPZ-Prospective-Collector-15min enabled until O8.1-E/F demonstrate two consecutive completed UTC days with 96/96 canonical slots and no explicit gaps or technical incomplete slots."
+}
