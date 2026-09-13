@@ -1,0 +1,64 @@
+name: O9 V08 Re-entry A-B-C Branch Proof
+
+on:
+  push:
+    branches: [o9-v08-reentry-harness]
+    paths:
+      - ".github/workflows/o9-v08-reentry-branch-proof.yml"
+      - ".github/workflows/o9-v08-reentry-preflight.yml"
+      - "scripts/o9_v08_reentry_harness.py"
+      - "scripts/o9_v08_availability_probe.py"
+      - "scripts/o9_v08_required_coverage_gate.py"
+      - "src/lpz_risk/imerg_final.py"
+      - "tests/test_o9_v08_reentry_harness.py"
+      - "tests/test_imerg_final_versioned.py"
+      - "tests/test_o9_v08_required_coverage_gate.py"
+      - "docs/architecture/O9_IMERG_FINAL_V08_REENTRY_HARNESS.md"
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: Compile O9 code
+        run: |
+          python -m compileall -q \
+            scripts/o9_v08_reentry_harness.py \
+            scripts/o9_v08_availability_probe.py \
+            scripts/o9_v08_required_coverage_gate.py \
+            src/lpz_risk/imerg_final.py
+      - name: Run O9 A-B-C tests
+        run: |
+          python -m pytest -q \
+            tests/test_o9_v08_reentry_harness.py \
+            tests/test_imerg_final_versioned.py \
+            tests/test_o9_v08_required_coverage_gate.py
+      - name: Prove current no-evidence state fails closed
+        run: |
+          mkdir -p /tmp/o9-empty reports/o9
+          python scripts/o9_v08_reentry_harness.py \
+            --repo-root . \
+            --evidence-dir /tmp/o9-empty \
+            --output reports/o9/branch_wait.json
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/o9/branch_wait.json',encoding='utf-8'))
+          assert p['state']=='WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN',p
+          assert p['era5_2025_may_be_opened'] is False,p
+          assert p['confirmatory_run_may_execute'] is False,p
+          assert p['risk_engine_allowed'] is False,p
+          assert p['frozen_protocol']['state']=='PASS',p
+          print('PASS_O9_ABC_CURRENT_STATE_FAILS_CLOSED')
+          PY
