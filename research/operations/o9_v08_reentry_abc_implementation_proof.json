@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "O9-A-B-C-IMERG-Final-V08-reentry-harness",
+  "recorded_at_utc": "2026-09-13T12:55:00Z",
+  "state": "PASS_O9_ABC_HARNESS_IMPLEMENTED_WAITING_FOR_FINAL_V08",
+  "risk_engine_allowed": false,
+  "public_risk_release_allowed": false,
+  "validation_2025_era5_outcome_opened": false,
+  "primary_confirmatory_test_run": false,
+  "confirmatory_run_count": 0,
+  "v08_availability_claimed": false,
+  "v08_availability_live_probe_run_by_bootstrap": false,
+  "current_expected_controller_state": "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN",
+  "branch_proof": {
+    "run_id": 34758145372,
+    "job_id": 103726042722,
+    "head_sha": "6fde201ad7493761b3ae636b1502a420ffdc4f7a",
+    "conclusion": "success",
+    "tests_passed": 15,
+    "tests_failed": 0,
+    "freeze_integrity_state": "PASS",
+    "safe_wait_assertion": "PASS_O9_ABC_CURRENT_STATE_FAILS_CLOSED"
+  },
+  "production_bootstrap_proof": {
+    "run_id": 34758260604,
+    "job_id": 103726348551,
+    "head_sha": "c8d095df5ef22c02d6442c597dce6379216036aa",
+    "conclusion": "success",
+    "tests_passed": 15,
+    "tests_failed": 0,
+    "live_v08_probe_step": "SKIPPED",
+    "controller_state": "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN",
+    "next_action": "PROVE_OFFICIAL_NASA_IMERG_FINAL_V08_AVAILABILITY",
+    "artifact_id": 10317909606,
+    "artifact_name": "o9-v08-reentry-preflight-34758260604"
+  },
+  "permanent_preflight": {
+    "workflow": ".github/workflows/o9-v08-reentry-preflight.yml",
+    "final_trigger_policy": "WORKFLOW_DISPATCH_ONLY",
+    "live_probe_requires_explicit_boolean_input": true,
+    "recurring_v08_watcher_duplicated": false
+  },
+  "frozen_protocol_provenance": {
+    "phase_h_freeze_commit": "3944692a5f4ed8b108a31b76477321abcf3d4bd5",
+    "phase_h_git_blob": "bf8e2506e0a5dcad39f1bedf6ef7d544e5d72fae",
+    "phase_h_committed_sha256": "0896cfae9be7785210b48f73fbce95fdfdda009c252838774d368c28819015fa",
+    "k2_freeze_commit": "c0c5dec2f138901db84316fd03e28e502a0a7e65",
+    "k2_committed_sha256": "895ccc5520f6512b74f420707fad3ebfe9c5229c17f204e151852cf7c47fcfef",
+    "k2_historical_local_phase_h_sha256": "6b3cac100513cb5be3e392eb3e9b68d250ddabd2c94c2c4ab93a0081b58b88fe",
+    "git_history_phase_h_modified_after_freeze": false,
+    "git_history_k2_modified_after_freeze": false,
+    "semantic_primary_metric": "q850_mean_kgkg",
+    "semantic_primary_contrast": "t+0h",
+    "semantic_primary_test": "EXACT_ONE_SIDED_SIGN_TEST_ON_POSITIVE_DATE_UTC_CLUSTER_MEANS",
+    "alpha": 0.05
+  },
+  "implemented_units": {
+    "o9_a": {
+      "script": "scripts/o9_v08_availability_probe.py",
+      "contract": "Metadata-only exact NASA Earthdata GPM_3IMERGHH version 08 official Final identity proof. Availability alone does not prove coverage."
+    },
+    "o9_b": {
+      "module": "src/lpz_risk/imerg_final.py",
+      "contract": "Version-aware Final decoder; expected V08 rejects V07 and incompatible payload schema. Historical V07 adapter remains untouched."
+    },
+    "o9_c": {
+      "script": "scripts/o9_v08_required_coverage_gate.py",
+      "contract": "Exact V08 half-hour coverage gate for all frozen 5943 Development and 1218 Validation region-days; zero interpolation or V07/V08 patching."
+    },
+    "controller": {
+      "script": "scripts/o9_v08_reentry_harness.py",
+      "contract": "Fail-closed ordered SHA-linked evidence chain; ERA5 only after matching freeze; frozen Primary exactly once; Risk Engine remains locked."
+    }
+  },
+  "scientific_prohibitions_preserved": [
+    "NO_V07_V08_TAIL_PATCH",
+    "NO_VALIDATION_PCA_REFIT",
+    "NO_MATCHING_POLICY_CHANGE",
+    "NO_2025_ERA5_BEFORE_MATCHING_FREEZE",
+    "NO_PRIMARY_CHANGE",
+    "NO_SECOND_CONFIRMATORY_RUN",
+    "NO_RISK_ENGINE_UNLOCK"
+  ],
+  "existing_recurring_v08_availability_checker_remains_authoritative": true,
+  "next_unit": "O9-D-RESUMABLE-V08-RAINFALL-REBUILD-ORCHESTRATION",
+  "interpretation": "O9 A/B/C are implemented and production-proven in the safe WAIT state. This record does not assert that Final V08 is currently available."
+}
