@@ -24,6 +24,7 @@ MATCH_COMPONENTS = ("rain_pca_pc1", "rain_pca_pc2")
 MATCH_RATIO = 3
 SEASON_WINDOW_DAYS = 60
 EVENT_BUFFER_DAYS = 3
+POSITIVE_ROLE = "POSITIVE"
 COMPARISON_ROLE = "RAINFALL_MATCHED_COMPARISON_NOT_NEGATIVE_LABEL"
 MATCHING_CONTRACT = "PHASE2L_D_FROZEN_SAME_REGION_PC12_60D_3D_1TO3_NOREPLACEMENT_V1"
 
@@ -257,11 +258,39 @@ def frozen_match_2025(frame: pd.DataFrame) -> dict[str, pd.DataFrame]:
     positive_output = positives.drop(columns=["_o9f_row_id", "_o9f_date_ts"]).sort_values(
         list(KEY), kind="mergesort"
     ).reset_index(drop=True)
+
+    positive_meta = (
+        pairs_df[["positive_date_utc", "primary_subdivision_code", "match_set_id"]]
+        .drop_duplicates()
+        .rename(columns={"positive_date_utc": "date_utc"})
+    )
+    positive_cases = positive_meta.merge(
+        positive_output,
+        on=list(KEY),
+        how="left",
+        validate="one_to_one",
+    )
+    positive_cases["case_role"] = POSITIVE_ROLE
+    positive_cases["match_rank"] = 0
+
+    comparison_cases = comparison_population.copy()
+    comparison_cases["case_role"] = COMPARISON_ROLE
+    final_matched_population = pd.concat(
+        [positive_cases, comparison_cases],
+        ignore_index=True,
+        sort=False,
+    ).sort_values(["match_set_id", "match_rank"], kind="mergesort").reset_index(drop=True)
+    if len(final_matched_population) != len(positives) + expected_pairs:
+        raise AssertionError("final matched population cardinality changed")
+    if final_matched_population[list(KEY)].duplicated().any():
+        raise AssertionError("final matched population contains duplicate region-day keys")
+
     pairs_df = pairs_df.drop(columns=["_o9f_control_row_id"])
 
     return {
         "positive_population": positive_output,
         "matched_pairs": pairs_df,
         "comparison_population": comparison_population,
+        "final_matched_population": final_matched_population,
         "eligibility_audit": eligibility,
     }
