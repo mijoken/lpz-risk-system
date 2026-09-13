@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8-github-only-production-closure",
+  "generated_at_utc": "2026-09-13T05:46:30Z",
+  "overall_state": "WAIT_KEEP_WINDOWS_TASK",
+  "closure_ready": false,
+  "windows_task_name": "LPZ-Prospective-Collector-15min",
+  "windows_task_recommendation": "KEEP_ENABLED",
+  "scientific_release_is_separate": true,
+  "risk_engine_allowed": false,
+  "criteria": {
+    "required_consecutive_archive_days": 2,
+    "minimum_archive_coverage": 0.9,
+    "minimum_15min_scheduled_runs_24h": 80,
+    "minimum_scheduled_run_success_ratio": 0.9,
+    "15min_latest_success_freshness_minutes": 60,
+    "daily_latest_success_freshness_hours": 36
+  },
+  "checks": {
+    "schedules": {
+      "collector": {
+        "state": "PASS",
+        "workflow": "collector",
+        "path": ".github/workflows/prospective-feature-collector.yml",
+        "expected_cron": "7,22,37,52 * * * *",
+        "reason": null
+      },
+      "daily_archive": {
+        "state": "PASS",
+        "workflow": "daily_archive",
+        "path": ".github/workflows/prospective-daily-consolidation.yml",
+        "expected_cron": "30 0 * * *",
+        "reason": null
+      },
+      "public_pages": {
+        "state": "PASS",
+        "workflow": "public_pages",
+        "path": ".github/workflows/public-pages-deploy.yml",
+        "expected_cron": "2,17,32,47 * * * *",
+        "reason": null
+      }
+    },
+    "runtime": {
+      "prospective_collector": {
+        "state": "WAIT",
+        "cadence": "15_MINUTES",
+        "lookback_hours": 24.0,
+        "scheduled_runs_in_lookback": 5,
+        "completed_runs_in_lookback": 5,
+        "successful_runs_in_lookback": 5,
+        "success_ratio": 1.0,
+        "minimum_runs_required": 80,
+        "minimum_success_ratio": 0.9,
+        "latest_success_created_at_utc": "2026-09-13T00:52:45Z",
+        "latest_success_age_minutes": 293.75940048333337,
+        "freshness_limit_minutes": 60.0,
+        "latest_success_run_id": 34729097597,
+        "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34729097597",
+        "reasons": [
+          "LATEST_SUCCESS_STALE_OR_MISSING",
+          "INSUFFICIENT_SCHEDULED_RUNS_IN_LOOKBACK"
+        ]
+      },
+      "public_pages": {
+        "state": "WAIT",
+        "cadence": "15_MINUTES",
+        "lookback_hours": 24.0,
+        "scheduled_runs_in_lookback": 6,
+        "completed_runs_in_lookback": 6,
+        "successful_runs_in_lookback": 6,
+        "success_ratio": 1.0,
+        "minimum_runs_required": 80,
+        "minimum_success_ratio": 0.9,
+        "latest_success_created_at_utc": "2026-09-13T05:23:19Z",
+        "latest_success_age_minutes": 23.192733816666664,
+        "freshness_limit_minutes": 60.0,
+        "latest_success_run_id": 34740175437,
+        "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34740175437",
+        "reasons": [
+          "INSUFFICIENT_SCHEDULED_RUNS_IN_LOOKBACK"
+        ]
+      },
+      "daily_archive": {
+        "state": "PASS",
+        "cadence": "DAILY",
+        "lookback_hours": 48.0,
+        "scheduled_runs_in_lookback": 2,
+        "completed_runs_in_lookback": 2,
+        "successful_runs_in_lookback": 2,
+        "success_ratio": 1.0,
+        "minimum_runs_required": 1,
+        "minimum_success_ratio": 0.9,
+        "latest_success_created_at_utc": "2026-09-13T05:16:39Z",
+        "latest_success_age_minutes": 29.85940048333333,
+        "freshness_limit_minutes": 2160.0,
+        "latest_success_run_id": 34739899556,
+        "latest_success_url": "https://github.com/mijoken/lpz-risk-system/actions/runs/34739899556",
+        "reasons": []
+      }
+    },
+    "archives": [
+      {
+        "state": "WAIT",
+        "date_utc": "2026-09-12",
+        "path": "research/prospective/2026/09/2026-09-12.manifest.json",
+        "expected_15min_intervals": 96,
+        "bundle_count": 7,
+        "complete_bundle_count": 7,
+        "coverage_fraction": 0.07291666666666667,
+        "minimum_coverage_required": 0.9,
+        "collector_gap_count": 89,
+        "parse_error_count": 0,
+        "prospective_day_quality": "INCOMPLETE_EXPLICIT_GAPS",
+        "risk_engine_allowed": false,
+        "checks": {
+          "expected_intervals_is_96": true,
+          "coverage_at_or_above_threshold": false,
+          "every_archived_bundle_complete": true,
+          "parse_errors_zero": true,
+          "risk_engine_locked": true
+        },
+        "reasons": [
+          "coverage_at_or_above_threshold"
+        ]
+      },
+      {
+        "state": "WAIT",
+        "date_utc": "2026-09-11",
+        "path": "research/prospective/2026/09/2026-09-11.manifest.json",
+        "reason": "DAILY_MANIFEST_MISSING"
+      }
+    ],
+    "scientific_lock": {
+      "state": "PASS",
+      "checks": {
+        "validation_deferred_pending_v08": true,
+        "era5_2025_primary_sealed": true,
+        "primary_confirmatory_test_not_run": true,
+        "risk_engine_not_allowed": true,
+        "public_validated_risk_not_allowed": true
+      },
+      "risk_engine_allowed": false,
+      "validation_status": "DEFERRED_PENDING_IMERG_FINAL_V08",
+      "reasons": []
+    }
+  },
+  "blockers": [
+    "PROSPECTIVE_COLLECTOR_RUNTIME_HEALTH",
+    "PUBLIC_PAGES_RUNTIME_HEALTH",
+    "CONSECUTIVE_DAILY_ARCHIVE_COVERAGE"
+  ],
+  "interpretation": "Production closure has not yet met every operational gate. Keep the temporary Windows scheduler enabled; Risk Engine remains locked independently."
+}
