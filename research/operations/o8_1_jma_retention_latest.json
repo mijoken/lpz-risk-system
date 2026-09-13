@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "2L-O8.1-A-jma-source-retention-census",
+  "generated_at_utc": "2026-09-13T08:03:44Z",
+  "state": "PASS_RETENTION_CANDIDATE",
+  "risk_engine_allowed": false,
+  "scientific_release_changed": false,
+  "source": {
+    "product": "JMA High-Resolution Precipitation Nowcast analysis (hrpns)",
+    "target_times_url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json",
+    "target_times_fetch": {
+      "http_status": 200,
+      "latency_ms": 823,
+      "bytes": 3667
+    },
+    "analysis_rule": "elements includes hrpns AND basetime == validtime"
+  },
+  "frame_history": {
+    "raw_row_count": 37,
+    "analysis_frame_count": 37,
+    "continuous_trailing_frame_count": 37,
+    "frame_step_minutes": 5,
+    "oldest_continuous_valid_time_utc": "2026-09-13T05:00:00Z",
+    "latest_continuous_valid_time_utc": "2026-09-13T08:00:00Z",
+    "continuous_metadata_span_minutes": 180.0,
+    "latest_frame_age_minutes": 3.73524865,
+    "five_minute_continuity_ok": true
+  },
+  "slot_replay": {
+    "slot_grid": "UTC HH:00/15/30/45",
+    "required_exact_frame_offsets_minutes": [
+      -15,
+      -10,
+      -5,
+      0
+    ],
+    "settlement_lag_minutes": 15,
+    "recoverable_slot_count_in_visible_window": 11,
+    "oldest_recoverable_slot_utc": "2026-09-13T05:15:00Z",
+    "newest_recoverable_slot_utc": "2026-09-13T07:45:00Z",
+    "oldest_recoverable_slot_age_minutes": 168.73524865,
+    "newest_recoverable_slot_age_minutes": 18.735248650000003
+  },
+  "direct_tile_replay_probes": {
+    "all_pass": true,
+    "probe_count": 3,
+    "probes": [
+      {
+        "valid_time_utc": "2026-09-13T05:00:00Z",
+        "z": 6,
+        "x": 56,
+        "y": 25,
+        "probe_lon": 139.7671,
+        "probe_lat": 35.6812,
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260913050000/none/20260913050000/surf/hrpns/6/56/25.png",
+        "state": "PASS",
+        "http_status": 200,
+        "latency_ms": 100,
+        "bytes": 2312,
+        "png_signature_ok": true
+      },
+      {
+        "valid_time_utc": "2026-09-13T06:30:00Z",
+        "z": 6,
+        "x": 56,
+        "y": 25,
+        "probe_lon": 139.7671,
+        "probe_lat": 35.6812,
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260913063000/none/20260913063000/surf/hrpns/6/56/25.png",
+        "state": "PASS",
+        "http_status": 200,
+        "latency_ms": 102,
+        "bytes": 2237,
+        "png_signature_ok": true
+      },
+      {
+        "valid_time_utc": "2026-09-13T08:00:00Z",
+        "z": 6,
+        "x": 56,
+        "y": 25,
+        "probe_lon": 139.7671,
+        "probe_lat": 35.6812,
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260913080000/none/20260913080000/surf/hrpns/6/56/25.png",
+        "state": "PASS",
+        "http_status": 200,
+        "latency_ms": 623,
+        "bytes": 1969,
+        "png_signature_ok": true
+      }
+    ]
+  },
+  "policy_candidate": {
+    "safety_margin_minutes": 30,
+    "initial_policy_cap_minutes": 120,
+    "minimum_acceptable_catchup_minutes": 60,
+    "safe_horizon_from_measurement_minutes": 135,
+    "recommended_catchup_horizon_minutes": 120,
+    "status": "CANDIDATE_ONLY_UNTIL_REPEATED_CENSUS"
+  },
+  "gates": {
+    "source_fresh": true,
+    "continuous_5min_history": true,
+    "direct_old_mid_new_tile_replay": true,
+    "at_least_one_exact_15min_slot_recoverable": true,
+    "catchup_horizon_at_least_60min": true,
+    "risk_engine_allowed": false
+  },
+  "interpretation": "JMA analysis history presently supports bounded self-healing catch-up; use only the candidate horizon until repeated census observations establish stability."
+}
