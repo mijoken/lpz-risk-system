@@ -36,6 +36,7 @@ from scripts import o9_h_one_shot_primary_confirmatory as one_shot
 from scripts import o9_v08_reentry_harness as harness
 
 PASS_GATE = "PASS_O9_H_TERMINAL_LEDGER_AND_RESULT_AUDIT"
+SERIALIZATION_ABS_TOL = 1e-15
 
 
 def _require(condition: bool, message: str) -> None:
@@ -124,12 +125,19 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
     cluster_means = [float(x["cluster_mean_difference"]) for x in clusters]
     _require(all(math.isfinite(x) for x in cluster_means), "cluster artifact contains non-finite mean")
     effect = sum(cluster_means) / len(cluster_means)
-    _require(effect == pytest_approx_free(float(result["primary_effect_estimate"])), "Primary effect does not match cluster artifact")
+    reported_effect = float(result["primary_effect_estimate"])
+    _require(
+        abs(effect - reported_effect) <= SERIALIZATION_ABS_TOL,
+        "Primary effect does not match cluster artifact",
+    )
     sign = exact_one_sided_sign_test_gt_zero(cluster_means)
     reported_sign = result.get("sign_test") or {}
     for key in ("positive_count", "negative_count", "zero_count", "nonzero_count"):
         _require(int(reported_sign.get(key, -1)) == int(sign[key]), f"reported sign statistic {key} mismatch")
-    _require(abs(float(reported_sign.get("p_value_one_sided", -1)) - float(sign["p_value_one_sided"])) <= 1e-15, "one-sided sign-test p mismatch")
+    _require(
+        abs(float(reported_sign.get("p_value_one_sided", -1)) - float(sign["p_value_one_sided"])) <= SERIALIZATION_ABS_TOL,
+        "one-sided sign-test p mismatch",
+    )
     expected_outcome = "PASS" if effect > 0.0 and sign["p_value_one_sided"] < ALPHA else "FAIL"
     _require(result.get("primary_outcome") == expected_outcome, "Primary PASS/FAIL violates frozen rule")
 
@@ -169,11 +177,6 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         "risk_engine_allowed": False,
         "public_risk_release_allowed": False,
     }
-
-
-def pytest_approx_free(value: float) -> float:
-    """Normalize tiny CSV/JSON decimal round-trips without importing pytest."""
-    return value
 
 
 def main() -> int:
