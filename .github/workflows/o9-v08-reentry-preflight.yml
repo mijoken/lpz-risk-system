@@ -42,6 +42,8 @@ jobs:
             tests/test_o9_v08_reentry_harness.py \
             tests/test_o9_g_guarded_era5_opening.py \
             tests/test_o9_g_era5_reconstruction.py \
+            tests/test_o9_h_one_shot_primary_confirmatory.py \
+            tests/test_o9_h_terminal_audit.py \
             tests/test_era5_multitime.py \
             tests/test_era5_science.py \
             tests/test_imerg_final_versioned.py \
