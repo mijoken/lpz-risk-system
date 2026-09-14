@@ -1,0 +1,156 @@
+name: LPZ Prospective Collector Watchdog
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Independent GitHub-only wake-up path.
+    # Offset from the collector's own cron and the public-production cron.
+    - cron: "8,18,28,38,48,58 * * * *"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: lpz-prospective-collector-watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Inspect collector liveness
+        id: decision
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow prospective-feature-collector.yml \
+            --limit 30 \
+            --json databaseId,createdAt,status,conclusion,event \
+            > /tmp/collector-runs.json
+
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          rows = json.load(
+              open("/tmp/collector-runs.json", encoding="utf-8")
+          )
+
+          now = datetime.now(timezone.utc)
+
+          active = [
+              row
+              for row in rows
+              if row.get("status") in {"queued", "in_progress"}
+          ]
+
+          successes = [
+              row
+              for row in rows
+              if row.get("status") == "completed"
+              and row.get("conclusion") == "success"
+          ]
+
+          def parse_utc(value):
+              return datetime.fromisoformat(
+                  str(value).replace("Z", "+00:00")
+              ).astimezone(timezone.utc)
+
+          threshold_minutes = 25.0
+
+          dispatch = False
+          reason = ""
+          last_success_age_minutes = None
+
+          if active:
+              dispatch = False
+              reason = "COLLECTOR_ALREADY_ACTIVE"
+
+          elif not successes:
+              dispatch = True
+              reason = "NO_SUCCESSFUL_COLLECTOR_RUN_FOUND"
+
+          else:
+              latest = max(
+                  successes,
+                  key=lambda row: parse_utc(row["createdAt"]),
+              )
+
+              latest_time = parse_utc(latest["createdAt"])
+
+              last_success_age_minutes = (
+                  now - latest_time
+              ).total_seconds() / 60.0
+
+              if last_success_age_minutes > threshold_minutes:
+                  dispatch = True
+                  reason = "LAST_SUCCESS_STALE"
+              else:
+                  dispatch = False
+                  reason = "LAST_SUCCESS_FRESH"
+
+          output = os.environ["GITHUB_OUTPUT"]
+
+          with open(output, "a", encoding="utf-8") as f:
+              f.write(
+                  f"dispatch={'true' if dispatch else 'false'}\n"
+              )
+              f.write(f"reason={reason}\n")
+
+              if last_success_age_minutes is None:
+                  f.write("last_success_age_minutes=NA\n")
+              else:
+                  f.write(
+                      "last_success_age_minutes="
+                      f"{last_success_age_minutes:.1f}\n"
+                  )
+
+          print(
+              json.dumps(
+                  {
+                      "dispatch": dispatch,
+                      "reason": reason,
+                      "active_run_count": len(active),
+                      "last_success_age_minutes":
+                          last_success_age_minutes,
+                      "threshold_minutes":
+                          threshold_minutes,
+                  },
+                  indent=2,
+              )
+          )
+          PY
+
+      - name: Dispatch collector when stale
+        if: steps.decision.outputs.dispatch == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Collector wake-up required."
+          echo "Reason: ${{ steps.decision.outputs.reason }}"
+          echo "Last success age: ${{ steps.decision.outputs.last_success_age_minutes }} min"
+
+          gh workflow run prospective-feature-collector.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main
+
+          echo "Collector workflow_dispatch submitted."
+
+      - name: Record healthy no-op
+        if: steps.decision.outputs.dispatch != 'true'
+        shell: bash
+        run: |
+          echo "No collector dispatch required."
+          echo "Reason: ${{ steps.decision.outputs.reason }}"
+          echo "Last success age: ${{ steps.decision.outputs.last_success_age_minutes }} min"
