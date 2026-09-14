@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports/o9
-          python scripts/o9_v08_reentry_harness.py \
+          python scripts/o9_h_ledger_state.py \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --output reports/o9/o9_h_pre_reservation_state.json
@@ -69,6 +69,7 @@ jobs:
           import json
           p=json.load(open('reports/o9/o9_h_pre_reservation_state.json',encoding='utf-8'))
           assert p['state']=='READY_FOR_SINGLE_FROZEN_PRIMARY_CONFIRMATORY_RUN', p
+          assert p['o9_h_ledger_state']=='NOT_STARTED', p
           assert p['confirmatory_run_may_execute'] is True, p
           assert p['risk_engine_allowed'] is False, p
           assert p['public_risk_release_allowed'] is False, p
@@ -101,6 +102,21 @@ jobs:
           git rebase origin/main
           git push origin HEAD:main
 
+      - name: Confirm global state is reserved and generic execution is closed
+        shell: bash
+        run: |
+          python scripts/o9_h_ledger_state.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --output reports/o9/o9_h_reserved_state.json
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/o9/o9_h_reserved_state.json',encoding='utf-8'))
+          assert p['state']=='O9_H_PRIMARY_ATTEMPT_RESERVED_AWAITING_SAME_ATTEMPT_SEAL', p
+          assert p['confirmatory_run_may_execute'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          PY
+
       - name: Arm exact same attempt without reading q850 outcome values
         shell: bash
         run: |
@@ -125,7 +141,22 @@ jobs:
           git rebase origin/main
           git push origin HEAD:main
 
-      - name: Execute frozen Primary exactly once
+      - name: Confirm global state is sealed and no rerun is generically authorized
+        shell: bash
+        run: |
+          python scripts/o9_h_ledger_state.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --output reports/o9/o9_h_sealed_state.json
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/o9/o9_h_sealed_state.json',encoding='utf-8'))
+          assert p['state']=='O9_H_PRIMARY_EXECUTION_SEALED_NO_AUTOMATIC_RERUN', p
+          assert p['confirmatory_run_may_execute'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          PY
+
+      - name: Execute frozen Primary exactly once in the original sealed attempt
         shell: bash
         run: |
           python scripts/o9_h_one_shot_primary_confirmatory.py execute \
@@ -163,11 +194,11 @@ jobs:
             --cluster-artifact "$CLUSTER_OUTPUT" \
             --output reports/o9/o9_h_terminal_audit.json
 
-      - name: Verify completed chain keeps risk locked
+      - name: Verify completed ledger-aware chain keeps risk locked
         shell: bash
         run: |
           mkdir -p reports/o9
-          python scripts/o9_v08_reentry_harness.py \
+          python scripts/o9_h_ledger_state.py \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --output reports/o9/o9_h_post_result_state.json
@@ -175,6 +206,7 @@ jobs:
           import json
           p=json.load(open('reports/o9/o9_h_post_result_state.json',encoding='utf-8'))
           assert p['state'] in {'O9_CONFIRMATORY_COMPLETE_PASS','O9_CONFIRMATORY_COMPLETE_FAIL'}, p
+          assert p['o9_h_ledger_state']=='TERMINAL_ONE_SHOT_RESULT_RECORDED', p
           assert p['confirmatory_run_count']==1, p
           assert p['confirmatory_run_may_execute'] is False, p
           assert p['risk_engine_allowed'] is False, p
@@ -190,6 +222,7 @@ jobs:
           ## O9-H frozen Primary one-shot workflow
           This workflow is intentionally irreversible.
           Reservation and execution seal are persisted to `main` before q850 outcome values are interpreted.
+          The global ledger-aware state closes the generic execution flag as soon as reservation exists.
           A crash after the seal is a manual forensic-review state; automatic rerun is not an authorized second Primary run.
           A strict terminal audit rechecks ledger/result/artifact hashes and the frozen PASS/FAIL rule.
           The Risk Engine and public LPZ risk remain locked regardless of PASS/FAIL.
