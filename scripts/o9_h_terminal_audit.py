@@ -124,10 +124,11 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
 
     cluster_means = [float(x["cluster_mean_difference"]) for x in clusters]
     _require(all(math.isfinite(x) for x in cluster_means), "cluster artifact contains non-finite mean")
-    effect = sum(cluster_means) / len(cluster_means)
+    reconstructed_effect = sum(cluster_means) / len(cluster_means)
     reported_effect = float(result["primary_effect_estimate"])
+    _require(math.isfinite(reported_effect), "reported Primary effect must be finite")
     _require(
-        abs(effect - reported_effect) <= SERIALIZATION_ABS_TOL,
+        abs(reconstructed_effect - reported_effect) <= SERIALIZATION_ABS_TOL,
         "Primary effect does not match cluster artifact",
     )
     sign = exact_one_sided_sign_test_gt_zero(cluster_means)
@@ -138,7 +139,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         abs(float(reported_sign.get("p_value_one_sided", -1)) - float(sign["p_value_one_sided"])) <= SERIALIZATION_ABS_TOL,
         "one-sided sign-test p mismatch",
     )
-    expected_outcome = "PASS" if effect > 0.0 and sign["p_value_one_sided"] < ALPHA else "FAIL"
+    expected_outcome = "PASS" if reported_effect > 0.0 and sign["p_value_one_sided"] < ALPHA else "FAIL"
     _require(result.get("primary_outcome") == expected_outcome, "Primary PASS/FAIL violates frozen rule")
 
     robustness = result.get("robustness") or {}
@@ -172,7 +173,8 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         "result_sha256": one_shot.sha256_file(args.result),
         "pair_artifact_sha256": one_shot.sha256_file(args.pair_artifact),
         "cluster_artifact_sha256": one_shot.sha256_file(args.cluster_artifact),
-        "primary_effect_estimate": effect,
+        "primary_effect_estimate": reported_effect,
+        "reconstructed_cluster_effect_estimate": reconstructed_effect,
         "one_sided_sign_test_p_value": sign["p_value_one_sided"],
         "risk_engine_allowed": False,
         "public_risk_release_allowed": False,
