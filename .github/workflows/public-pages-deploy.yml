@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
   pages: write
   id-token: write
 
@@ -63,6 +64,97 @@ jobs:
             --output reports/public/o6_source_health.json \
             --acquisition-output reports/public/o6_acquisition_probe.json
 
+      - name: Escalate IMERG Final V08 detection once
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY' > /tmp/o9_v08_escalation_state.txt
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("reports/public/o6_source_health.json").read_text(encoding="utf-8")
+          )
+
+          earth = report.get("earthdata_imerg_research_source") or {}
+          summary = report.get("summary") or {}
+
+          available = bool(
+              earth.get("v8_available")
+              or summary.get("imerg_final_v08_available_by_metadata_probe")
+          )
+
+          state = str(earth.get("imerg_final_v08_metadata", "UNKNOWN"))
+
+          print("true" if available else "false")
+          print(state)
+          PY
+
+          V08_AVAILABLE="$(sed -n '1p' /tmp/o9_v08_escalation_state.txt)"
+          V08_STATE="$(sed -n '2p' /tmp/o9_v08_escalation_state.txt)"
+
+          echo "IMERG Final V08 available: ${V08_AVAILABLE}"
+          echo "IMERG Final V08 state: ${V08_STATE}"
+
+          if [ "${V08_AVAILABLE}" != "true" ]; then
+            echo "Final V08 remains pending; no escalation required."
+            exit 0
+          fi
+
+          ISSUE_TITLE="[O9-A] IMERG Final V08 detected — manual re-entry review required"
+
+          EXISTING="$(
+            gh issue list \
+              --repo "${GITHUB_REPOSITORY}" \
+              --state all \
+              --search "\"${ISSUE_TITLE}\" in:title" \
+              --json number,title \
+              --jq 'length'
+          )"
+
+          if [ "${EXISTING}" != "0" ]; then
+            echo "Escalation issue already exists; duplicate notification suppressed."
+            exit 0
+          fi
+
+          cat > /tmp/o9_v08_issue_body.md <<'EOF'
+          ## IMERG Final V08 availability detected
+
+          The existing LPZ source-health monitor has detected metadata indicating that
+          NASA IMERG Final V08 may now be available.
+
+          **This issue is an escalation notice only.**
+
+          No scientific re-entry stage has been automatically executed.
+
+          The following remain locked until the frozen O9 procedure authorizes them:
+
+          - O9-C full required-slot coverage proof
+          - V08 Development / Validation rainfall reconstruction
+          - 2025 ERA5 opening
+          - frozen Primary confirmatory test
+          - Risk Engine
+          - public LPZ risk release
+
+          Required next action:
+
+          1. Review the source-health evidence.
+          2. Manually run the O9 V08 re-entry preflight.
+          3. Accept O9-A only if the official Final V08 metadata proof passes.
+          4. Continue through the frozen O9 sequence without skipping gates.
+
+          Do **not** manually create canonical O9-A PASS evidence from this issue alone.
+
+          @mijoken
+          EOF
+
+          gh issue create \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${ISSUE_TITLE}" \
+            --body-file /tmp/o9_v08_issue_body.md \
+            --assignee mijoken
+
+          echo "One-shot Final V08 escalation issue created."
       - name: Build settled JMA rain overlay
         run: |
           python scripts/build_public_rain_overlay.py \
