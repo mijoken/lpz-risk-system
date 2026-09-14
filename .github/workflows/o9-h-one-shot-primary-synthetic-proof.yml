@@ -1,0 +1,88 @@
+name: O9-H One-shot Frozen Primary Synthetic Proof
+
+on:
+  push:
+    branches: [o9-h-one-shot-confirmatory-ledger]
+    paths:
+      - ".github/workflows/o9-h-one-shot-primary-synthetic-proof.yml"
+      - "src/lpz_risk/o9_primary_confirmatory.py"
+      - "scripts/o9_h_one_shot_primary_confirmatory.py"
+      - "scripts/o9_v08_reentry_harness.py"
+      - "tests/test_o9_h_one_shot_primary_confirmatory.py"
+      - "tests/test_o9_v08_reentry_harness.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: o9-h-one-shot-primary-synthetic-proof
+  cancel-in-progress: false
+
+jobs:
+  synthetic-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package and pytest
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+
+      - name: Compile O9-H code
+        run: |
+          python -m compileall -q \
+            src/lpz_risk/o9_primary_confirmatory.py \
+            scripts/o9_h_one_shot_primary_confirmatory.py \
+            scripts/o9_v08_reentry_harness.py \
+            tests/test_o9_h_one_shot_primary_confirmatory.py
+
+      - name: Run O9-H and upstream regression tests
+        run: |
+          python -m pytest -q \
+            tests/test_o9_h_one_shot_primary_confirmatory.py \
+            tests/test_o9_g_era5_reconstruction.py \
+            tests/test_o9_g_guarded_era5_opening.py \
+            tests/test_o9_v08_reentry_harness.py \
+            tests/test_era5_multitime.py \
+            tests/test_era5_science.py
+
+      - name: Assert live repository remains sealed
+        run: |
+          python - <<'PY'
+          from scripts import o9_v08_reentry_harness as h
+          r = h.evaluate_chain(h.ROOT, h.ROOT / 'research/o9/reentry')
+          assert r['state'] == 'WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN', r
+          assert r['era5_2025_may_be_opened'] is False, r
+          assert r['confirmatory_run_may_execute'] is False, r
+          assert r['risk_engine_allowed'] is False, r
+          assert r['public_risk_release_allowed'] is False, r
+          print('PASS_O9_H_LIVE_REPOSITORY_REMAINS_SEALED')
+          PY
+
+      - name: Write proof summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## O9-H One-shot Frozen Primary Synthetic Proof
+          - Real 2025 ERA5 values read: **NO**
+          - Real Primary executed: **NO**
+          - Reservation before outcome interpretation: **YES**
+          - Execution seal before outcome interpretation: **YES**
+          - GitHub rerun attempt identity reuse: **FORBIDDEN**
+          - Frozen Primary: **q850_mean_kgkg @ t+0h**
+          - Estimand: **Positive - mean(3 matched comparisons)**
+          - Cluster: **Positive UTC date, equal weight**
+          - Test: **exact one-sided sign test, >0, zeros ignored, alpha 0.05**
+          - Primary decision: **effect > 0 AND p < 0.05**
+          - Robustness/secondaries may rescue failed Primary: **NO**
+          - Risk Engine: **LOCKED**
+          - Public LPZ risk: **LOCKED**
+          EOF
