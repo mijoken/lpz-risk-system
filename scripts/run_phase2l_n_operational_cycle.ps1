@@ -56,7 +56,7 @@ try {
 
     if (Test-Path $HealthReport) {
         try {
-            $health = Get-Content -Raw -Path $HealthReport -Encoding UTF8 | ConvertFrom-Json
+            $health = Get-Content -Raw -Path $HealthReport -Encoding UTF8 | ConvertFrom-Json -DateKind String
             $generated = [DateTimeOffset]::Parse([string]$health.generated_at_utc)
             $healthAge = [int]([DateTimeOffset]::UtcNow - $generated).TotalSeconds
 
