@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import shutil
 from pathlib import Path
 
@@ -114,8 +115,9 @@ def test_tampered_reservation_is_blocked_by_ledger_overlay(tmp_path: Path):
     s, evidence, g_args = _ready(tmp_path)
     args = s._h_args(evidence, g_args)
     assert s.runner.reserve(args) == 0
-    with args.reservation_output.open("a", encoding="utf-8") as f:
-        f.write("\n")
+    reservation = json.loads(args.reservation_output.read_text(encoding="utf-8"))
+    reservation["snapshot_feature_csv_sha256"] = "0" * 64
+    args.reservation_output.write_text(json.dumps(reservation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     report = state.evaluate(harness.ROOT, evidence)
     assert report["state"] == "BLOCKED_O9_H_LEDGER_INTEGRITY_VIOLATION"
     assert report["confirmatory_run_may_execute"] is False
