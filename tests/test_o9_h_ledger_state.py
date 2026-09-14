@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 from pathlib import Path
 
 from scripts import o9_h_ledger_state as state
@@ -16,6 +17,23 @@ def _support():
     return mod
 
 
+def _canonicalize_snapshot_layout(evidence: Path, g_args):
+    """Mirror the production O9-G layout without changing snapshot bytes/SHAs."""
+    csv_dst = evidence / state.SNAPSHOT_CSV_FILE
+    json_dst = evidence / state.SNAPSHOT_JSON_FILE
+    shutil.copy2(g_args.snapshot_csv_output, csv_dst)
+    shutil.copy2(g_args.snapshot_json_output, json_dst)
+    g_args.snapshot_csv_output = csv_dst
+    g_args.snapshot_json_output = json_dst
+    return g_args
+
+
+def _ready(tmp_path: Path, *, positive_higher: bool = True):
+    s = _support()
+    evidence, g_args = s._make_controlled_ready_chain(tmp_path, positive_higher=positive_higher)
+    return s, evidence, _canonicalize_snapshot_layout(evidence, g_args)
+
+
 def test_empty_live_style_evidence_preserves_base_wait_state(tmp_path: Path):
     report = state.evaluate(harness.ROOT, tmp_path)
     assert report["state"] == "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN"
@@ -25,8 +43,7 @@ def test_empty_live_style_evidence_preserves_base_wait_state(tmp_path: Path):
 
 
 def test_g_complete_without_ledger_is_ready_for_single_primary(tmp_path: Path):
-    s = _support()
-    evidence, g_args = s._make_controlled_ready_chain(tmp_path)
+    _s, evidence, _g_args = _ready(tmp_path)
     report = state.evaluate(harness.ROOT, evidence)
     assert report["state"] == "READY_FOR_SINGLE_FROZEN_PRIMARY_CONFIRMATORY_RUN"
     assert report["o9_h_ledger_state"] == "NOT_STARTED"
@@ -35,8 +52,7 @@ def test_g_complete_without_ledger_is_ready_for_single_primary(tmp_path: Path):
 
 
 def test_reservation_changes_global_state_and_closes_generic_execute_flag(tmp_path: Path):
-    s = _support()
-    evidence, g_args = s._make_controlled_ready_chain(tmp_path)
+    s, evidence, g_args = _ready(tmp_path)
     args = s._h_args(evidence, g_args, attempt_id="run:1:job")
     assert s.runner.reserve(args) == 0
     report = state.evaluate(harness.ROOT, evidence)
@@ -47,8 +63,7 @@ def test_reservation_changes_global_state_and_closes_generic_execute_flag(tmp_pa
 
 
 def test_execution_seal_is_visible_as_no_automatic_rerun_state(tmp_path: Path):
-    s = _support()
-    evidence, g_args = s._make_controlled_ready_chain(tmp_path)
+    s, evidence, g_args = _ready(tmp_path)
     args = s._h_args(evidence, g_args, attempt_id="run:1:job")
     assert s.runner.reserve(args) == 0
     assert s.runner.arm(args) == 0
@@ -68,8 +83,7 @@ def test_seal_without_reservation_is_integrity_violation(tmp_path: Path):
 
 
 def test_terminal_one_shot_result_is_ledger_bound_and_locked(tmp_path: Path):
-    s = _support()
-    evidence, g_args = s._make_controlled_ready_chain(tmp_path, positive_higher=True)
+    s, evidence, g_args = _ready(tmp_path, positive_higher=True)
     args = s._h_args(evidence, g_args, attempt_id="run:1:job")
     assert s.runner.reserve(args) == 0
     assert s.runner.arm(args) == 0
@@ -84,8 +98,7 @@ def test_terminal_one_shot_result_is_ledger_bound_and_locked(tmp_path: Path):
 
 
 def test_result_without_reservation_and_seal_is_blocked(tmp_path: Path):
-    s = _support()
-    evidence, g_args = s._make_controlled_ready_chain(tmp_path, positive_higher=True)
+    s, evidence, g_args = _ready(tmp_path, positive_higher=True)
     args = s._h_args(evidence, g_args)
     assert s.runner.reserve(args) == 0
     assert s.runner.arm(args) == 0
@@ -98,8 +111,7 @@ def test_result_without_reservation_and_seal_is_blocked(tmp_path: Path):
 
 
 def test_tampered_reservation_is_blocked_by_ledger_overlay(tmp_path: Path):
-    s = _support()
-    evidence, g_args = s._make_controlled_ready_chain(tmp_path)
+    s, evidence, g_args = _ready(tmp_path)
     args = s._h_args(evidence, g_args)
     assert s.runner.reserve(args) == 0
     with args.reservation_output.open("a", encoding="utf-8") as f:
