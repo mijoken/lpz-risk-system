@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-14T07:59:51Z",
+  "generated_at_utc": "2026-09-14T08:48:07Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -149,14 +149,14 @@
       "collector": {
         "name": "prospective_self_healing_collector",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-14T06:07:01Z",
-        "latest_success_run_id": 34812099903,
-        "latest_success_event": "schedule",
-        "latest_success_age_minutes": 112.83368476666666,
+        "latest_success_created_at_utc": "2026-09-14T08:43:11Z",
+        "latest_success_run_id": 34824146042,
+        "latest_success_event": "workflow_run",
+        "latest_success_age_minutes": 4.939468616666667,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
-        "runs_examined": 57
+        "runs_examined": 58
       },
       "daily": {
         "name": "canonical_daily_consolidation",
@@ -164,7 +164,7 @@
         "latest_success_created_at_utc": "2026-09-14T07:58:46Z",
         "latest_success_run_id": 34820382475,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.0836847666666667,
+        "latest_success_age_minutes": 49.35613528333333,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -173,14 +173,14 @@
       "public": {
         "name": "public_pages_production",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-14T05:25:31Z",
-        "latest_success_run_id": 34809593772,
+        "latest_success_created_at_utc": "2026-09-14T08:41:55Z",
+        "latest_success_run_id": 34824038255,
         "latest_success_event": "push",
-        "latest_success_age_minutes": 154.33368476666666,
+        "latest_success_age_minutes": 6.206135283333333,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
-        "runs_examined": 30
+        "runs_examined": 31
       }
     },
     "scientific_lock": {
