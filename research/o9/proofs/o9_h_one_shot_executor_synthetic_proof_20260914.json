@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "O9-H-one-shot-confirmatory-executor-synthetic-proof",
+  "status": "PASS",
+  "generated_at_utc": "2026-09-14T05:21:31Z",
+  "source_branch": "o9-h-one-shot-confirmatory-ledger",
+  "source_commit_sha": "b2d3c87cf770874721f3105e8c16066d597b50a1",
+  "workflow": {
+    "name": "O9-H One-shot Frozen Primary Synthetic Proof",
+    "run_id": 34809318326,
+    "job_id": 103867284148,
+    "run_attempt": 1,
+    "conclusion": "success"
+  },
+  "test_result": {
+    "passed": 62,
+    "failed": 0,
+    "duration_seconds": 6.17
+  },
+  "scientific_execution_scope": {
+    "real_2025_era5_values_read": false,
+    "real_2025_primary_executed": false,
+    "synthetic_only": true
+  },
+  "one_shot_integrity_proven": {
+    "reservation_precedes_outcome_read": true,
+    "execution_seal_precedes_outcome_read": true,
+    "reservation_state_visible_globally": true,
+    "sealed_state_visible_globally": true,
+    "generic_confirmatory_execute_flag_closed_after_reservation": true,
+    "github_rerun_attempt_identity_reuse_forbidden": true,
+    "semantic_reservation_tamper_blocked": true,
+    "result_without_complete_ledger_blocked": true,
+    "terminal_result_bound_to_reservation_and_seal_hashes": true,
+    "strict_terminal_audit_required": true
+  },
+  "frozen_primary_contract": {
+    "metric": "q850_mean_kgkg",
+    "pressure_level_hpa": 850,
+    "snapshot_offset_hours": 0,
+    "contrast": "t+0h",
+    "match_set_difference": "POSITIVE_MINUS_MEAN_OF_THREE_MATCHED_COMPARISONS",
+    "cluster_unit": "POSITIVE_DATE_UTC",
+    "within_cluster_aggregation": "MEAN_ACROSS_MATCH_SETS_ON_SAME_POSITIVE_DATE_UTC",
+    "cluster_weighting": "EQUAL_WEIGHT_PER_POSITIVE_DATE_UTC",
+    "test": "EXACT_ONE_SIDED_SIGN_TEST_ON_POSITIVE_DATE_UTC_CLUSTER_MEANS",
+    "alternative": "GREATER_THAN_ZERO",
+    "zeros": "EXCLUDED_FROM_NONZERO_SIGN_TEST_DENOMINATOR",
+    "alpha": 0.05,
+    "pass_rule": "PRIMARY_EFFECT_GT_0_AND_EXACT_ONE_SIDED_SIGN_TEST_P_LT_0_05",
+    "secondary_or_robustness_may_rescue_primary": false
+  },
+  "live_repository_assertion": {
+    "state": "WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN",
+    "o9_h_ledger_state": "NOT_STARTED",
+    "era5_2025_may_be_opened": false,
+    "confirmatory_run_may_execute": false,
+    "risk_engine_allowed": false,
+    "public_risk_release_allowed": false,
+    "assertion_gate": "PASS_O9_H_LIVE_REPOSITORY_REMAINS_SEALED"
+  },
+  "interpretation": "This proof validates the O9-H irreversible one-shot execution mechanics using synthetic evidence only. It does not open 2025 ERA5, does not execute the real frozen Primary, and does not unlock either the Risk Engine or public LPZ risk release."
+}
