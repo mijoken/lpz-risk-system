@@ -149,6 +149,20 @@ jobs:
           git rebase origin/main
           git push origin HEAD:main
 
+      - name: Strict terminal ledger/result audit
+        shell: bash
+        run: |
+          mkdir -p reports/o9
+          python scripts/o9_h_terminal_audit.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --reservation "$RESERVATION" \
+            --execution-seal "$EXECUTION_SEAL" \
+            --result "$RESULT" \
+            --pair-artifact "$PAIR_OUTPUT" \
+            --cluster-artifact "$CLUSTER_OUTPUT" \
+            --output reports/o9/o9_h_terminal_audit.json
+
       - name: Verify completed chain keeps risk locked
         shell: bash
         run: |
@@ -177,5 +191,6 @@ jobs:
           This workflow is intentionally irreversible.
           Reservation and execution seal are persisted to `main` before q850 outcome values are interpreted.
           A crash after the seal is a manual forensic-review state; automatic rerun is not an authorized second Primary run.
+          A strict terminal audit rechecks ledger/result/artifact hashes and the frozen PASS/FAIL rule.
           The Risk Engine and public LPZ risk remain locked regardless of PASS/FAIL.
           EOF
