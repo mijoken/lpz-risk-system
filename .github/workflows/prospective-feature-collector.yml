@@ -164,7 +164,7 @@ jobs:
           name: prospective-batch-${{ github.run_id }}
           path: reports/prospective/o8_1_batch/
           if-no-files-found: error
-          retention-days: 10
+          retention-days: 3
 
       - name: Upload lightweight batch index
         if: always()
