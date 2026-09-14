@@ -8,9 +8,11 @@ on:
       - "src/lpz_risk/o9_primary_confirmatory.py"
       - "scripts/o9_h_one_shot_primary_confirmatory.py"
       - "scripts/o9_h_terminal_audit.py"
+      - "scripts/o9_h_ledger_state.py"
       - "scripts/o9_v08_reentry_harness.py"
       - "tests/test_o9_h_one_shot_primary_confirmatory.py"
       - "tests/test_o9_h_terminal_audit.py"
+      - "tests/test_o9_h_ledger_state.py"
       - "tests/test_o9_v08_reentry_harness.py"
   workflow_dispatch:
 
@@ -44,15 +46,18 @@ jobs:
             src/lpz_risk/o9_primary_confirmatory.py \
             scripts/o9_h_one_shot_primary_confirmatory.py \
             scripts/o9_h_terminal_audit.py \
+            scripts/o9_h_ledger_state.py \
             scripts/o9_v08_reentry_harness.py \
             tests/test_o9_h_one_shot_primary_confirmatory.py \
-            tests/test_o9_h_terminal_audit.py
+            tests/test_o9_h_terminal_audit.py \
+            tests/test_o9_h_ledger_state.py
 
       - name: Run O9-H and upstream regression tests
         run: |
           python -m pytest -q \
             tests/test_o9_h_one_shot_primary_confirmatory.py \
             tests/test_o9_h_terminal_audit.py \
+            tests/test_o9_h_ledger_state.py \
             tests/test_o9_g_era5_reconstruction.py \
             tests/test_o9_g_guarded_era5_opening.py \
             tests/test_o9_v08_reentry_harness.py \
@@ -62,9 +67,10 @@ jobs:
       - name: Assert live repository remains sealed
         run: |
           python - <<'PY'
-          from scripts import o9_v08_reentry_harness as h
-          r = h.evaluate_chain(h.ROOT, h.ROOT / 'research/o9/reentry')
+          from scripts import o9_h_ledger_state as h
+          r = h.evaluate(h.ROOT, h.ROOT / 'research/o9/reentry')
           assert r['state'] == 'WAIT_IMERG_FINAL_V08_NOT_AVAILABLE_OR_NOT_PROVEN', r
+          assert r['o9_h_ledger_state'] == 'NOT_STARTED', r
           assert r['era5_2025_may_be_opened'] is False, r
           assert r['confirmatory_run_may_execute'] is False, r
           assert r['risk_engine_allowed'] is False, r
@@ -81,6 +87,8 @@ jobs:
           - Real Primary executed: **NO**
           - Reservation before outcome interpretation: **YES**
           - Execution seal before outcome interpretation: **YES**
+          - Reservation/seal intermediate states visible globally: **YES**
+          - Generic confirmatory execute flag after reservation/seal: **CLOSED**
           - GitHub rerun attempt identity reuse: **FORBIDDEN**
           - Frozen Primary: **q850_mean_kgkg @ t+0h**
           - Estimand: **Positive - mean(3 matched comparisons)**
