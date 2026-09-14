@@ -208,3 +208,34 @@ def test_single_confirmatory_result_completes_chain_but_does_not_unlock_risk(tmp
     assert report["confirmatory_run_count"] == 1
     assert report["risk_engine_allowed"] is False
     assert report["public_risk_release_allowed"] is False
+
+def test_frozen_protocol_integrity_accepts_windows_crlf_checkout(tmp_path: Path):
+    """Frozen protocol integrity must not depend on checkout line endings."""
+    for source in (mod.H_FREEZE, mod.K2_FREEZE):
+        relative = source.relative_to(mod.ROOT)
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+        # Start from repository-canonical LF bytes, then reproduce the
+        # Windows core.autocrlf working-tree representation.
+        lf_bytes = source.read_bytes().replace(b"\r\n", b"\n")
+        target.write_bytes(lf_bytes.replace(b"\n", b"\r\n"))
+
+    # Prove this fixture is genuinely byte-different from the committed LF
+    # reference while remaining semantically identical.
+    h_working_sha = hashlib.sha256(
+        (tmp_path / mod.H_FREEZE.relative_to(mod.ROOT)).read_bytes()
+    ).hexdigest()
+    k2_working_sha = hashlib.sha256(
+        (tmp_path / mod.K2_FREEZE.relative_to(mod.ROOT)).read_bytes()
+    ).hexdigest()
+
+    assert h_working_sha != mod.EXPECTED_H_COMMITTED_SHA256
+    assert k2_working_sha != mod.EXPECTED_K2_COMMITTED_SHA256
+
+    report = mod.verify_frozen_protocol(tmp_path)
+
+    assert report["state"] == "PASS", report
+    assert report["errors"] == []
+    assert report["h_sha256"] == mod.EXPECTED_H_COMMITTED_SHA256
+    assert report["k2_sha256"] == mod.EXPECTED_K2_COMMITTED_SHA256

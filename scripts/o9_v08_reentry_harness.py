@@ -59,6 +59,22 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def sha256_lf_normalized_text_file(path: Path) -> str:
+    """SHA256 of repository-canonical text bytes.
+
+    Git may materialize tracked text files as CRLF on Windows when
+    core.autocrlf=true.  The frozen H/K2 reference SHA256 values were computed
+    from the committed LF bytes, so normalize CRLF -> LF for those immutable
+    text freeze files only.  Bare CR and all other byte changes remain
+    detectable.
+
+    Do not use this for mutable O9 evidence-chain artifacts: their hashes bind
+    exact artifact bytes and continue to use sha256_file().
+    """
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
+
+
 def read_json(path: Path) -> dict[str, Any]:
     obj = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(obj, dict):
@@ -301,8 +317,8 @@ def verify_frozen_protocol(repo_root: Path) -> dict[str, Any]:
     k2_path = repo_root / K2_FREEZE.relative_to(ROOT)
     h = read_json(h_path)
     k2 = read_json(k2_path)
-    h_sha = sha256_file(h_path)
-    k2_sha = sha256_file(k2_path)
+    h_sha = sha256_lf_normalized_text_file(h_path)
+    k2_sha = sha256_lf_normalized_text_file(k2_path)
     errors: list[str] = []
     if h_sha != EXPECTED_H_COMMITTED_SHA256:
         errors.append("Phase H committed-file SHA256 changed from authoritative freeze")

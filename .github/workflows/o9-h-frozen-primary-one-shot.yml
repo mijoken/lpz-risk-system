@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports/o9
-          python scripts/o9_h_ledger_state.py \
+          python -m scripts.o9_h_ledger_state \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --output reports/o9/o9_h_pre_reservation_state.json
@@ -79,7 +79,7 @@ jobs:
       - name: Reserve the only confirmatory attempt without reading q850 outcome values
         shell: bash
         run: |
-          python scripts/o9_h_one_shot_primary_confirmatory.py reserve \
+          python -m scripts.o9_h_one_shot_primary_confirmatory reserve \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --snapshot-csv "$SNAPSHOT_CSV" \
@@ -105,7 +105,7 @@ jobs:
       - name: Confirm global state is reserved and generic execution is closed
         shell: bash
         run: |
-          python scripts/o9_h_ledger_state.py \
+          python -m scripts.o9_h_ledger_state \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --output reports/o9/o9_h_reserved_state.json
@@ -120,7 +120,7 @@ jobs:
       - name: Arm exact same attempt without reading q850 outcome values
         shell: bash
         run: |
-          python scripts/o9_h_one_shot_primary_confirmatory.py arm \
+          python -m scripts.o9_h_one_shot_primary_confirmatory arm \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --snapshot-csv "$SNAPSHOT_CSV" \
@@ -144,7 +144,7 @@ jobs:
       - name: Confirm global state is sealed and no rerun is generically authorized
         shell: bash
         run: |
-          python scripts/o9_h_ledger_state.py \
+          python -m scripts.o9_h_ledger_state \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --output reports/o9/o9_h_sealed_state.json
@@ -159,7 +159,7 @@ jobs:
       - name: Execute frozen Primary exactly once in the original sealed attempt
         shell: bash
         run: |
-          python scripts/o9_h_one_shot_primary_confirmatory.py execute \
+          python -m scripts.o9_h_one_shot_primary_confirmatory execute \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --snapshot-csv "$SNAPSHOT_CSV" \
@@ -184,7 +184,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports/o9
-          python scripts/o9_h_terminal_audit.py \
+          python -m scripts.o9_h_terminal_audit \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --reservation "$RESERVATION" \
@@ -198,7 +198,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p reports/o9
-          python scripts/o9_h_ledger_state.py \
+          python -m scripts.o9_h_ledger_state \
             --repo-root . \
             --evidence-dir "$EVIDENCE_DIR" \
             --output reports/o9/o9_h_post_result_state.json

@@ -78,7 +78,7 @@ jobs:
       - name: Evaluate ledger-aware O9 re-entry state machine
         run: |
           mkdir -p reports/o9 research/o9/reentry
-          python scripts/o9_h_ledger_state.py \
+          python -m scripts.o9_h_ledger_state \
             --repo-root . \
             --evidence-dir research/o9/reentry \
             --output reports/o9/o9_v08_reentry_state.json
