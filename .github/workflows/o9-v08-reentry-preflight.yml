@@ -44,6 +44,7 @@ jobs:
             tests/test_o9_g_era5_reconstruction.py \
             tests/test_o9_h_one_shot_primary_confirmatory.py \
             tests/test_o9_h_terminal_audit.py \
+            tests/test_o9_h_ledger_state.py \
             tests/test_era5_multitime.py \
             tests/test_era5_science.py \
             tests/test_imerg_final_versioned.py \
@@ -74,10 +75,10 @@ jobs:
             exit "$rc"
           fi
 
-      - name: Evaluate O9 re-entry state machine
+      - name: Evaluate ledger-aware O9 re-entry state machine
         run: |
           mkdir -p reports/o9 research/o9/reentry
-          python scripts/o9_v08_reentry_harness.py \
+          python scripts/o9_h_ledger_state.py \
             --repo-root . \
             --evidence-dir research/o9/reentry \
             --output reports/o9/o9_v08_reentry_state.json
@@ -88,6 +89,7 @@ jobs:
           assert p['risk_engine_allowed'] is False, p
           assert p['public_risk_release_allowed'] is False, p
           print('O9 preflight state:',p['state'])
+          print('O9-H ledger state:',p.get('o9_h_ledger_state'))
           print('Next action:',p.get('next_action'))
           PY
 
@@ -104,6 +106,7 @@ jobs:
               raise SystemExit(0)
           r=json.loads(p.read_text(encoding='utf-8'))
           print(f"- State: **{r['state']}**")
+          print(f"- O9-H ledger state: **{r.get('o9_h_ledger_state')}**")
           print(f"- Next action: **{r.get('next_action')}**")
           print(f"- 2025 ERA5 may be opened: **{r['era5_2025_may_be_opened']}**")
           print(f"- Confirmatory run may execute: **{r['confirmatory_run_may_execute']}**")
