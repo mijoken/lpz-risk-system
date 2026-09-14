@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "phase": "O9-A-v08-official-final-availability",
+  "gate": "WAIT_O9_A_IMERG_FINAL_V08_NOT_FOUND",
+  "generated_at_utc": "2026-09-14T07:44:22.705111Z",
+  "short_name": "GPM_3IMERGHH",
+  "imerg_final_version": "08",
+  "official_final_product": true,
+  "product_identity_basis": "NASA_EARTHDATA_EXACT_SHORT_NAME_GPM_3IMERGHH_AND_VERSION_08_METADATA_QUERY",
+  "probe_temporal_start_utc": "2025-10-01T00:00:00Z",
+  "probe_temporal_end_utc": "2025-10-01T01:00:00Z",
+  "metadata_result_count": 0,
+  "representative_granule": null,
+  "full_required_coverage_proven": false,
+  "next_gate": "O9-C_FULL_REQUIRED_V08_COVERAGE",
+  "validation_era5_environment_read": false,
+  "primary_confirmatory_test_run": false,
+  "risk_engine_allowed": false
+}
