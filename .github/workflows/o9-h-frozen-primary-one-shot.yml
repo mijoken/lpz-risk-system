@@ -1,0 +1,229 @@
+name: LPZ O9-H Frozen Primary One-shot Confirmatory Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type RUN_FROZEN_2025_PRIMARY_ONCE exactly. This run is irreversible."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lpz-o9-h-frozen-primary-one-shot
+  cancel-in-progress: false
+
+jobs:
+  one-shot-primary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EVIDENCE_DIR: research/o9/reentry
+      SNAPSHOT_CSV: research/o9/reentry/o9_g_era5_snapshot_features.csv
+      SNAPSHOT_JSON: research/o9/reentry/o9_g_era5_snapshot_features.json
+      RESERVATION: research/o9/reentry/o9_h_primary_attempt_reservation.json
+      EXECUTION_SEAL: research/o9/reentry/o9_h_primary_execution_seal.json
+      RESULT: research/o9/reentry/o9_h_primary_confirmatory_result.json
+      PAIR_OUTPUT: research/o9/reentry/o9_h_primary_match_set_differences.csv
+      CLUSTER_OUTPUT: research/o9/reentry/o9_h_primary_positive_date_clusters.csv
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Require explicit irreversible confirmation
+        shell: bash
+        run: |
+          test "${{ inputs.confirmation }}" = "RUN_FROZEN_2025_PRIMARY_ONCE" || {
+            echo "Confirmation string mismatch. O9-H Primary remains sealed." >&2
+            exit 2
+          }
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Define immutable GitHub attempt identity
+        shell: bash
+        run: |
+          echo "O9H_ATTEMPT_ID=${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}:${GITHUB_JOB}" >> "$GITHUB_ENV"
+
+      - name: Verify exact O9-G completion readiness before reservation
+        shell: bash
+        run: |
+          mkdir -p reports/o9
+          python scripts/o9_h_ledger_state.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --output reports/o9/o9_h_pre_reservation_state.json
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/o9/o9_h_pre_reservation_state.json',encoding='utf-8'))
+          assert p['state']=='READY_FOR_SINGLE_FROZEN_PRIMARY_CONFIRMATORY_RUN', p
+          assert p['o9_h_ledger_state']=='NOT_STARTED', p
+          assert p['confirmatory_run_may_execute'] is True, p
+          assert p['risk_engine_allowed'] is False, p
+          assert p['public_risk_release_allowed'] is False, p
+          print('PASS_O9_H_PRE_RESERVATION_READY')
+          PY
+
+      - name: Reserve the only confirmatory attempt without reading q850 outcome values
+        shell: bash
+        run: |
+          python scripts/o9_h_one_shot_primary_confirmatory.py reserve \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --snapshot-csv "$SNAPSHOT_CSV" \
+            --snapshot-json "$SNAPSHOT_JSON" \
+            --attempt-id "$O9H_ATTEMPT_ID" \
+            --reservation-output "$RESERVATION" \
+            --execution-seal-output "$EXECUTION_SEAL" \
+            --result-output "$RESULT" \
+            --pair-output "$PAIR_OUTPUT" \
+            --cluster-output "$CLUSTER_OUTPUT"
+
+      - name: Persist reservation to main before any outcome read
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$RESERVATION"
+          git commit -m "o9-h: reserve sole frozen primary attempt ${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Confirm global state is reserved and generic execution is closed
+        shell: bash
+        run: |
+          python scripts/o9_h_ledger_state.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --output reports/o9/o9_h_reserved_state.json
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/o9/o9_h_reserved_state.json',encoding='utf-8'))
+          assert p['state']=='O9_H_PRIMARY_ATTEMPT_RESERVED_AWAITING_SAME_ATTEMPT_SEAL', p
+          assert p['confirmatory_run_may_execute'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          PY
+
+      - name: Arm exact same attempt without reading q850 outcome values
+        shell: bash
+        run: |
+          python scripts/o9_h_one_shot_primary_confirmatory.py arm \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --snapshot-csv "$SNAPSHOT_CSV" \
+            --snapshot-json "$SNAPSHOT_JSON" \
+            --attempt-id "$O9H_ATTEMPT_ID" \
+            --reservation-output "$RESERVATION" \
+            --execution-seal-output "$EXECUTION_SEAL" \
+            --result-output "$RESULT" \
+            --pair-output "$PAIR_OUTPUT" \
+            --cluster-output "$CLUSTER_OUTPUT"
+
+      - name: Persist execution seal to main before any outcome read
+        shell: bash
+        run: |
+          git add "$EXECUTION_SEAL"
+          git commit -m "o9-h: seal sole frozen primary execution ${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Confirm global state is sealed and no rerun is generically authorized
+        shell: bash
+        run: |
+          python scripts/o9_h_ledger_state.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --output reports/o9/o9_h_sealed_state.json
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/o9/o9_h_sealed_state.json',encoding='utf-8'))
+          assert p['state']=='O9_H_PRIMARY_EXECUTION_SEALED_NO_AUTOMATIC_RERUN', p
+          assert p['confirmatory_run_may_execute'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          PY
+
+      - name: Execute frozen Primary exactly once in the original sealed attempt
+        shell: bash
+        run: |
+          python scripts/o9_h_one_shot_primary_confirmatory.py execute \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --snapshot-csv "$SNAPSHOT_CSV" \
+            --snapshot-json "$SNAPSHOT_JSON" \
+            --attempt-id "$O9H_ATTEMPT_ID" \
+            --reservation-output "$RESERVATION" \
+            --execution-seal-output "$EXECUTION_SEAL" \
+            --result-output "$RESULT" \
+            --pair-output "$PAIR_OUTPUT" \
+            --cluster-output "$CLUSTER_OUTPUT"
+
+      - name: Persist immutable Primary result and support artifacts
+        shell: bash
+        run: |
+          git add "$RESULT" "$PAIR_OUTPUT" "$CLUSTER_OUTPUT"
+          git commit -m "o9-h: record sole frozen 2025 primary confirmatory result"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
+
+      - name: Strict terminal ledger/result audit
+        shell: bash
+        run: |
+          mkdir -p reports/o9
+          python scripts/o9_h_terminal_audit.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --reservation "$RESERVATION" \
+            --execution-seal "$EXECUTION_SEAL" \
+            --result "$RESULT" \
+            --pair-artifact "$PAIR_OUTPUT" \
+            --cluster-artifact "$CLUSTER_OUTPUT" \
+            --output reports/o9/o9_h_terminal_audit.json
+
+      - name: Verify completed ledger-aware chain keeps risk locked
+        shell: bash
+        run: |
+          mkdir -p reports/o9
+          python scripts/o9_h_ledger_state.py \
+            --repo-root . \
+            --evidence-dir "$EVIDENCE_DIR" \
+            --output reports/o9/o9_h_post_result_state.json
+          python - <<'PY'
+          import json
+          p=json.load(open('reports/o9/o9_h_post_result_state.json',encoding='utf-8'))
+          assert p['state'] in {'O9_CONFIRMATORY_COMPLETE_PASS','O9_CONFIRMATORY_COMPLETE_FAIL'}, p
+          assert p['o9_h_ledger_state']=='TERMINAL_ONE_SHOT_RESULT_RECORDED', p
+          assert p['confirmatory_run_count']==1, p
+          assert p['confirmatory_run_may_execute'] is False, p
+          assert p['risk_engine_allowed'] is False, p
+          assert p['public_risk_release_allowed'] is False, p
+          print('O9-H terminal state:',p['state'])
+          PY
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          ## O9-H frozen Primary one-shot workflow
+          This workflow is intentionally irreversible.
+          Reservation and execution seal are persisted to `main` before q850 outcome values are interpreted.
+          The global ledger-aware state closes the generic execution flag as soon as reservation exists.
+          A crash after the seal is a manual forensic-review state; automatic rerun is not an authorized second Primary run.
+          A strict terminal audit rechecks ledger/result/artifact hashes and the frozen PASS/FAIL rule.
+          The Risk Engine and public LPZ risk remain locked regardless of PASS/FAIL.
+          EOF
