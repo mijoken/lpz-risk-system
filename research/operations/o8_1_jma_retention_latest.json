@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-A-jma-source-retention-census",
-  "generated_at_utc": "2026-09-15T04:46:44Z",
+  "generated_at_utc": "2026-09-15T11:37:36Z",
   "state": "PASS_RETENTION_CANDIDATE",
   "risk_engine_allowed": false,
   "scientific_release_changed": false,
@@ -10,7 +10,7 @@
     "target_times_url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json",
     "target_times_fetch": {
       "http_status": 200,
-      "latency_ms": 694,
+      "latency_ms": 130,
       "bytes": 3667
     },
     "analysis_rule": "elements includes hrpns AND basetime == validtime"
@@ -20,10 +20,10 @@
     "analysis_frame_count": 37,
     "continuous_trailing_frame_count": 37,
     "frame_step_minutes": 5,
-    "oldest_continuous_valid_time_utc": "2026-09-15T01:45:00Z",
-    "latest_continuous_valid_time_utc": "2026-09-15T04:45:00Z",
+    "oldest_continuous_valid_time_utc": "2026-09-15T08:35:00Z",
+    "latest_continuous_valid_time_utc": "2026-09-15T11:35:00Z",
     "continuous_metadata_span_minutes": 180.0,
-    "latest_frame_age_minutes": 1.74686835,
+    "latest_frame_age_minutes": 2.6131879833333334,
     "five_minute_continuity_ok": true
   },
   "slot_replay": {
@@ -35,56 +35,56 @@
       0
     ],
     "settlement_lag_minutes": 15,
-    "recoverable_slot_count_in_visible_window": 11,
-    "oldest_recoverable_slot_utc": "2026-09-15T02:00:00Z",
-    "newest_recoverable_slot_utc": "2026-09-15T04:30:00Z",
-    "oldest_recoverable_slot_age_minutes": 166.74686835,
-    "newest_recoverable_slot_age_minutes": 16.74686835
+    "recoverable_slot_count_in_visible_window": 10,
+    "oldest_recoverable_slot_utc": "2026-09-15T09:00:00Z",
+    "newest_recoverable_slot_utc": "2026-09-15T11:15:00Z",
+    "oldest_recoverable_slot_age_minutes": 157.61318798333332,
+    "newest_recoverable_slot_age_minutes": 22.613187983333333
   },
   "direct_tile_replay_probes": {
     "all_pass": true,
     "probe_count": 3,
     "probes": [
       {
-        "valid_time_utc": "2026-09-15T01:45:00Z",
+        "valid_time_utc": "2026-09-15T08:35:00Z",
         "z": 6,
         "x": 56,
         "y": 25,
         "probe_lon": 139.7671,
         "probe_lat": 35.6812,
-        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260915014500/none/20260915014500/surf/hrpns/6/56/25.png",
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260915083500/none/20260915083500/surf/hrpns/6/56/25.png",
         "state": "PASS",
         "http_status": 200,
-        "latency_ms": 69,
-        "bytes": 6875,
+        "latency_ms": 250,
+        "bytes": 6672,
         "png_signature_ok": true
       },
       {
-        "valid_time_utc": "2026-09-15T03:15:00Z",
+        "valid_time_utc": "2026-09-15T10:05:00Z",
         "z": 6,
         "x": 56,
         "y": 25,
         "probe_lon": 139.7671,
         "probe_lat": 35.6812,
-        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260915031500/none/20260915031500/surf/hrpns/6/56/25.png",
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260915100500/none/20260915100500/surf/hrpns/6/56/25.png",
         "state": "PASS",
         "http_status": 200,
-        "latency_ms": 199,
-        "bytes": 6892,
+        "latency_ms": 189,
+        "bytes": 6804,
         "png_signature_ok": true
       },
       {
-        "valid_time_utc": "2026-09-15T04:45:00Z",
+        "valid_time_utc": "2026-09-15T11:35:00Z",
         "z": 6,
         "x": 56,
         "y": 25,
         "probe_lon": 139.7671,
         "probe_lat": 35.6812,
-        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260915044500/none/20260915044500/surf/hrpns/6/56/25.png",
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260915113500/none/20260915113500/surf/hrpns/6/56/25.png",
         "state": "PASS",
         "http_status": 200,
-        "latency_ms": 66,
-        "bytes": 6554,
+        "latency_ms": 512,
+        "bytes": 5927,
         "png_signature_ok": true
       }
     ]
@@ -93,7 +93,7 @@
     "safety_margin_minutes": 30,
     "initial_policy_cap_minutes": 120,
     "minimum_acceptable_catchup_minutes": 60,
-    "safe_horizon_from_measurement_minutes": 135,
+    "safe_horizon_from_measurement_minutes": 120,
     "recommended_catchup_horizon_minutes": 120,
     "status": "CANDIDATE_ONLY_UNTIL_REPEATED_CENSUS"
   },
