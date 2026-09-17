@@ -1,14 +1,55 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-E-consecutive-day-completeness-observer",
-  "generated_at_utc": "2026-09-16T14:09:24Z",
-  "latest_expected_finalized_date_utc": "2026-09-15",
+  "generated_at_utc": "2026-09-17T07:51:30Z",
+  "latest_expected_finalized_date_utc": "2026-09-16",
   "required_consecutive_complete_days": 2,
   "history_days_examined": 14,
   "current_consecutive_complete_day_streak": 0,
   "gate_passed": false,
   "state": "WAIT_REQUIRED_CONSECUTIVE_COMPLETE_DAYS",
   "required_days": [
+    {
+      "date_utc": "2026-09-16",
+      "path": "research/prospective/2026/09/2026-09-16.manifest.json",
+      "state": "WAIT_INCOMPLETE",
+      "complete_96_of_96": false,
+      "reason": "ONE_OR_MORE_CANONICAL_COMPLETENESS_CHECKS_FAILED",
+      "schema_version": "2.0.0",
+      "phase": "2L-O8.1-D-daily-consolidation-v2",
+      "expected_15min_intervals": 96,
+      "canonical_slot_count": 96,
+      "complete_slot_count": 63,
+      "native_complete_slot_count": 13,
+      "recovered_complete_slot_count": 50,
+      "technical_incomplete_slot_count": 0,
+      "explicit_gap_count": 33,
+      "duplicate_slot_count": 0,
+      "coverage_fraction": 0.65625,
+      "parse_error_count": 0,
+      "canonical_day_quality": "INCOMPLETE_EXPLICIT_GAPS",
+      "checks": {
+        "risk_engine_locked": true,
+        "risk_score_absent": true,
+        "lpz_classification_absent": true,
+        "raw_radar_not_archived": true,
+        "raw_grib_not_archived": true,
+        "phase_is_o8_1_d": true,
+        "manifest_date_matches_path": true,
+        "scientific_clock_is_collection_slot_utc": true,
+        "expected_intervals_is_96": true,
+        "canonical_slot_count_is_96": true,
+        "complete_slot_count_is_96": false,
+        "native_plus_recovered_is_96": false,
+        "technical_incomplete_zero": true,
+        "explicit_gap_zero": false,
+        "parse_errors_zero": true,
+        "coverage_is_one": false,
+        "canonical_quality_complete": false,
+        "closure_eligible_flag_true": false,
+        "archive_role_canonical_daily": true
+      }
+    },
     {
       "date_utc": "2026-09-15",
       "path": "research/prospective/2026/09/2026-09-15.manifest.json",
@@ -49,10 +90,12 @@
         "closure_eligible_flag_true": false,
         "archive_role_canonical_daily": true
       }
-    },
+    }
+  ],
+  "history": [
     {
-      "date_utc": "2026-09-14",
-      "path": "research/prospective/2026/09/2026-09-14.manifest.json",
+      "date_utc": "2026-09-16",
+      "path": "research/prospective/2026/09/2026-09-16.manifest.json",
       "state": "WAIT_INCOMPLETE",
       "complete_96_of_96": false,
       "reason": "ONE_OR_MORE_CANONICAL_COMPLETENESS_CHECKS_FAILED",
@@ -60,13 +103,13 @@
       "phase": "2L-O8.1-D-daily-consolidation-v2",
       "expected_15min_intervals": 96,
       "canonical_slot_count": 96,
-      "complete_slot_count": 73,
-      "native_complete_slot_count": 12,
-      "recovered_complete_slot_count": 61,
+      "complete_slot_count": 63,
+      "native_complete_slot_count": 13,
+      "recovered_complete_slot_count": 50,
       "technical_incomplete_slot_count": 0,
-      "explicit_gap_count": 23,
+      "explicit_gap_count": 33,
       "duplicate_slot_count": 0,
-      "coverage_fraction": 0.7604166666666666,
+      "coverage_fraction": 0.65625,
       "parse_error_count": 0,
       "canonical_day_quality": "INCOMPLETE_EXPLICIT_GAPS",
       "checks": {
@@ -90,9 +133,7 @@
         "closure_eligible_flag_true": false,
         "archive_role_canonical_daily": true
       }
-    }
-  ],
-  "history": [
+    },
     {
       "date_utc": "2026-09-15",
       "path": "research/prospective/2026/09/2026-09-15.manifest.json",
@@ -318,14 +359,6 @@
     {
       "date_utc": "2026-09-03",
       "path": "research/prospective/2026/09/2026-09-03.manifest.json",
-      "state": "WAIT_MISSING",
-      "complete_96_of_96": false,
-      "reason": "DAILY_MANIFEST_MISSING",
-      "checks": {}
-    },
-    {
-      "date_utc": "2026-09-02",
-      "path": "research/prospective/2026/09/2026-09-02.manifest.json",
       "state": "WAIT_MISSING",
       "complete_96_of_96": false,
       "reason": "DAILY_MANIFEST_MISSING",
