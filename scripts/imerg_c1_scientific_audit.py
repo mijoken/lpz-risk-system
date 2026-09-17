@@ -25,15 +25,29 @@ JAPAN_BBOX = (122.0, 146.0, 24.0, 46.0)  # west, east, south, north
 
 
 def py(v: Any) -> Any:
+    """Convert HDF5/numpy attribute values into JSON-safe Python values.
+
+    HDF5 dimension-scale metadata can contain h5py.Reference objects. They are
+    metadata pointers, not scientific scalar values, so preserve them as an
+    explicit string marker rather than failing serialization.
+    """
     if isinstance(v, bytes):
         return v.decode("utf-8", errors="replace")
+    if isinstance(v, h5py.Reference):
+        return "<HDF5_REFERENCE>" if bool(v) else "<HDF5_NULL_REFERENCE>"
     if isinstance(v, np.generic):
-        return v.item()
+        return py(v.item())
     if isinstance(v, np.ndarray):
-        return [py(x) for x in v.tolist()]
+        return py(v.tolist())
+    if isinstance(v, dict):
+        return {str(k): py(x) for k, x in v.items()}
     if isinstance(v, (list, tuple)):
         return [py(x) for x in v]
-    return v
+    if v is None or isinstance(v, (str, int, float, bool)):
+        return v
+    # Defensive fallback for uncommon HDF5 metadata wrapper types. Keep type
+    # provenance visible instead of raising during report serialization.
+    return f"<{type(v).__name__}:{v}>"
 
 
 def attrs(ds: h5py.Dataset) -> dict[str, Any]:
@@ -106,7 +120,7 @@ def main() -> int:
     path = choose_input(args.input, args.input_dir)
 
     report: dict[str, Any] = {
-        "schema_version": "0.1.0-imerg-c1",
+        "schema_version": "0.1.1-imerg-c1",
         "role": "RESEARCH_ONLY_SCIENTIFIC_CONTENT_AUDIT",
         "input_file": str(path),
         "risk_engine_allowed": False,
@@ -184,8 +198,9 @@ def main() -> int:
                     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    text = json.dumps(py(report), ensure_ascii=False, indent=2) + "\n"
+    args.output.write_text(text, encoding="utf-8")
+    print(text, end="")
     return 0 if report.get("result") == "PASS_C1_CONTENT_AUDIT" else 2
 
 
