@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-"""Extract continuous numeric features from canonical prospective daily archives.
+"""Extract dynamic scientific numeric features for offline gap-estimation tests.
 
-Purpose
--------
-Prepare Stage-A inputs for ``gap_estimation_harness.py`` without modifying O8.1,
-O9, Primary, ERA5, or Risk Engine. Only COMPLETE canonical slots are eligible.
-Explicit gaps and technical-incomplete slots are excluded rather than imputed.
-
-The extractor discovers numeric leaf values inside each slot ``bundle`` and emits
-one CSV per feature only when the feature has enough observations and at least one
-continuous run long enough for held-out gap tests.
+This Stage-A utility is isolated from O8.1, O9, Primary, ERA5 and Risk Engine.
+Only COMPLETE canonical slots are eligible; gaps/incomplete slots are never
+imputed here. Numeric leaves are classified before selection so configuration,
+transport/HTTP, provenance and other operational metadata cannot dominate the
+benchmark merely because they are well covered.
 """
 from __future__ import annotations
 
@@ -17,12 +13,22 @@ import argparse
 import csv
 import gzip
 import json
+import math
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
 UTC = timezone.utc
+
+# Explicitly non-scientific/configuration metadata. These are retained in the
+# audit manifest as rejected features, not silently discarded.
+EXCLUDE_TOKENS = (
+    "transport", "http_status", "bytes", "tile_count", "origin_tile_", ".zoom",
+    "threshold_mmph", "forecast_hour", "representative_valid_time_error_minutes",
+    "minimum_cycle_age_hours", "generated_at", "run_id", "github_", "latency",
+    "schema_version", "as_of", "raw_radar_archived", "raw_grib_archived",
+)
 
 
 def parse_utc(value: str) -> datetime:
@@ -37,24 +43,21 @@ def iter_numeric_leaves(value: Any, prefix: str = "") -> Iterable[tuple[str, flo
     if isinstance(value, bool) or value is None:
         return
     if isinstance(value, (int, float)):
-        yield prefix or "value", float(value)
+        numeric = float(value)
+        if math.isfinite(numeric):
+            yield prefix or "value", numeric
         return
     if isinstance(value, dict):
         for key in sorted(value):
-            child = value[key]
             name = f"{prefix}.{key}" if prefix else str(key)
-            yield from iter_numeric_leaves(child, name)
-        return
-    # Lists are intentionally ignored for Stage A because positional semantics
-    # (e.g. object arrays) are not stable scalar features across slots.
+            yield from iter_numeric_leaves(value[key], name)
 
 
 def read_archive(path: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     with gzip.open(path, "rt", encoding="utf-8") as fh:
         for line_no, line in enumerate(fh, 1):
-            line = line.strip()
-            if not line:
+            if not line.strip():
                 continue
             obj = json.loads(line)
             if not isinstance(obj, dict):
@@ -66,12 +69,10 @@ def read_archive(path: Path) -> list[dict[str, Any]]:
 def continuous_run_lengths(times: list[datetime], step_minutes: int = 15) -> list[int]:
     if not times:
         return []
-    times = sorted(set(times))
-    runs: list[int] = []
-    current = 1
-    for left, right in zip(times, times[1:]):
-        delta = int((right - left).total_seconds() // 60)
-        if delta == step_minutes:
+    ordered = sorted(set(times))
+    runs, current = [], 1
+    for left, right in zip(ordered, ordered[1:]):
+        if int((right - left).total_seconds() // 60) == step_minutes:
             current += 1
         else:
             runs.append(current)
@@ -80,25 +81,31 @@ def continuous_run_lengths(times: list[datetime], step_minutes: int = 15) -> lis
     return runs
 
 
+def classify_feature(feature: str, values: list[float]) -> tuple[str, str]:
+    lower = feature.lower()
+    for token in EXCLUDE_TOKENS:
+        if token in lower:
+            return "EXCLUDED_METADATA_OR_CONFIGURATION", f"matched:{token}"
+    unique = len(set(values))
+    if unique <= 1:
+        return "EXCLUDED_CONSTANT", "single_unique_value"
+    # Near-constant configuration-like fields are poor reconstruction targets.
+    if unique <= 2 and len(values) >= 24:
+        return "EXCLUDED_LOW_VARIATION", f"unique_values:{unique}"
+    return "DYNAMIC_SCIENTIFIC_CANDIDATE", "dynamic_numeric_feature"
+
+
 def safe_name(feature: str) -> str:
-    keep = []
-    for ch in feature:
-        if ch.isalnum() or ch in "-_":
-            keep.append(ch)
-        else:
-            keep.append("_")
-    return "".join(keep).strip("_")[:180]
+    return "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in feature).strip("_")[:180]
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--input", nargs="+", required=True, type=Path, help="Canonical .jsonl.gz archives")
+    ap.add_argument("--input", nargs="+", required=True, type=Path)
     ap.add_argument("--output-dir", required=True, type=Path)
     ap.add_argument("--min-observations", type=int, default=24)
-    ap.add_argument("--min-continuous-slots", type=int, default=14,
-                    help="14 slots gives room for a 180-minute gap plus boundary observations")
-    ap.add_argument("--top", type=int, default=30,
-                    help="Write at most this many best-covered numeric features")
+    ap.add_argument("--min-continuous-slots", type=int, default=14)
+    ap.add_argument("--top", type=int, default=30)
     args = ap.parse_args()
 
     feature_rows: dict[str, list[tuple[datetime, float, str, str]]] = defaultdict(list)
@@ -118,9 +125,7 @@ def main() -> int:
             else:
                 slot_counts["other"] += 1
                 continue
-
-            slot_raw = row.get("collection_slot_utc")
-            bundle = row.get("bundle")
+            slot_raw, bundle = row.get("collection_slot_utc"), row.get("bundle")
             if not isinstance(slot_raw, str) or not isinstance(bundle, dict):
                 continue
             slot = parse_utc(slot_raw)
@@ -129,67 +134,83 @@ def main() -> int:
                 feature_rows[feature].append((slot, numeric, role, archive.name))
 
     candidates: list[dict[str, Any]] = []
+    audit: list[dict[str, Any]] = []
     for feature, values in feature_rows.items():
-        # One value per slot; deterministic first value if duplicates somehow exist.
         by_time: dict[datetime, tuple[float, str, str]] = {}
         for t, v, role, source in sorted(values, key=lambda x: (x[0], x[3])):
             by_time.setdefault(t, (v, role, source))
         times = sorted(by_time)
+        numeric_values = [by_time[t][0] for t in times]
         runs = continuous_run_lengths(times)
-        candidates.append({
-            "feature": feature,
+        category, reason = classify_feature(feature, numeric_values)
+        record = {
+            "feature_path": feature,
+            "classification": category,
+            "reason": reason,
             "observation_count": len(times),
+            "unique_value_count": len(set(numeric_values)),
             "longest_continuous_slots": max(runs) if runs else 0,
-            "continuous_run_count": len(runs),
-            "rows": by_time,
-        })
+        }
+        audit.append(record)
+        if category == "DYNAMIC_SCIENTIFIC_CANDIDATE":
+            candidates.append({
+                "feature": feature, "observation_count": len(times),
+                "unique_value_count": len(set(numeric_values)),
+                "longest_continuous_slots": max(runs) if runs else 0,
+                "continuous_run_count": len(runs), "rows": by_time,
+            })
 
-    eligible = [c for c in candidates
-                if c["observation_count"] >= args.min_observations
+    eligible = [c for c in candidates if c["observation_count"] >= args.min_observations
                 and c["longest_continuous_slots"] >= args.min_continuous_slots]
-    eligible.sort(key=lambda c: (-c["longest_continuous_slots"], -c["observation_count"], c["feature"]))
-    selected = eligible[: max(0, args.top)]
+    eligible.sort(key=lambda c: (-c["longest_continuous_slots"], -c["observation_count"],
+                                 -c["unique_value_count"], c["feature"]))
+    selected = eligible[:max(0, args.top)]
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    manifest_features: list[dict[str, Any]] = []
+    # Remove only prior extractor CSVs; preserve unrelated files/directories.
+    for old in args.output_dir.glob("*.csv"):
+        old.unlink()
+
+    manifest_features = []
     for rank, item in enumerate(selected, 1):
         filename = f"{rank:02d}_{safe_name(item['feature'])}.csv"
-        out = args.output_dir / filename
-        with out.open("w", encoding="utf-8", newline="") as fh:
+        with (args.output_dir / filename).open("w", encoding="utf-8", newline="") as fh:
             writer = csv.writer(fh)
             writer.writerow(["timestamp_utc", "value", "archive_role", "source_archive", "feature_path"])
             for t in sorted(item["rows"]):
                 value, role, source = item["rows"][t]
                 writer.writerow([iso_utc(t), repr(value), role, source, item["feature"]])
         manifest_features.append({
-            "rank": rank,
-            "feature_path": item["feature"],
-            "csv": filename,
+            "rank": rank, "feature_path": item["feature"], "csv": filename,
             "observation_count": item["observation_count"],
+            "unique_value_count": item["unique_value_count"],
             "longest_continuous_slots": item["longest_continuous_slots"],
             "longest_continuous_minutes": (item["longest_continuous_slots"] - 1) * 15,
             "continuous_run_count": item["continuous_run_count"],
         })
 
+    counts: dict[str, int] = defaultdict(int)
+    for row in audit:
+        counts[row["classification"]] += 1
     manifest = {
-        "schema_version": "0.1.0-gap-stage-a-extractor",
+        "schema_version": "0.2.0-gap-stage-a-extractor",
         "role": "OFFLINE_GAP_ESTIMATION_STAGE_A_INPUT",
         "input_archives": [str(p) for p in sorted(args.input)],
         "slot_counts": slot_counts,
-        "numeric_feature_count_discovered": len(candidates),
-        "eligible_feature_count": len(eligible),
+        "numeric_feature_count_discovered": len(audit),
+        "classification_counts": dict(sorted(counts.items())),
+        "dynamic_candidate_count": len(candidates),
+        "eligible_dynamic_feature_count": len(eligible),
         "selected_feature_count": len(selected),
-        "selection": {
-            "min_observations": args.min_observations,
-            "min_continuous_slots": args.min_continuous_slots,
-            "top": args.top,
-        },
+        "selection": {"min_observations": args.min_observations,
+                      "min_continuous_slots": args.min_continuous_slots, "top": args.top},
         "features": manifest_features,
+        "feature_classification_audit": sorted(audit, key=lambda x: x["feature_path"]),
         "estimated_values_created": False,
         "risk_engine_allowed": False,
     }
-    manifest_path = args.output_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (args.output_dir / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
     return 0
 
