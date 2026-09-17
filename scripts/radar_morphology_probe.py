@@ -15,6 +15,7 @@ import argparse
 import concurrent.futures
 import json
 import sys
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,8 @@ MORPHOLOGY_ZOOM = 8
 JAPAN_BBOX = {"west": 122.0, "east": 154.0, "south": 20.0, "north": 46.0}
 MAX_FRAMES = 4
 WORKERS = 8
+TILE_MAX_ATTEMPTS = 3
+TILE_RETRY_DELAYS_SECONDS = (0.5, 1.5)
 
 
 def utc_now() -> datetime:
@@ -109,24 +112,38 @@ def settled_rows(rows: list[dict[str, Any]], now: datetime) -> list[dict[str, An
 
 def inspect_tile(row: dict[str, Any], z: int, x: int, y: int) -> dict[str, Any]:
     url = tile_url(row, z, x, y)
-    try:
-        decoded = decode_jma_precipitation_png(http_get(url, MAX_TILE_BYTES))
-        valid = decoded.class_index >= 0
-        max_class = int(np.max(decoded.class_index[valid])) if np.any(valid) else -1
-        return {
-            "ok": True,
-            "z": z,
-            "x": x,
-            "y": y,
-            "url": url,
-            "class_index": decoded.class_index,
-            "precipitation_pixels": int(np.count_nonzero(valid)),
-            "unknown_opaque_pixels": decoded.unknown_opaque_pixel_count,
-            "max_class_index": max_class,
-        }
-    except (HTTPError, URLError, TimeoutError, ValueError, OSError) as exc:
-        return {"ok": False, "z": z, "x": x, "y": y, "url": url, "error": f"{type(exc).__name__}: {exc}"}
-
+    errors: list[str] = []
+    for attempt in range(1, TILE_MAX_ATTEMPTS + 1):
+        try:
+            decoded = decode_jma_precipitation_png(http_get(url, MAX_TILE_BYTES))
+            valid = decoded.class_index >= 0
+            max_class = int(np.max(decoded.class_index[valid])) if np.any(valid) else -1
+            return {
+                "ok": True,
+                "z": z,
+                "x": x,
+                "y": y,
+                "url": url,
+                "class_index": decoded.class_index,
+                "precipitation_pixels": int(np.count_nonzero(valid)),
+                "unknown_opaque_pixels": decoded.unknown_opaque_pixel_count,
+                "max_class_index": max_class,
+                "attempt_count": attempt,
+            }
+        except (HTTPError, URLError, TimeoutError, ValueError, OSError) as exc:
+            errors.append(f"{type(exc).__name__}: {exc}")
+            if attempt < TILE_MAX_ATTEMPTS:
+                time.sleep(TILE_RETRY_DELAYS_SECONDS[attempt - 1])
+    return {
+        "ok": False,
+        "z": z,
+        "x": x,
+        "y": y,
+        "url": url,
+        "attempt_count": TILE_MAX_ATTEMPTS,
+        "error": errors[-1],
+        "attempt_errors": errors,
+    }
 
 def inspect_many(row: dict[str, Any], z: int, tiles: list[tuple[int, int]]) -> list[dict[str, Any]]:
     with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as pool:
