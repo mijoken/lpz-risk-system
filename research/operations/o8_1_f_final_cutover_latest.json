@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-17T14:16:17Z",
+  "generated_at_utc": "2026-09-18T07:30:42Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -83,8 +83,49 @@
         "risk_engine_locked": true
       },
       "current_streak": 0,
-      "latest_expected_finalized_date_utc": "2026-09-16",
+      "latest_expected_finalized_date_utc": "2026-09-17",
       "required_days": [
+        {
+          "date_utc": "2026-09-17",
+          "path": "research/prospective/2026/09/2026-09-17.manifest.json",
+          "state": "WAIT_INCOMPLETE",
+          "complete_96_of_96": false,
+          "reason": "ONE_OR_MORE_CANONICAL_COMPLETENESS_CHECKS_FAILED",
+          "schema_version": "2.0.0",
+          "phase": "2L-O8.1-D-daily-consolidation-v2",
+          "expected_15min_intervals": 96,
+          "canonical_slot_count": 96,
+          "complete_slot_count": 57,
+          "native_complete_slot_count": 15,
+          "recovered_complete_slot_count": 42,
+          "technical_incomplete_slot_count": 0,
+          "explicit_gap_count": 39,
+          "duplicate_slot_count": 6,
+          "coverage_fraction": 0.59375,
+          "parse_error_count": 0,
+          "canonical_day_quality": "INCOMPLETE_EXPLICIT_GAPS",
+          "checks": {
+            "risk_engine_locked": true,
+            "risk_score_absent": true,
+            "lpz_classification_absent": true,
+            "raw_radar_not_archived": true,
+            "raw_grib_not_archived": true,
+            "phase_is_o8_1_d": true,
+            "manifest_date_matches_path": true,
+            "scientific_clock_is_collection_slot_utc": true,
+            "expected_intervals_is_96": true,
+            "canonical_slot_count_is_96": true,
+            "complete_slot_count_is_96": false,
+            "native_plus_recovered_is_96": false,
+            "technical_incomplete_zero": true,
+            "explicit_gap_zero": false,
+            "parse_errors_zero": true,
+            "coverage_is_one": false,
+            "canonical_quality_complete": false,
+            "closure_eligible_flag_true": false,
+            "archive_role_canonical_daily": true
+          }
+        },
         {
           "date_utc": "2026-09-16",
           "path": "research/prospective/2026/09/2026-09-16.manifest.json",
@@ -125,58 +166,17 @@
             "closure_eligible_flag_true": false,
             "archive_role_canonical_daily": true
           }
-        },
-        {
-          "date_utc": "2026-09-15",
-          "path": "research/prospective/2026/09/2026-09-15.manifest.json",
-          "state": "WAIT_INCOMPLETE",
-          "complete_96_of_96": false,
-          "reason": "ONE_OR_MORE_CANONICAL_COMPLETENESS_CHECKS_FAILED",
-          "schema_version": "2.0.0",
-          "phase": "2L-O8.1-D-daily-consolidation-v2",
-          "expected_15min_intervals": 96,
-          "canonical_slot_count": 96,
-          "complete_slot_count": 75,
-          "native_complete_slot_count": 15,
-          "recovered_complete_slot_count": 60,
-          "technical_incomplete_slot_count": 1,
-          "explicit_gap_count": 20,
-          "duplicate_slot_count": 0,
-          "coverage_fraction": 0.78125,
-          "parse_error_count": 0,
-          "canonical_day_quality": "INCOMPLETE_GAPS_AND_TECHNICAL",
-          "checks": {
-            "risk_engine_locked": true,
-            "risk_score_absent": true,
-            "lpz_classification_absent": true,
-            "raw_radar_not_archived": true,
-            "raw_grib_not_archived": true,
-            "phase_is_o8_1_d": true,
-            "manifest_date_matches_path": true,
-            "scientific_clock_is_collection_slot_utc": true,
-            "expected_intervals_is_96": true,
-            "canonical_slot_count_is_96": true,
-            "complete_slot_count_is_96": false,
-            "native_plus_recovered_is_96": false,
-            "technical_incomplete_zero": false,
-            "explicit_gap_zero": false,
-            "parse_errors_zero": true,
-            "coverage_is_one": false,
-            "canonical_quality_complete": false,
-            "closure_eligible_flag_true": false,
-            "archive_role_canonical_daily": true
-          }
         }
       ]
     },
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-09-17T10:17:58Z",
-        "latest_success_run_id": 35209743761,
-        "latest_success_event": "workflow_run",
-        "latest_success_age_minutes": 238.32347733333333,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-18T06:37:48Z",
+        "latest_success_run_id": 35315708536,
+        "latest_success_event": "schedule",
+        "latest_success_age_minutes": 52.91124978333333,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -185,26 +185,26 @@
       "daily": {
         "name": "canonical_daily_consolidation",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-17T13:37:30Z",
-        "latest_success_run_id": 35228242737,
+        "latest_success_created_at_utc": "2026-09-18T07:29:25Z",
+        "latest_success_run_id": 35319658074,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 38.790144000000005,
+        "latest_success_age_minutes": 1.2945831166666666,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
-        "runs_examined": 11
+        "runs_examined": 12
       },
       "public": {
         "name": "public_pages_production",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-17T10:16:21Z",
-        "latest_success_run_id": 35209606996,
+        "latest_success_created_at_utc": "2026-09-18T04:59:55Z",
+        "latest_success_run_id": 35309077870,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 239.940144,
+        "latest_success_age_minutes": 150.79458311666667,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
-        "runs_examined": 51
+        "runs_examined": 58
       }
     },
     "scientific_lock": {
@@ -221,8 +221,7 @@
     }
   },
   "blockers": [
-    "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON"
+    "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
