@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-A-jma-source-retention-census",
-  "generated_at_utc": "2026-09-19T15:49:49Z",
+  "generated_at_utc": "2026-09-19T20:33:44Z",
   "state": "PASS_RETENTION_CANDIDATE",
   "risk_engine_allowed": false,
   "scientific_release_changed": false,
@@ -10,7 +10,7 @@
     "target_times_url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json",
     "target_times_fetch": {
       "http_status": 200,
-      "latency_ms": 607,
+      "latency_ms": 681,
       "bytes": 3667
     },
     "analysis_rule": "elements includes hrpns AND basetime == validtime"
@@ -20,10 +20,10 @@
     "analysis_frame_count": 37,
     "continuous_trailing_frame_count": 37,
     "frame_step_minutes": 5,
-    "oldest_continuous_valid_time_utc": "2026-09-19T12:45:00Z",
-    "latest_continuous_valid_time_utc": "2026-09-19T15:45:00Z",
+    "oldest_continuous_valid_time_utc": "2026-09-19T17:30:00Z",
+    "latest_continuous_valid_time_utc": "2026-09-19T20:30:00Z",
     "continuous_metadata_span_minutes": 180.0,
-    "latest_frame_age_minutes": 4.831225633333333,
+    "latest_frame_age_minutes": 3.7377148166666667,
     "five_minute_continuity_ok": true
   },
   "slot_replay": {
@@ -36,55 +36,55 @@
     ],
     "settlement_lag_minutes": 15,
     "recoverable_slot_count_in_visible_window": 11,
-    "oldest_recoverable_slot_utc": "2026-09-19T13:00:00Z",
-    "newest_recoverable_slot_utc": "2026-09-19T15:30:00Z",
-    "oldest_recoverable_slot_age_minutes": 169.83122563333333,
-    "newest_recoverable_slot_age_minutes": 19.831225633333336
+    "oldest_recoverable_slot_utc": "2026-09-19T17:45:00Z",
+    "newest_recoverable_slot_utc": "2026-09-19T20:15:00Z",
+    "oldest_recoverable_slot_age_minutes": 168.73771481666665,
+    "newest_recoverable_slot_age_minutes": 18.737714816666667
   },
   "direct_tile_replay_probes": {
     "all_pass": true,
     "probe_count": 3,
     "probes": [
       {
-        "valid_time_utc": "2026-09-19T12:45:00Z",
+        "valid_time_utc": "2026-09-19T17:30:00Z",
         "z": 6,
         "x": 56,
         "y": 25,
         "probe_lon": 139.7671,
         "probe_lat": 35.6812,
-        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260919124500/none/20260919124500/surf/hrpns/6/56/25.png",
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260919173000/none/20260919173000/surf/hrpns/6/56/25.png",
         "state": "PASS",
         "http_status": 200,
-        "latency_ms": 524,
-        "bytes": 6358,
+        "latency_ms": 216,
+        "bytes": 7393,
         "png_signature_ok": true
       },
       {
-        "valid_time_utc": "2026-09-19T14:15:00Z",
+        "valid_time_utc": "2026-09-19T19:00:00Z",
         "z": 6,
         "x": 56,
         "y": 25,
         "probe_lon": 139.7671,
         "probe_lat": 35.6812,
-        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260919141500/none/20260919141500/surf/hrpns/6/56/25.png",
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260919190000/none/20260919190000/surf/hrpns/6/56/25.png",
         "state": "PASS",
         "http_status": 200,
-        "latency_ms": 707,
-        "bytes": 7239,
+        "latency_ms": 230,
+        "bytes": 6565,
         "png_signature_ok": true
       },
       {
-        "valid_time_utc": "2026-09-19T15:45:00Z",
+        "valid_time_utc": "2026-09-19T20:30:00Z",
         "z": 6,
         "x": 56,
         "y": 25,
         "probe_lon": 139.7671,
         "probe_lat": 35.6812,
-        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260919154500/none/20260919154500/surf/hrpns/6/56/25.png",
+        "url": "https://www.jma.go.jp/bosai/jmatile/data/nowc/20260919203000/none/20260919203000/surf/hrpns/6/56/25.png",
         "state": "PASS",
         "http_status": 200,
-        "latency_ms": 537,
-        "bytes": 7025,
+        "latency_ms": 51,
+        "bytes": 6046,
         "png_signature_ok": true
       }
     ]
