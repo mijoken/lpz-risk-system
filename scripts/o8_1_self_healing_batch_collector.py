@@ -12,6 +12,7 @@ payloads are never archived. No LPZ classification or risk score is produced.
 """
 from __future__ import annotations
 
+import os
 import argparse
 import importlib.util
 import json
@@ -22,10 +23,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
+
+from lpz_risk.jma_raw_evidence import capture_sequence
 
 CATCHUP_HORIZON_MINUTES = 120
 SETTLEMENT_LAG_MINUTES = 15
@@ -215,6 +219,23 @@ def selected_model_cycles(components: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
+C3_RAW_EVIDENCE_OUTPUT_ROOT = (
+    ROOT / "local_data" / "c3_jma_raw_evidence"
+)
+
+
+def c3_raw_evidence_slot(slot: datetime) -> bool:
+    """True only for the frozen C-3 UTC sampling clock."""
+
+    slot = slot.astimezone(timezone.utc)
+
+    return (
+        slot.minute == 0
+        and slot.second == 0
+        and slot.hour in {0, 6, 12, 18}
+    )
+
+
 def process_slot(
     *,
     slot: datetime,
@@ -334,6 +355,146 @@ def process_slot(
         return bundle
 
 
+
+def c3_existing_archive(capture_dir: Path) -> dict[str, Any]:
+    """Verify the complete frozen C-3 archive before reuse."""
+    import hashlib
+
+    manifest_path = capture_dir / "manifest.json"
+    manifest = _safe_json(manifest_path)
+
+    if not manifest:
+        raise RuntimeError("C3_EXISTING_MANIFEST_MISSING_OR_INVALID")
+
+    tiles = manifest.get("tiles")
+
+    if not isinstance(tiles, list) or len(tiles) != 343:
+        raise RuntimeError("C3_EXISTING_TILE_LEDGER_INCOMPLETE")
+
+    if (
+        manifest.get("raw_radar_archived") is not True
+        or manifest.get("result")
+        != "PASS_JMA_RAW_EVIDENCE_CAPTURE"
+        or manifest.get("frame_count") != 7
+        or manifest.get("expected_downloads") != 343
+        or manifest.get("successful_downloads") != 343
+        or manifest.get("failed_downloads") != 0
+    ):
+        raise RuntimeError("C3_EXISTING_MANIFEST_NOT_COMPLETE")
+
+    png_paths = list(capture_dir.rglob("*.png"))
+
+    if len(png_paths) != 343:
+        raise RuntimeError("C3_EXISTING_PNG_COUNT_MISMATCH")
+
+    verified = set()
+
+    for tile in tiles:
+        if not isinstance(tile, dict) or tile.get("ok") is not True:
+            raise RuntimeError("C3_EXISTING_TILE_NOT_OK")
+
+        relative = tile.get("relative_path")
+        expected_sha = tile.get("sha256")
+
+        if not isinstance(relative, str) or not isinstance(expected_sha, str):
+            raise RuntimeError("C3_EXISTING_TILE_METADATA_MISSING")
+
+        tile_path = capture_dir / relative
+
+        if (
+            not tile_path.is_file()
+            or tile_path.resolve() == capture_dir.resolve()
+            or not tile_path.resolve().is_relative_to(
+                capture_dir.resolve()
+            )
+        ):
+            raise RuntimeError("C3_EXISTING_TILE_PATH_INVALID")
+
+        actual_sha = hashlib.sha256(
+            tile_path.read_bytes()
+        ).hexdigest()
+
+        if actual_sha != expected_sha:
+            raise RuntimeError("C3_EXISTING_TILE_SHA256_MISMATCH")
+
+        verified.add(tile_path.resolve())
+
+    if len(verified) != 343:
+        raise RuntimeError("C3_EXISTING_DUPLICATE_TILE_PATH")
+
+    if verified != {p.resolve() for p in png_paths}:
+        raise RuntimeError("C3_EXISTING_PNG_LEDGER_MISMATCH")
+
+    return manifest
+
+
+def collect_c3_fixed_slot(
+    slot: datetime,
+    row_map: dict[datetime, dict[str, Any]],
+) -> dict[str, Any]:
+    """C-3 research capture; never changes O8.1 slot completeness."""
+    start = slot - timedelta(minutes=30)
+
+    capture_dir = (
+        C3_RAW_EVIDENCE_OUTPUT_ROOT
+        / (
+            f"{start:%Y%m%dT%H%M%SZ}_"
+            f"{slot:%Y%m%dT%H%M%SZ}_z6"
+        )
+    )
+
+    result = {
+        "collection_slot_utc": iso_utc(slot),
+        "support_start_utc": iso_utc(start),
+        "research_only": True,
+        "risk_engine_allowed": False,
+        "expected_frames": 7,
+        "expected_png": 343,
+        "capture_dir": str(capture_dir),
+        "manifest_path": str(capture_dir / "manifest.json"),
+        "raw_radar_archived": False,
+        "status": "MISSING",
+        "error": None,
+    }
+
+    try:
+        if capture_dir.exists():
+            manifest = c3_existing_archive(capture_dir)
+            result["status"] = "REUSED_VERIFIED"
+
+        else:
+            sequence = [
+                row_map[
+                    slot - timedelta(minutes=offset)
+                ]
+                for offset in (30, 25, 20, 15, 10, 5, 0)
+            ]
+
+            captured = capture_sequence(
+                sequence,
+                C3_RAW_EVIDENCE_OUTPUT_ROOT,
+            )
+
+            manifest = c3_existing_archive(
+                Path(captured["capture_dir"])
+            )
+
+            result["status"] = "CAPTURED_VERIFIED"
+
+        result["raw_radar_archived"] = True
+        result["verified_png"] = 343
+
+    except KeyError as exc:
+        result["status"] = "MISSING_JMA_FRAME"
+        result["error"] = f"{type(exc).__name__}: {exc}"
+
+    except Exception as exc:
+        result["status"] = "CAPTURE_FAILED"
+        result["error"] = f"{type(exc).__name__}: {exc}"
+
+    return result
+
+
 def technical_failure_bundle(slot: datetime, now: datetime, exc: Exception) -> dict[str, Any]:
     return {
         "schema_version": "0.4.0",
@@ -363,6 +524,7 @@ def main() -> int:
     ap.add_argument("--run-id", default="")
     ap.add_argument("--commit-sha", default="")
     ap.add_argument("--trigger-type", default="unknown")
+    ap.add_argument("--c3-local-capture", action="store_true")
     ap.add_argument("--catchup-horizon-minutes", type=int, default=CATCHUP_HORIZON_MINUTES)
     ap.add_argument("--settlement-lag-minutes", type=int, default=SETTLEMENT_LAG_MINUTES)
     ap.add_argument("--native-max-age-minutes", type=int, default=NATIVE_MAX_AGE_MINUTES)
@@ -393,6 +555,66 @@ def main() -> int:
     explicit_gap_slots = [slot for slot in expected if slot not in recoverable and slot not in represented]
     missing_recoverable = [slot for slot in expected if slot in recoverable and slot not in represented]
     selected = missing_recoverable[: args.max_slots]
+
+    # C-3 has its own frozen UTC clock and independent result ledger.
+    c3_fixed_slots = [
+        slot for slot in expected
+        if c3_raw_evidence_slot(slot)
+    ]
+
+    # Explicit local-only opt-in. GitHub Actions must never capture
+    # research PNG into its ephemeral runner filesystem.
+    if args.c3_local_capture and os.environ.get("GITHUB_ACTIONS") == "true":
+        raise SystemExit(
+            "C3_LOCAL_CAPTURE_FORBIDDEN_ON_GITHUB_ACTIONS"
+        )
+
+    c3_results = []
+
+    if args.c3_local_capture:
+        from c3_cohort_ledger import register_attempt
+
+        for slot in c3_fixed_slots:
+            result = collect_c3_fixed_slot(slot, row_map)
+
+            registration = register_attempt(
+                result,
+                C3_RAW_EVIDENCE_OUTPUT_ROOT,
+            )
+
+            result["cohort_registration"] = registration
+            c3_results.append(result)
+
+    c3_cohort_manifest = {
+        "schema_version": "0.1.0-c3-independent-cohort",
+        "role": "RESEARCH_ONLY_PROSPECTIVE_RAW_EVIDENCE",
+        "generated_at_utc": iso_utc(now),
+        "risk_engine_allowed": False,
+        "fixed_utc_hours": [0, 6, 12, 18],
+        "frame_count": 7,
+        "expected_png_per_slot": 343,
+        "slots_in_current_horizon": len(c3_fixed_slots),
+        "verified_slots": sum(
+            row["raw_radar_archived"] is True
+            for row in c3_results
+        ),
+        "missing_or_failed_slots": sum(
+            row["raw_radar_archived"] is not True
+            for row in c3_results
+        ),
+        "slot_results": c3_results,
+        "c3_local_capture_enabled": args.c3_local_capture,
+        "c3_capture_execution": (
+            "LOCAL_OPT_IN"
+            if args.c3_local_capture
+            else "DISABLED"
+        ),
+    }
+
+    write_json(
+        out_root / "c3_cohort_manifest.json",
+        c3_cohort_manifest,
+    )
 
     slot_results: list[dict[str, Any]] = []
     native_count = recovered_count = technical_failure_count = 0
@@ -458,6 +680,15 @@ def main() -> int:
         "slot_results": slot_results,
         "raw_radar_archived": False,
         "raw_grib_archived": False,
+        "c3_research_manifest": str(
+            out_root / "c3_cohort_manifest.json"
+        ),
+        "c3_research_verified_slots": (
+            c3_cohort_manifest["verified_slots"]
+        ),
+        "c3_research_missing_or_failed_slots": (
+            c3_cohort_manifest["missing_or_failed_slots"]
+        ),
         "risk_engine_allowed": False,
         "state": (
             "PASS_SELF_HEALING_BATCH"
