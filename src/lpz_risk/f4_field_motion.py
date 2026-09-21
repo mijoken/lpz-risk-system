@@ -17,9 +17,15 @@ from scipy.ndimage import map_coordinates
 from scipy.spatial import cKDTree
 
 
-def masked_class_stack(class_index: np.ndarray) -> np.ma.MaskedArray:
-    values = class_index.astype(np.float32, copy=False)
-    return np.ma.array(values, mask=class_index < 0, copy=False)
+def motion_signal_stack(class_index: np.ndarray) -> np.ma.MaskedArray:
+    """Encode categorical radar classes for image registration only.
+
+    0 means no classified precipitation signal in the public PNG pixel.
+    Valid JMA class indices 0..7 are shifted to 1..8. These values have no
+    physical mm/h interpretation.
+    """
+    values = np.where(class_index < 0, 0, class_index.astype(np.int16) + 1)
+    return np.ma.array(values.astype(np.float32), mask=False, copy=False)
 
 
 def latest_definite_ge30(class_index: np.ndarray) -> np.ndarray:
@@ -340,7 +346,7 @@ def run_frozen_field_motion(
     class_index: np.ndarray,
     spec: dict[str, Any],
 ) -> dict[str, np.ndarray]:
-    motion_input = masked_class_stack(class_index)
+    motion_input = motion_signal_stack(class_index)
     velocity = estimate_dense_lucas_kanade(
         motion_input,
         spec["motion_estimation"]["parameters"],
