@@ -123,6 +123,33 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
                 m.get("previous_id") == frames[a][current]["local_id"]
                 for _, transition in transition_records
                 for m in transition.get("primary_matches", []))
+            previous_id = frames[a][current]["local_id"]
+            split_records = sum(
+                previous_id == row.get("previous_id")
+                for _, transition in transition_records
+                for row in transition.get("split_candidates", []))
+            merge_records = sum(
+                previous_id in row.get("previous_ids", [])
+                for _, transition in transition_records
+                for row in transition.get("merge_candidates", []))
+            death_records = sum(
+                previous_id == row.get("previous_id")
+                for _, transition in transition_records
+                for row in transition.get("deaths", []))
+            # A single overlap candidate cannot lose the greedy one-to-one
+            # match unless its destination has a competing previous component
+            # (recorded as a merge candidate). These categories describe
+            # stored geometry associations, NOT meteorological disappearance.
+            if not transition_records:
+                association_category = "NO_ARCHIVED_TRANSITION_RECORD"
+            elif split_records and merge_records:
+                association_category = "SPLIT_AND_MERGE_CANDIDATES"
+            elif split_records:
+                association_category = "SPLIT_CANDIDATE"
+            elif merge_records:
+                association_category = "MERGE_CANDIDATE"
+            else:
+                association_category = "NO_RECORDED_OVERLAP_CANDIDATE"
             return {"status": "NO_CONTINUOUS_PRIMARY_MATCH",
                     "target_component": None, "identity_verified": False,
                     "verified_transition_count": traversed,
@@ -132,6 +159,10 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
                         "available_transition_records": len(transition_records),
                         "previous_id_primary_match_records": matching_records,
                         "next_frame_component_count": len(frames[b]),
+                        "split_candidate_records": split_records,
+                        "merge_candidate_records": merge_records,
+                        "death_records": death_records,
+                        "association_category": association_category,
                     }}
         if len(matches) > 1:
             return {"status": "CONFLICTING_PRIMARY_MATCHES",
