@@ -45,7 +45,6 @@ def _load_script(name: str, path: Path):
 
 MORPH = _load_script("lpz_o81_morph_probe", ROOT / "scripts" / "radar_morphology_probe.py")
 TRACK = _load_script("lpz_o81_tracking_probe", ROOT / "scripts" / "radar_tracking_probe.py")
-ORIENT = _load_script("lpz_o81_orientation_probe", ROOT / "scripts" / "radar_wind_orientation_probe.py")
 
 
 def utc_now() -> datetime:
@@ -290,11 +289,17 @@ def summarize_tracking(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def gfs_asof_guard(slot: datetime) -> dict[str, Any]:
+    # Lazy-load the GFS/orientation stack. Radar-only consumers such as F4-9A
+    # and F4-9C do not need eccodes merely to reuse exact-slot radar helpers.
+    orient = _load_script(
+        "lpz_o81_orientation_probe",
+        ROOT / "scripts" / "radar_wind_orientation_probe.py",
+    )
     prospective_as_of = slot + timedelta(minutes=SETTLEMENT_LAG_MINUTES)
-    candidates = ORIENT.candidate_cycle_hours(slot)
+    candidates = orient.candidate_cycle_hours(slot)
     rows = []
     for cycle, fh, valid, error_min in candidates:
-        conservative_age_ok = cycle <= slot - timedelta(hours=ORIENT.MIN_CYCLE_AGE_HOURS_AT_RADAR_TIME)
+        conservative_age_ok = cycle <= slot - timedelta(hours=orient.MIN_CYCLE_AGE_HOURS_AT_RADAR_TIME)
         as_of_ok = cycle <= prospective_as_of
         rows.append({
             "cycle_utc": iso_utc(cycle),
@@ -306,7 +311,7 @@ def gfs_asof_guard(slot: datetime) -> dict[str, Any]:
         })
     return {
         "prospective_as_of_utc": iso_utc(prospective_as_of),
-        "minimum_cycle_age_hours_at_slot": ORIENT.MIN_CYCLE_AGE_HOURS_AT_RADAR_TIME,
+        "minimum_cycle_age_hours_at_slot": orient.MIN_CYCLE_AGE_HOURS_AT_RADAR_TIME,
         "candidate_count": len(rows),
         "all_candidate_cycles_asof_safe": bool(rows) and all(r["conservative_cycle_age_guard_pass"] and r["prospective_as_of_guard_pass"] for r in rows),
         "candidates": rows,
