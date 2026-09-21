@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0.0",
+  "product": "F4_FIELD_MOTION_SPEC_FREEZE",
+  "research_stage": "F4-9B",
+  "frozen_at_utc": "2026-09-21T11:50:00Z",
+  "upstream_product": "F4_DECODED_FIELD_RESEARCH_ARCHIVE",
+  "upstream_schema_version": "0.1.0",
+  "input_contract": {
+    "frame_count": 4,
+    "frame_interval_seconds": 300,
+    "zoom": 8,
+    "class_index_dtype": "int8",
+    "unclassified_value": -1,
+    "valid_class_index_min": 0,
+    "valid_class_index_max": 7,
+    "motion_input": {
+      "dtype": "float32",
+      "values": "JMA precipitation class index without midpoint conversion",
+      "mask_rule": "class_index < 0",
+      "frames_used": "all_four",
+      "temporal_order": "oldest_to_newest"
+    },
+    "event_mask": {
+      "threshold_mmph": 30,
+      "definition": "interval_definitely_at_least",
+      "qualifying_class_indices": [
+        5,
+        6,
+        7
+      ],
+      "source_frame": "latest"
+    }
+  },
+  "environment": {
+    "isolation": "separate_research_venv",
+    "production_pyproject_modified": false,
+    "python_supported": ">=3.11,<3.14",
+    "pysteps_version": "1.21.5",
+    "opencv_python_headless_version": "4.14.0.94"
+  },
+  "motion_estimation": {
+    "library": "pysteps.motion.lucaskanade.dense_lucaskanade",
+    "parameters": {
+      "lk_kwargs": null,
+      "fd_method": "shitomasi",
+      "fd_kwargs": null,
+      "interp_method": "idwinterp2d",
+      "interp_kwargs": null,
+      "dense": true,
+      "nr_std_outlier": 3,
+      "k_outlier": 30,
+      "size_opening": 3,
+      "decl_scale": 20,
+      "verbose": false
+    },
+    "no_motion_behavior": "accept_zero_velocity_field_as_valid_persistence_equivalent",
+    "alternate_motion_methods_allowed": false
+  },
+  "extrapolation": {
+    "library": "pysteps.extrapolation.semilagrangian.extrapolate",
+    "field_advected": "latest_definite_ge_30mmph_binary_mask",
+    "timesteps": [
+      3,
+      6
+    ],
+    "lead_minutes": [
+      15,
+      30
+    ],
+    "vel_timestep": 1,
+    "outval": 0,
+    "allow_nonfinite_values": false,
+    "n_iter": 1,
+    "interp_order": 0,
+    "return_displacement": false,
+    "numerical_binary_decode_threshold": 0.5
+  },
+  "baseline": {
+    "name": "EULERIAN_PERSISTENCE",
+    "definition": "latest definite >=30 mm/h mask unchanged at both leads"
+  },
+  "f4_9c_verification": {
+    "identity_required": false,
+    "exact_future_frame_required": true,
+    "primary_metric": "paired_best_iou_delta_optical_flow_minus_persistence",
+    "secondary_metrics": [
+      "any_overlap_rate",
+      "nearest_observed_ge30_component_centroid_distance"
+    ],
+    "evaluate_separately_by_lead": true,
+    "leads_minutes": [
+      15,
+      30
+    ],
+    "cohort_stop_rule": {
+      "exact_future_comparisons_target": 100,
+      "minimum_distinct_collection_slots_or_events": 3,
+      "maximum_calendar_days": 14,
+      "stop_when": "target_conditions_met_or_14_days_whichever_first"
+    }
+  },
+  "go_no_go": {
+    "go_requires_all": [
+      "mean paired best-IoU delta > 0 at 15 min",
+      "mean paired best-IoU delta > 0 at 30 min",
+      "optical-flow any-overlap rate >= persistence at 15 min",
+      "optical-flow any-overlap rate >= persistence at 30 min",
+      "optical-flow median nearest-centroid distance <= persistence at 15 min",
+      "optical-flow median nearest-centroid distance <= persistence at 30 min",
+      "no scientific lock/as-of/field-semantics/Risk Engine invariant violation"
+    ],
+    "otherwise": "NO_GO_AND_CLOSE_F4"
+  },
+  "prohibited": {
+    "parameter_tuning_on_f4_7_or_f4_8_sample": true,
+    "parameter_tuning_during_f4_9c": true,
+    "alternate_optical_flow_model": true,
+    "posthoc_area_or_speed_gate": true,
+    "lpz_probability": true,
+    "severity": true,
+    "production_risk_engine": true,
+    "create_f4_10_or_later": true
+  },
+  "locks": {
+    "risk_engine_allowed": false,
+    "lpz_forecast_generated": false,
+    "probability_generated": false,
+    "severity_generated": false,
+    "validated_forecast": false,
+    "specification_frozen": true
+  }
+}
