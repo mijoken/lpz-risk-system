@@ -4,6 +4,7 @@
   const SYSTEM_STATUS_URL = "./data/system_status.json";
   const RAIN_MANIFEST_URL = "./data/rain/latest.json";
   const MAP_MANIFEST_URL = "./assets/map/manifest.json";
+  const F4_RESEARCH_URL = "./data/research/f4_archived_identity_summary.json";
   const REFERENCE_CITIES_URL = "./data/reference_cities.json";
   const SUPPORTED_MAJOR = 1;
 
@@ -170,6 +171,113 @@
     if (riskToggle) {
       riskToggle.checked = false;
       riskToggle.disabled = true;
+    }
+  }
+
+  function renderF4ArchivedResearch(report) {
+    const badge = document.getElementById("f4-research-state");
+    const stats = document.getElementById("f4-research-stats");
+    const horizons = document.getElementById("f4-research-horizons");
+    const breakdown = document.getElementById("f4-research-breakdown");
+    const footnote = document.getElementById("f4-research-footnote");
+    if (!badge || !stats || !horizons || !breakdown || !footnote) return;
+    const c = report?.counts;
+    const category = report?.no_continuous_match_association_categories;
+    const h = report?.horizons_from_as_of_minutes;
+    if (report?.product !== "LPZ_F4_ARCHIVED_RESEARCH_PUBLIC_SUMMARY"
+        || report?.schema_version !== "1.0.0"
+        || report?.risk_engine_allowed !== false
+        || report?.lpz_forecast_generated !== false
+        || report?.archived_research_only !== true
+        || report?.source_run_id !== "35564667965"
+        || report?.target_run_id !== "35565907043"
+        || !c || !category || !h) {
+      badge.textContent = "CONTRACT ERROR";
+      footnote.textContent = "F4研究データの契約に不一致があります。数値を表示しません。";
+      return;
+    }
+    const number = (value) => Number.isInteger(value) && value >= 0 ? String(value) : "—";
+    const statRows = [
+      ["F3研究対象", c.source_research_objects],
+      ["短時間移動の予測対象", c.projected_objects],
+      ["比較可能な予測", c.comparable_projections],
+      ["継続追跡成立", c.identity_matched_projections],
+      ["追跡不成立", c.identity_unresolved_projections],
+      ["同時刻の比較先なし", c.no_exact_comparable_target],
+    ];
+    stats.replaceChildren();
+    for (const [label, value] of statRows) {
+      const node = document.createElement("div");
+      node.className = "research-stat";
+      const name = document.createElement("span");
+      name.textContent = label;
+      const metric = document.createElement("strong");
+      metric.textContent = number(value);
+      node.append(name, metric);
+      stats.append(node);
+    }
+    horizons.replaceChildren();
+    for (const lead of ["15", "30"]) {
+      const row = h[lead];
+      if (!row || !Number.isInteger(row.identity_matched_count)) continue;
+      const node = document.createElement("div");
+      node.className = "research-horizon";
+      const title = document.createElement("h3");
+      title.textContent = lead + "分先 · 観測降雨域中心の位置誤差";
+      const matched = document.createElement("span");
+      matched.textContent = "継続追跡成立 " + number(row.identity_matched_count) + " 件";
+      const distance = document.createElement("strong");
+      distance.textContent = Number.isFinite(row.motion_median_km)
+        ? row.motion_median_km.toFixed(2) + " km" : "—";
+      const compare = document.createElement("span");
+      compare.textContent = "移動なしの誤差中央値: "
+        + (Number.isFinite(row.persistence_median_km)
+          ? row.persistence_median_km.toFixed(2) + " km" : "—");
+      node.append(title, matched, distance, compare);
+      horizons.append(node);
+    }
+    breakdown.replaceChildren();
+    const title = document.createElement("h3");
+    title.textContent = "追跡不成立の最初の5分間 · 観測形状の診断";
+    const list = document.createElement("ul");
+    const categories = [
+      ["重なり候補なし", category.NO_RECORDED_OVERLAP_CANDIDATE],
+      ["合流候補あり", category.MERGE_CANDIDATE],
+      ["分裂・合流両候補あり", category.SPLIT_AND_MERGE_CANDIDATES],
+      ["分裂候補あり", category.SPLIT_CANDIDATE],
+    ];
+    for (const [label, value] of categories) {
+      if (!value) continue;
+      const item = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = label;
+      const count = document.createElement("strong");
+      count.textContent = number(value) + " 件";
+      item.append(name, count);
+      list.append(item);
+    }
+    breakdown.append(title, list);
+    badge.textContent = "ARCHIVED · RESEARCH ONLY";
+    footnote.textContent = "取得済みArtifact " + report.source_run_id + " / "
+      + report.target_run_id + " の遡及評価。"
+      + " 30 mm/hの観測降雨域に関するアルゴリズム上の追跡であり、"
+      + "線状降水帯発生予測・確率・危険度・公式発表ではありません。"
+      + " 対応候補なしは降雨域の消滅を意味しません。位置誤差は継続追跡が成立した少数例のみです。";
+  }
+
+  async function setupF4ArchivedResearch() {
+    try {
+      const report = await fetchOptionalJson(F4_RESEARCH_URL);
+      if (!report) {
+        setText("f4-research-state", "NOT PUBLISHED");
+        setText("f4-research-footnote", "検証済みF4研究要約が未公開です。現在の降雨・予報データから研究値を補いません。");
+        return;
+      }
+      renderF4ArchivedResearch(report);
+    } catch (error) {
+      console.warn("Archived F4 research unavailable", error);
+      setText("f4-research-state", "UNAVAILABLE");
+      setText("f4-research-footnote", "研究成果を読み込めませんでした。実況降水・リスク表示には影響しません。");
     }
   }
 
@@ -441,6 +549,7 @@
   }
 
   async function start() {
+    setupF4ArchivedResearch();
     const svg = document.getElementById("japan-map");
     const tooltip = document.getElementById("map-tooltip");
     setText("map-state", "Loading public data …");
