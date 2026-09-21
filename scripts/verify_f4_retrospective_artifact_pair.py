@@ -109,6 +109,7 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
                     "persistence_nearest_component_distance_km": None,
                     "identity_status": "NOT_EVALUATED_NO_EXACT_TARGET",
                     "identity_verified": False,
+                    "identity_break_diagnostic": None,
                     "identity_matched_distance_km": None,
                     "identity_persistence_distance_km": None,
                     "lpz_classification": None,
@@ -133,6 +134,7 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
                             source, obj["parent_lineage_id"], valid, bridges)
                         result["identity_status"] = identity["status"]
                         result["identity_verified"] = identity["identity_verified"]
+                        result["identity_break_diagnostic"] = identity.get("break_diagnostic")
                         if identity["identity_verified"]:
                             actual = identity["target_component"]["centroid"]
                             result["identity_matched_distance_km"] = distance_km(
