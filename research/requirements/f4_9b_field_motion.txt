@@ -1,4 +1,6 @@
 # F4-9B isolated research environment only.
 # Wheel-backed dependencies for Windows; production pyproject remains unchanged.
-opencv-python-headless==4.14.0.94
+numpy==2.4.6
 scipy==1.17.1
+opencv-python-headless==4.14.0.94
+pytest==9.1.1
