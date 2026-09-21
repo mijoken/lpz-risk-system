@@ -20,3 +20,16 @@
 .f4-arrow {stroke:#f6c85f;stroke-width:1.65;fill:none;vector-effect:non-scaling-stroke;pointer-events:none;}
 .f4-end {fill:#f6c85f;stroke:#06121e;stroke-width:1.4;pointer-events:none;}
 @media(max-width:850px){.archive-layout{grid-template-columns:1fr}#f4-map{min-height:400px}}
+
+.archive-map-note {color:var(--text);line-height:1.6;margin:12px 4px;}
+.archive-object-list {display:grid;gap:8px;max-height:440px;overflow:auto;}
+.archive-object-list button {width:100%;text-align:left;border:1px solid var(--line);background:rgba(7,17,31,.58);color:var(--text);padding:10px;border-radius:8px;cursor:pointer;line-height:1.55;}
+.archive-object-list button:hover,.archive-object-list button[aria-pressed="true"] {border-color:#55c8ff;background:rgba(33,89,120,.35);}
+.f4-city circle {fill:#d6e3f0;stroke:#081625;stroke-width:1;}
+.f4-city text {fill:#e4f0fb;stroke:#081625;stroke-width:3;paint-order:stroke;stroke-linejoin:round;font-size:12px;font-weight:700;pointer-events:none;}
+.f4-origin-number {font-size:10px;font-weight:800;fill:#051321;text-anchor:middle;dominant-baseline:central;pointer-events:none;}
+.f4-arrow {stroke-width:2.4;stroke-linecap:round;}
+.f4-arrow-head {fill:#f6c85f;pointer-events:none;}
+.f4-origin {stroke-width:1.8;}
+.f4-origin[aria-pressed="true"] {stroke:#fff;stroke-width:3;}
+.archive-detail #f4-selected {color:var(--text);}
