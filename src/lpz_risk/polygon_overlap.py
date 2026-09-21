@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from typing import Iterable
 
-EARTH_RADIUS_KM = 6371.0088
+WEB_MERCATOR_RADIUS_KM = 6378.137
 _EPS = 1e-10
 
 
@@ -66,8 +66,8 @@ def _project_pair(
             if abs(lat) >= 85.05112878:
                 raise ValueError("polygon outside Web Mercator latitude range")
             lon_u = _unwrap_lon(lon, reference_lon)
-            x = EARTH_RADIUS_KM * math.radians(lon_u)
-            y = EARTH_RADIUS_KM * math.log(
+            x = WEB_MERCATOR_RADIUS_KM * math.radians(lon_u)
+            y = WEB_MERCATOR_RADIUS_KM * math.log(
                 math.tan(math.pi / 4.0 + math.radians(lat) / 2.0)
             )
             out.append((x, y))
@@ -176,7 +176,7 @@ def _clip_convex(
 def convex_polygon_overlap_metrics(
     predicted_geometry: dict,
     observed_geometry: dict,
-) -> dict[str, float]:
+) -> dict[str, float | str]:
     predicted, observed = _project_pair(predicted_geometry, observed_geometry)
     predicted = _as_ccw_convex(predicted)
     observed = _as_ccw_convex(observed)
