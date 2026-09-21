@@ -63,6 +63,7 @@ def test_rescue_gate_excludes_boundary_and_reports_candidate_counts():
     rows = [
         {
             "motion_reference_available": True,
+            "lead_from_as_of_minutes": 15,
             "previous_component_boundary_truncated": False,
             "candidate_boundary_truncated": False,
             "motion_error_pixels": 6.0,
@@ -71,6 +72,7 @@ def test_rescue_gate_excludes_boundary_and_reports_candidate_counts():
         },
         {
             "motion_reference_available": True,
+            "lead_from_as_of_minutes": 30,
             "previous_component_boundary_truncated": False,
             "candidate_boundary_truncated": False,
             "motion_error_pixels": 9.0,
@@ -79,6 +81,7 @@ def test_rescue_gate_excludes_boundary_and_reports_candidate_counts():
         },
         {
             "motion_reference_available": True,
+            "lead_from_as_of_minutes": 15,
             "previous_component_boundary_truncated": True,
             "candidate_boundary_truncated": False,
             "motion_error_pixels": 3.0,
@@ -87,6 +90,7 @@ def test_rescue_gate_excludes_boundary_and_reports_candidate_counts():
         },
         {
             "motion_reference_available": False,
+            "lead_from_as_of_minutes": 30,
             "previous_component_boundary_truncated": False,
             "candidate_boundary_truncated": None,
             "motion_error_pixels": None,
@@ -98,9 +102,13 @@ def test_rescue_gate_excludes_boundary_and_reports_candidate_counts():
 
     d8m3 = table["d8_m3"]
     assert d8m3["candidate_count"] == 1
+    assert d8m3["lead_15_candidate_count"] == 1
+    assert d8m3["lead_30_candidate_count"] == 0
     assert d8m3["candidate_fraction_of_all_no_overlap_breaks"] == pytest.approx(0.25)
     assert d8m3["candidate_pixel_count_ratio"]["median"] == pytest.approx(1.1)
 
     d10m1 = table["d10_m1"]
     assert d10m1["candidate_count"] == 2
+    assert d10m1["lead_15_candidate_count"] == 1
+    assert d10m1["lead_30_candidate_count"] == 1
     assert d10m1["candidate_pixel_count_ratio"]["median"] == pytest.approx(0.95)
