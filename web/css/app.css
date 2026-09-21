@@ -280,20 +280,20 @@ h1 {
 .research-envelope {
   vector-effect: non-scaling-stroke;
   cursor: pointer;
-  fill: rgba(255, 211, 77, .18);
-  stroke: rgba(255, 222, 105, .96);
-  stroke-width: 1.15;
+  fill: rgba(255, 211, 77, .22);
+  stroke: rgba(255, 222, 105, .98);
+  stroke-width: 1.55;
   transition: fill .12s ease, stroke .12s ease, filter .12s ease;
 }
 
 .research-envelope-15 {
-  fill: rgba(255, 211, 77, .24);
+  fill: rgba(255, 211, 77, .30);
   stroke-dasharray: none;
 }
 
 .research-envelope-30 {
-  fill: rgba(255, 211, 77, .10);
-  stroke-dasharray: 6 4;
+  fill: rgba(255, 211, 77, .13);
+  stroke-dasharray: 7 4;
 }
 
 .research-envelope:hover,
@@ -529,6 +529,92 @@ h1 {
   font-size: .84rem;
   line-height: 1.55;
 }
+.f4-live-overview-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.f4-live-overview-grid > div {
+  border: 1px solid rgba(255, 211, 77, .22);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: rgba(255, 211, 77, .045);
+}
+.f4-live-overview-grid span,
+.f4-live-section-label {
+  display: block;
+  color: var(--muted);
+  font-size: .71rem;
+  line-height: 1.45;
+}
+.f4-live-overview-grid strong {
+  display: block;
+  margin-top: 3px;
+  font-size: .86rem;
+  line-height: 1.4;
+  color: #fff1b0;
+}
+.f4-live-groups-wrap { margin-top: 12px; }
+.f4-live-groups {
+  display: grid;
+  gap: 7px;
+  margin-top: 7px;
+}
+.f4-live-group-button {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  background: rgba(7, 17, 31, .55);
+  color: var(--text);
+  cursor: pointer;
+}
+.f4-live-group-button:hover,
+.f4-live-group-button:focus-visible {
+  border-color: rgba(255, 211, 77, .75);
+  background: rgba(255, 211, 77, .08);
+  outline: none;
+}
+.f4-live-group-button strong {
+  display: block;
+  font-size: .82rem;
+}
+.f4-live-group-button span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: .69rem;
+  line-height: 1.35;
+}
+.f4-live-style-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 13px;
+  margin-top: 11px;
+  color: var(--muted);
+  font-size: .71rem;
+}
+.f4-live-style-key[hidden] { display: none; }
+.f4-live-style-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.f4-key-line {
+  display: inline-block;
+  width: 27px;
+  height: 0;
+  border-top: 3px solid #ffe069;
+}
+.f4-key-30 { border-top-style: dashed; opacity: .76; }
+.f4-live-detail-title {
+  margin: 14px 0 0;
+  font-size: .82rem;
+  color: #fff1b0;
+}
+
 .f4-live-detail-grid {
   display: grid;
   grid-template-columns: 1fr;
