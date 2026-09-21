@@ -309,6 +309,97 @@ h1 {
   stroke-width: 2.2;
 }
 
+.field-motion-envelope-layer { pointer-events: auto; }
+
+.field-motion-envelope {
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  fill: rgba(199, 111, 255, .20);
+  stroke: rgba(220, 158, 255, .98);
+  stroke-width: 1.55;
+  transition: fill .12s ease, stroke .12s ease, filter .12s ease;
+}
+
+.field-motion-envelope-15 {
+  fill: rgba(199, 111, 255, .28);
+  stroke-dasharray: none;
+}
+
+.field-motion-envelope-30 {
+  fill: rgba(199, 111, 255, .11);
+  stroke-dasharray: 8 4;
+}
+
+.field-motion-envelope:hover,
+.field-motion-envelope.is-active,
+.field-motion-envelope.is-selected {
+  fill: rgba(222, 164, 255, .34);
+  stroke: #f0d4ff;
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 5px rgba(199, 111, 255, .72));
+}
+
+.field-motion-envelope.is-selected {
+  stroke-width: 2.2;
+}
+
+.field-motion-toggle input { accent-color: #c76fff; }
+
+.field-motion-panel { padding: 19px; }
+.field-motion-panel .brand-kicker { color: #d7a4ff; }
+.field-motion-summary {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.55;
+}
+.field-motion-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.field-motion-grid > div {
+  border: 1px solid rgba(199, 111, 255, .22);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: rgba(199, 111, 255, .045);
+}
+.field-motion-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: .71rem;
+  line-height: 1.45;
+}
+.field-motion-grid strong {
+  display: block;
+  margin-top: 3px;
+  font-size: .86rem;
+  line-height: 1.4;
+  color: #efd6ff;
+}
+.field-motion-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 13px;
+  margin-top: 11px;
+  color: var(--muted);
+  font-size: .71rem;
+}
+.field-motion-key[hidden] { display: none; }
+.field-motion-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.field-motion-key-line {
+  display: inline-block;
+  width: 27px;
+  height: 0;
+  border-top: 3px solid #d79bff;
+}
+.field-motion-key-30 { border-top-style: dashed; opacity: .76; }
+
 .reference-city-layer { pointer-events: none; }
 .reference-city circle {
   fill: #f6fbff;
