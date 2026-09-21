@@ -48,23 +48,28 @@ def _project_pair(
     geometry_a: dict,
     geometry_b: dict,
 ) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
+    """Project both envelopes back to their native Web Mercator tracking plane.
+
+    F4 geographic envelopes originate from Web Mercator radar pixel-cell
+    vertices. Using the same projection for overlap metrics avoids a
+    pair-specific local projection and keeps motion/persistence IoU directly
+    comparable. Area fields are planar Web Mercator areas, not geodesic area.
+    """
     a_ll = _outer_ring(geometry_a)
     b_ll = _outer_ring(geometry_b)
     all_ll = a_ll + b_ll
     reference_lon = all_ll[0][0]
-    unwrapped = [(_unwrap_lon(lon, reference_lon), lat) for lon, lat in all_ll]
-    lon0 = sum(lon for lon, _ in unwrapped) / len(unwrapped)
-    lat0 = sum(lat for _, lat in unwrapped) / len(unwrapped)
-    cos_lat0 = math.cos(math.radians(lat0))
-    if abs(cos_lat0) < 1e-6:
-        raise ValueError("polygon too close to pole for local projection")
 
     def project(points: Iterable[tuple[float, float]]) -> list[tuple[float, float]]:
         out = []
         for lon, lat in points:
+            if abs(lat) >= 85.05112878:
+                raise ValueError("polygon outside Web Mercator latitude range")
             lon_u = _unwrap_lon(lon, reference_lon)
-            x = EARTH_RADIUS_KM * cos_lat0 * math.radians(lon_u - lon0)
-            y = EARTH_RADIUS_KM * math.radians(lat - lat0)
+            x = EARTH_RADIUS_KM * math.radians(lon_u)
+            y = EARTH_RADIUS_KM * math.log(
+                math.tan(math.pi / 4.0 + math.radians(lat) / 2.0)
+            )
             out.append((x, y))
         return out
 
@@ -190,10 +195,11 @@ def convex_polygon_overlap_metrics(
         raise ValueError("degenerate polygon area")
 
     return {
-        "predicted_envelope_area_km2": predicted_area,
-        "observed_envelope_area_km2": observed_area,
-        "intersection_area_km2": intersection_area,
-        "union_area_km2": union_area,
+        "projection": "WEB_MERCATOR_TRACKING_PLANE",
+        "predicted_planar_area_km2": predicted_area,
+        "observed_planar_area_km2": observed_area,
+        "intersection_planar_area_km2": intersection_area,
+        "union_planar_area_km2": union_area,
         "iou": intersection_area / union_area,
         "predicted_overlap_fraction": intersection_area / predicted_area,
         "observed_coverage_fraction": intersection_area / observed_area,
