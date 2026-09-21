@@ -86,6 +86,24 @@ def test_no_primary_match_is_unknown():
     assert result["break_diagnostic"]["previous_id_primary_match_records"] == 0
     assert result["break_diagnostic"]["next_frame_component_count"] == 1
     assert result["break_diagnostic"]["association_category"] == "NO_RECORDED_OVERLAP_CANDIDATE"
+    assert result["break_diagnostic"]["previous_component_pixel_count"] == 10
+    assert result["break_diagnostic"]["previous_component_boundary_truncated"] is False
+    assert result["break_diagnostic"]["nearest_next_frame_component"] == {
+        "centroid_displacement_pixels": 0.0,
+        "pixel_count": 10,
+        "boundary_truncated": False,
+        "bbox_intersects": True,
+    }
+
+
+def test_no_overlap_first_break_with_no_next_components_keeps_unknown_identity():
+    a, b = _bundle(0, "L-A"), _bundle(15, "L-B")
+    b["components"]["radar_tracking"]["tracking"]["30"]["frames"][1]["components"] = []
+    b["components"]["radar_tracking"]["tracking"]["30"]["transitions"][0]["primary_matches"] = []
+    result = trace_identity(a, "L-A", _stamp(30), [b])
+    assert result["identity_verified"] is False
+    assert result["break_diagnostic"]["next_frame_component_count"] == 0
+    assert result["break_diagnostic"]["nearest_next_frame_component"] is None
 
 
 @pytest.mark.parametrize(
