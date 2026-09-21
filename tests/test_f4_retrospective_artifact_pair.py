@@ -37,7 +37,8 @@ def pair(tmp_path):
     (a / "f3_research" / "slots" / name).write_text(json.dumps(adapt(source)))
     (b / "slots" / target_name).write_text(json.dumps(target))
     (a / "batch_manifest.json").write_text(json.dumps({
-        "run_id": "source", "risk_engine_allowed": False}))
+        "run_id": "source", "risk_engine_allowed": False,
+        "slot_results": [{"collection_slot_utc": source["collection_slot_utc"]}]}))
     (b / "batch_manifest.json").write_text(json.dumps({
         "run_id": "target", "risk_engine_allowed": False,
         "slot_results": [{"collection_slot_utc": target["collection_slot_utc"]}]}))
