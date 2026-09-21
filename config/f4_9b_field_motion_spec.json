@@ -38,7 +38,9 @@
     "reference_pysteps_version": "1.21.5",
     "implementation": "LPZ_LOCAL_PYSTEPS_ALIGNED",
     "opencv_python_headless_version": "4.14.0.94",
-    "scipy_version": "1.17.1"
+    "scipy_version": "1.17.1",
+    "numpy_version": "2.4.6",
+    "pytest_version": "9.1.1"
   },
   "motion_estimation": {
     "library": "lpz_local_lucas_kanade_dense",
