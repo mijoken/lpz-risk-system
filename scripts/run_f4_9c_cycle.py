@@ -274,6 +274,12 @@ def _capture_case(
     case_path = paths["cases"] / f"{case_id}.json"
     if case_path.exists():
         return {"action": "NOOP_ALREADY_CAPTURED", "case_id": case_id}
+    prior_attempts = list(paths["attempts"].glob(f"{case_id}_*.json")) if paths["attempts"].exists() else []
+    if prior_attempts:
+        return {
+            "action": "NOOP_SOURCE_SLOT_ALREADY_ATTEMPTED",
+            "case_id": case_id,
+        }
 
     if now < as_of:
         raise RuntimeError("source slot is not yet at prospective as-of")
@@ -290,13 +296,9 @@ def _capture_case(
         output_root=paths["sources"],
     )
     source_dir = paths["sources"] / f"{case_id}_z{source_manifest['fixed_mosaic']['zoom']}"
-    forecast_dir = paths["forecasts"] / f"{case_id}_z8_f4_9b"
-    forecast_manifest = run_f4_9b(source_dir, forecast_dir, spec_path)
 
     with np.load(source_dir / "decoded_field.npz") as payload:
         class_index = np.asarray(payload["class_index"])
-    with np.load(forecast_dir / "field_motion_forecast.npz") as payload:
-        velocity = np.asarray(payload["velocity_pixels_per_timestep"])
 
     source_event = latest_definite_ge30(class_index)
     source_labels, source_components = component_label_map(
@@ -321,6 +323,11 @@ def _capture_case(
         attempt["completed_at_utc"] = iso_utc(_utc_now())
         _write_json_new(paths["attempts"] / f"{case_id}_no_event.json", attempt)
         return {"action": "NO_ELIGIBLE_SOURCE_COMPONENT", "case_id": case_id}
+
+    forecast_dir = paths["forecasts"] / f"{case_id}_z8_f4_9b"
+    forecast_manifest = run_f4_9b(source_dir, forecast_dir, spec_path)
+    with np.load(forecast_dir / "field_motion_forecast.npz") as payload:
+        velocity = np.asarray(payload["velocity_pixels_per_timestep"])
 
     spec = _read_json(spec_path)
     extrap = spec["extrapolation"]
