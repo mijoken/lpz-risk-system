@@ -34,6 +34,8 @@ on:
       - "tests/test_f4_research_point_proximity.py"
       - "scripts/verify_f4_cross_run_point_proximity.py"
       - "tests/test_f4_cross_run_point_proximity.py"
+      - "scripts/verify_f4_retrospective_artifact_pair.py"
+      - "tests/test_f4_retrospective_artifact_pair.py"
       - "src/lpz_risk/**"
       - "tests/test_o8_1_self_healing_batch.py"
 
@@ -241,6 +243,10 @@ jobs:
       - name: Run F4-2 cross-run exact-time matching tests
         run: |
           python -m pytest -q tests/test_f4_cross_run_point_proximity.py
+
+      - name: Run F4-2 archived-artifact research bridge tests
+        run: |
+          python -m pytest -q tests/test_f4_retrospective_artifact_pair.py
 
       - name: Build F4-1 research point motion batch
         run: |
