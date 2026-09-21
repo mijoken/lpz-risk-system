@@ -61,11 +61,20 @@ def join(bundle: dict, f3: dict) -> dict:
         lineage = str(desc["parent_lineage_id"])
         comp = latest.get(lineage)
         active = comp is not None
+        envelope = None
         if active:
             if desc.get("last_frame_index") != len(frames) - 1:
                 raise ValueError("F3 last frame does not match latest observed lineage")
             if desc.get("last_centroid") != comp.get("centroid"):
                 raise ValueError("F3 centroid differs from tracking source")
+            envelope = comp.get("geographic_envelope")
+            if envelope is not None:
+                if (not isinstance(envelope, dict)
+                        or envelope.get("method") != "CONVEX_HULL_OF_COMPONENT_PIXEL_CELLS"
+                        or envelope.get("exact_precipitation_contour") is not False
+                        or not isinstance(envelope.get("geometry"), dict)
+                        or envelope["geometry"].get("type") != "Polygon"):
+                    raise ValueError("invalid observed geographic envelope")
         joined.append({
             "research_object_id": obj["research_object_id"],
             "parent_lineage_id": lineage,
@@ -77,8 +86,14 @@ def join(bundle: dict, f3: dict) -> dict:
                 "bbox_pixel": comp["bbox_pixel"],
                 "approx_area_km2": comp["approx_area_km2"],
                 "boundary_truncated": comp["boundary_truncated"],
+                "geographic_envelope": envelope,
             } if active else None,
-            "geometry_type": "OBSERVED_BBOX_NOT_PRECIPITATION_POLYGON" if active else None,
+            "geometry_type": (
+                "OBSERVED_THRESHOLD_COMPONENT_GEOGRAPHIC_ENVELOPE"
+                if active and envelope is not None
+                else "OBSERVED_BBOX_NOT_PRECIPITATION_POLYGON"
+                if active else None
+            ),
             "forecast_valid_time_utc": None,
             "forecast_probability": None,
             "lpz_classification": None,
@@ -94,7 +109,7 @@ def join(bundle: dict, f3: dict) -> dict:
         "risk_engine_allowed": False,
         "official_risk_output": False,
         "forecast_generated": False,
-        "interpretation": "Observed input join only; bbox is not a precipitation polygon or future extent.",
+        "interpretation": "Observed input join only. When present, geographic_envelope is a convex display envelope of the observed threshold component; it is not an LPZ forecast footprint.",
     }
 
 
