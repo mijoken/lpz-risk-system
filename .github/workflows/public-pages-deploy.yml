@@ -184,37 +184,104 @@ jobs:
             --run-id "${{ github.run_id }}" \
             --commit-sha "${{ github.sha }}"
 
-      - name: Download latest successful prospective F4-4 artifact
+      - name: Download latest non-empty prospective F4-4 artifact
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          rm -rf incoming/f4_live
+          rm -rf incoming/f4_live incoming/f4_candidate
           mkdir -p incoming/f4_live
 
-          RUN_ID="$(
-            gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow prospective-feature-collector.yml \
-              --branch main \
-              --status success \
-              --limit 10 \
-              --json databaseId,createdAt \
-              --jq '.[0].databaseId // empty'
-          )"
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow prospective-feature-collector.yml \
+            --branch main \
+            --status success \
+            --limit 10 \
+            --json databaseId,createdAt \
+            --jq '.[].databaseId' \
+            > /tmp/f4_candidate_run_ids.txt
 
-          if [ -z "$RUN_ID" ]; then
-            echo "No successful prospective collector run found; public F4-4 layer will be NOT_PUBLISHED."
-          else
-            echo "Latest successful prospective collector run: $RUN_ID"
+          SELECTED_RUN_ID=""
+
+          while read -r RUN_ID; do
+            [ -z "$RUN_ID" ] && continue
+
+            rm -rf incoming/f4_candidate
+            mkdir -p incoming/f4_candidate
+
             if ! gh run download "$RUN_ID" \
               --repo "$GITHUB_REPOSITORY" \
               --pattern "prospective-batch-$RUN_ID" \
-              --dir incoming/f4_live; then
-              echo "Prospective artifact download failed; public F4-4 layer will be NOT_PUBLISHED."
-              rm -rf incoming/f4_live
-              mkdir -p incoming/f4_live
+              --dir incoming/f4_candidate >/dev/null 2>&1; then
+              echo "Skipping run $RUN_ID: full prospective artifact unavailable."
+              continue
             fi
+
+            MANIFEST="$(
+              find incoming/f4_candidate \
+                -type f \
+                -path '*/f4_geographic_envelopes/manifest.json' \
+                -print -quit
+            )"
+
+            if [ -z "$MANIFEST" ]; then
+              echo "Skipping run $RUN_ID: F4-4 manifest unavailable."
+              continue
+            fi
+
+            SLOT_STATE="$(
+              python - "$MANIFEST" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          payload = json.loads(path.read_text(encoding="utf-8"))
+
+          if payload.get("product") != "F4_RESEARCH_GEOGRAPHIC_ENVELOPE_BATCH":
+              raise SystemExit("invalid F4-4 product")
+          if payload.get("risk_engine_allowed") is not False:
+              raise SystemExit("F4-4 risk lock not proven")
+          if payload.get("official_risk_output") is not False:
+              raise SystemExit("F4-4 official-risk lock not proven")
+          if payload.get("lpz_forecast_generated") is not False:
+              raise SystemExit("F4-4 LPZ forecast lock not proven")
+
+          count = payload.get("source_slot_count")
+          rows = payload.get("slot_results")
+          if not isinstance(count, int) or count < 0:
+              raise SystemExit("invalid F4-4 source_slot_count")
+          if not isinstance(rows, list) or len(rows) != count:
+              raise SystemExit("F4-4 slot count mismatch")
+
+          print("NONEMPTY" if count > 0 else "ZERO_SLOT")
+          PY
+            )"
+
+            if [ "$SLOT_STATE" = "ZERO_SLOT" ]; then
+              echo "Skipping run $RUN_ID: successful no-op collector run with 0 processed slots."
+              continue
+            fi
+
+            if [ "$SLOT_STATE" != "NONEMPTY" ]; then
+              echo "Unexpected F4-4 slot state for run $RUN_ID: $SLOT_STATE"
+              exit 1
+            fi
+
+            rm -rf incoming/f4_live
+            mv incoming/f4_candidate incoming/f4_live
+            SELECTED_RUN_ID="$RUN_ID"
+            echo "Selected latest successful non-empty prospective run: $SELECTED_RUN_ID"
+            break
+          done < /tmp/f4_candidate_run_ids.txt
+
+          rm -rf incoming/f4_candidate
+
+          if [ -z "$SELECTED_RUN_ID" ]; then
+            echo "No successful non-empty prospective collector run found; public F4-4 layer will be NOT_PUBLISHED."
+            rm -rf incoming/f4_live
+            mkdir -p incoming/f4_live
           fi
 
       - name: Publish latest F4-4 research envelope layer
