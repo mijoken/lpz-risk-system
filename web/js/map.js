@@ -19,12 +19,15 @@
     viewport: null,
     rainImage: null,
     researchGroup: null,
+    fieldMotionGroup: null,
     boundaryGroup: null,
     cityLayer: null,
     tooltip: null,
     onSelect: null,
     onResearchSelect: null,
+    onFieldMotionSelect: null,
     researchVisible: true,
+    fieldMotionVisible: true,
     viewChangeHandler: null,
     cityLabelsVisible: true,
     cities: [],
@@ -448,6 +451,84 @@
     }
   }
 
+  function setFieldMotionEnvelopes(featureCollection) {
+    if (!state.fieldMotionGroup) return 0;
+    state.fieldMotionGroup.replaceChildren();
+    if (!featureCollection || featureCollection.type !== "FeatureCollection") return 0;
+
+    const features = Array.isArray(featureCollection.features) ? featureCollection.features : [];
+    const fragment = document.createDocumentFragment();
+    let count = 0;
+
+    for (const feature of features) {
+      const props = feature?.properties || {};
+      if (props.kind !== "FIELD_MOTION_RESEARCH_ENVELOPE") continue;
+      const lead = Number(props.lead_from_as_of_minutes);
+      if (lead !== 15 && lead !== 30) continue;
+      const d = geometryPath(feature.geometry);
+      if (!d) continue;
+
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("class", `field-motion-envelope field-motion-envelope-${lead}`);
+      path.setAttribute("fill-rule", "evenodd");
+      path.setAttribute("clip-rule", "evenodd");
+      path.setAttribute("tabindex", "0");
+      path.setAttribute("role", "button");
+      path.setAttribute("aria-label", `${lead}分先 Lucas-Kanade研究予測`);
+      path.dataset.leadMinutes = String(lead);
+      path.dataset.researchObjectId = String(props.research_object_id || "");
+
+      const activate = () => path.classList.add("is-active");
+      const deactivate = () => path.classList.remove("is-active");
+      path.addEventListener("pointerenter", activate);
+      path.addEventListener("pointerleave", deactivate);
+      path.addEventListener("focus", activate);
+      path.addEventListener("blur", deactivate);
+      path.addEventListener("click", (event) => {
+        event.stopPropagation();
+        for (const other of state.fieldMotionGroup.querySelectorAll(".field-motion-envelope.is-selected")) {
+          other.classList.remove("is-selected");
+        }
+        path.classList.add("is-selected");
+        if (typeof state.onFieldMotionSelect === "function") state.onFieldMotionSelect(feature);
+      });
+
+      fragment.appendChild(path);
+      count += 1;
+    }
+
+    state.fieldMotionGroup.appendChild(fragment);
+    state.fieldMotionGroup.style.display = state.fieldMotionVisible ? "block" : "none";
+    return count;
+  }
+
+  function setFieldMotionVisible(visible) {
+    state.fieldMotionVisible = Boolean(visible);
+    if (state.fieldMotionGroup) {
+      state.fieldMotionGroup.style.display = state.fieldMotionVisible ? "block" : "none";
+    }
+  }
+
+  function selectFieldMotionObject(objectId, leadMinutes = 15) {
+    if (!state.fieldMotionGroup) return false;
+    const wantedId = String(objectId || "");
+    const wantedLead = String(Number(leadMinutes));
+    let selected = null;
+
+    for (const path of state.fieldMotionGroup.querySelectorAll(".field-motion-envelope")) {
+      path.classList.remove("is-selected");
+      if (path.dataset.researchObjectId === wantedId
+          && path.dataset.leadMinutes === wantedLead) {
+        selected = path;
+      }
+    }
+
+    if (!selected) return false;
+    selected.classList.add("is-selected");
+    return true;
+  }
+
   function selectResearchObject(objectId, leadMinutes = 15) {
     if (!state.researchGroup) return false;
     const wantedId = String(objectId || "");
@@ -507,6 +588,9 @@
     state.onResearchSelect = typeof options.onResearchSelect === "function"
       ? options.onResearchSelect
       : null;
+    state.onFieldMotionSelect = typeof options.onFieldMotionSelect === "function"
+      ? options.onFieldMotionSelect
+      : null;
 
     const viewport = document.createElementNS(SVG_NS, "g");
     viewport.setAttribute("class", "map-viewport");
@@ -530,6 +614,10 @@
     researchGroup.setAttribute("class", "research-envelope-layer");
     viewport.appendChild(researchGroup);
 
+    const fieldMotionGroup = document.createElementNS(SVG_NS, "g");
+    fieldMotionGroup.setAttribute("class", "field-motion-envelope-layer");
+    viewport.appendChild(fieldMotionGroup);
+
     const cityLayer = document.createElementNS(SVG_NS, "g");
     cityLayer.setAttribute("class", "reference-city-layer");
     cityLayer.setAttribute("pointer-events", "none");
@@ -540,6 +628,7 @@
     state.viewport = viewport;
     state.rainImage = rainImage;
     state.researchGroup = researchGroup;
+    state.fieldMotionGroup = fieldMotionGroup;
     state.boundaryGroup = boundaryGroup;
     state.cityLayer = cityLayer;
     const rendered = replaceGeometry(featureCollection);
@@ -597,6 +686,9 @@
     setResearchEnvelopes,
     setResearchVisible,
     selectResearchObject,
+    setFieldMotionEnvelopes,
+    setFieldMotionVisible,
+    selectFieldMotionObject,
     setBoundariesVisible,
     setCityLabelsVisible,
   });
