@@ -1,17 +1,17 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-B-slot-addressable-replay-proof",
-  "generated_at_utc": "2026-09-21T08:24:54Z",
+  "generated_at_utc": "2026-09-21T12:49:44Z",
   "state": "PASS_SLOT_REPLAY",
-  "collection_slot_utc": "2026-09-21T07:15:00Z",
-  "prospective_as_of_utc": "2026-09-21T07:30:00Z",
+  "collection_slot_utc": "2026-09-21T11:45:00Z",
+  "prospective_as_of_utc": "2026-09-21T12:00:00Z",
   "archive_role_candidate": "PROSPECTIVE_RECOVERED",
-  "recovery_age_minutes": 69.90188173333333,
+  "recovery_age_minutes": 64.74255671666667,
   "requested_exact_frame_times": [
-    "2026-09-21T07:00:00Z",
-    "2026-09-21T07:05:00Z",
-    "2026-09-21T07:10:00Z",
-    "2026-09-21T07:15:00Z"
+    "2026-09-21T11:30:00Z",
+    "2026-09-21T11:35:00Z",
+    "2026-09-21T11:40:00Z",
+    "2026-09-21T11:45:00Z"
   ],
   "exact_frame_sequence_match": true,
   "morphology": {
@@ -19,19 +19,19 @@
     "scientific_morphology_proven": true,
     "sample_status": "OBJECTS_EXTRACTED",
     "frame": {
-      "basetime": "20260921071500",
-      "validtime": "20260921071500",
-      "valid_time_utc": "2026-09-21T07:15:00Z"
+      "basetime": "20260921114500",
+      "validtime": "20260921114500",
+      "valid_time_utc": "2026-09-21T11:45:00Z"
     },
     "national_discovery": {
       "tiles_attempted": 49,
       "tiles_ok": 49,
-      "tiles_with_precipitation": 13
+      "tiles_with_precipitation": 11
     },
     "object_counts": {
-      "30": 57,
-      "50": 22,
-      "80": 12
+      "30": 125,
+      "50": 35,
+      "80": 4
     },
     "gates": {
       "target_frame_exact": true,
@@ -46,15 +46,15 @@
     "scientific_tracking_proven": true,
     "sample_status": "TRACKABLE_COMPONENT_PRESENT",
     "frame_valid_times": [
-      "2026-09-21T07:00:00Z",
-      "2026-09-21T07:05:00Z",
-      "2026-09-21T07:10:00Z",
-      "2026-09-21T07:15:00Z"
+      "2026-09-21T11:30:00Z",
+      "2026-09-21T11:35:00Z",
+      "2026-09-21T11:40:00Z",
+      "2026-09-21T11:45:00Z"
     ],
     "primary_match_counts": {
-      "30": 48,
-      "50": 21,
-      "80": 6
+      "30": 75,
+      "50": 20,
+      "80": 3
     },
     "gates": {
       "exact_four_frame_sequence": true,
@@ -64,23 +64,31 @@
     }
   },
   "gfs_as_of_guard": {
-    "prospective_as_of_utc": "2026-09-21T07:30:00Z",
+    "prospective_as_of_utc": "2026-09-21T12:00:00Z",
     "minimum_cycle_age_hours_at_slot": 4,
-    "candidate_count": 2,
+    "candidate_count": 3,
     "all_candidate_cycles_asof_safe": true,
     "candidates": [
       {
+        "cycle_utc": "2026-09-21T06:00:00Z",
+        "forecast_hour": 6,
+        "forecast_valid_time_utc": "2026-09-21T12:00:00Z",
+        "valid_time_error_minutes": 15.0,
+        "conservative_cycle_age_guard_pass": true,
+        "prospective_as_of_guard_pass": true
+      },
+      {
         "cycle_utc": "2026-09-21T00:00:00Z",
-        "forecast_hour": 7,
-        "forecast_valid_time_utc": "2026-09-21T07:00:00Z",
+        "forecast_hour": 12,
+        "forecast_valid_time_utc": "2026-09-21T12:00:00Z",
         "valid_time_error_minutes": 15.0,
         "conservative_cycle_age_guard_pass": true,
         "prospective_as_of_guard_pass": true
       },
       {
         "cycle_utc": "2026-09-20T18:00:00Z",
-        "forecast_hour": 13,
-        "forecast_valid_time_utc": "2026-09-21T07:00:00Z",
+        "forecast_hour": 18,
+        "forecast_valid_time_utc": "2026-09-21T12:00:00Z",
         "valid_time_error_minutes": 15.0,
         "conservative_cycle_age_guard_pass": true,
         "prospective_as_of_guard_pass": true
