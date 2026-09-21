@@ -1,4 +1,4 @@
-"""F4-9B frozen field-motion mechanics contract tests."""
+"""F4-9B frozen field-motion specification and mechanics tests."""
 from __future__ import annotations
 
 import json
@@ -10,14 +10,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "src"))
 
-from run_f4_9b_field_motion import (
-    _latest_definite_ge30,
-    _motion_input,
-    _validate_spec,
-    run_model,
-)
-
+from run_f4_9b_field_motion import _validate_spec
 
 SPEC_PATH = ROOT / "config" / "f4_9b_field_motion_spec.json"
 
@@ -27,115 +22,124 @@ def _spec() -> dict:
 
 
 def _stack() -> np.ndarray:
-    data = np.full((4, 8, 8), -1, dtype=np.int8)
-    data[0, 1:3, 1:3] = 2
-    data[1, 2:4, 2:4] = 3
-    data[2, 3:5, 3:5] = 5
-    data[3, 4:6, 4:6] = 6
+    data = np.full((4, 16, 16), -1, dtype=np.int8)
+    data[0, 3:8, 2:7] = 5
+    data[1, 3:8, 4:9] = 5
+    data[2, 3:8, 6:11] = 6
+    data[3, 3:8, 8:13] = 6
     return data
 
 
-def test_frozen_spec_has_required_terminal_locks():
+def test_frozen_spec_has_terminal_locks_and_no_model_branching():
     spec = _spec()
     _validate_spec(spec)
 
+    assert spec["environment"]["implementation"] == "LPZ_LOCAL_PYSTEPS_ALIGNED"
+    assert spec["environment"]["reference_pysteps_version"] == "1.21.5"
+    assert spec["environment"]["production_pyproject_modified"] is False
     assert spec["motion_estimation"]["alternate_motion_methods_allowed"] is False
     assert spec["extrapolation"]["timesteps"] == [3, 6]
     assert spec["extrapolation"]["lead_minutes"] == [15, 30]
-    assert spec["extrapolation"]["interp_order"] == 0
     assert spec["baseline"]["name"] == "EULERIAN_PERSISTENCE"
     assert spec["prohibited"]["parameter_tuning_during_f4_9c"] is True
+    assert spec["prohibited"]["alternate_optical_flow_model"] is True
     assert spec["prohibited"]["create_f4_10_or_later"] is True
     assert spec["go_no_go"]["otherwise"] == "NO_GO_AND_CLOSE_F4"
 
 
-def test_motion_input_preserves_class_coordinates_and_masks_background():
-    stack = _stack()
-    motion = _motion_input(stack)
-
-    assert motion.shape == stack.shape
-    assert motion.dtype == np.float32
-    assert np.array_equal(motion.mask, stack < 0)
-    assert float(motion[3, 4, 4]) == 6.0
-
-
-def test_latest_event_mask_is_definite_ge30_only():
-    stack = _stack()
-    stack[-1, 0, 0] = 4
-    stack[-1, 0, 1] = 5
-    stack[-1, 0, 2] = 7
-
-    mask = _latest_definite_ge30(stack)
-    assert mask.dtype == np.float32
-    assert mask[0, 0] == 0.0
-    assert mask[0, 1] == 1.0
-    assert mask[0, 2] == 1.0
-    assert mask[7, 7] == 0.0
-
-
-def test_run_model_uses_frozen_parameters_and_outputs_two_leads():
-    stack = _stack()
-    calls = {}
-
-    def fake_lk(input_images, **kwargs):
-        calls["motion_shape"] = input_images.shape
-        calls["motion_mask_count"] = int(np.count_nonzero(input_images.mask))
-        calls["lk_kwargs"] = kwargs
-        return np.zeros((2, 8, 8), dtype=np.float32)
-
-    def fake_extrapolate(precip, velocity, timesteps, **kwargs):
-        calls["precip"] = precip.copy()
-        calls["velocity"] = velocity.copy()
-        calls["timesteps"] = list(timesteps)
-        calls["extrap_kwargs"] = kwargs
-        return np.stack([precip, precip], axis=0).astype(np.float32)
-
-    result = run_model(
-        stack,
-        _spec(),
-        dense_lucaskanade=fake_lk,
-        semilagrangian_extrapolate=fake_extrapolate,
-    )
-
-    assert calls["motion_shape"] == (4, 8, 8)
-    assert calls["lk_kwargs"] == {
-        "lk_kwargs": None,
-        "fd_method": "shitomasi",
-        "fd_kwargs": None,
-        "interp_method": "idwinterp2d",
-        "interp_kwargs": None,
-        "dense": True,
-        "nr_std_outlier": 3,
-        "k_outlier": 30,
-        "size_opening": 3,
-        "decl_scale": 20,
-        "verbose": False,
-    }
-    assert calls["timesteps"] == [3, 6]
-    assert calls["extrap_kwargs"] == {
-        "outval": 0.0,
-        "allow_nonfinite_values": False,
-        "vel_timestep": 1.0,
-        "n_iter": 1,
-        "interp_order": 0,
-        "return_displacement": False,
-    }
-    assert result["velocity"].shape == (2, 8, 8)
-    assert result["forecast_ge30"].shape == (2, 8, 8)
-    assert result["persistence_ge30"].shape == (2, 8, 8)
-    assert result["lead_minutes"].tolist() == [15, 30]
-    assert np.array_equal(result["forecast_ge30"], result["persistence_ge30"])
-
-
-def test_spec_rejects_posthoc_method_change():
+def test_motion_signal_encoding_has_no_physical_rainfall_claim():
     spec = _spec()
-    spec["motion_estimation"]["parameters"]["fd_method"] = "blob"
+    motion_input = spec["input_contract"]["motion_input"]
+    assert motion_input["physical_rainfall_interpretation"] is False
+    assert motion_input["continuous_mmph_reconstruction"] is False
+    assert motion_input["mask_rule"] == "none"
+    assert "class_index 0..7 -> 1..8" in motion_input["encoding"]
+
+
+def test_spec_rejects_posthoc_lk_parameter_change():
+    spec = _spec()
+    spec["motion_estimation"]["parameters"]["feature_detection"]["quality_level"] = 0.02
     with pytest.raises(ValueError, match="Lucas-Kanade parameter contract changed"):
         _validate_spec(spec)
 
 
-def test_bad_lead_contract_is_rejected():
+def test_spec_rejects_posthoc_extrapolation_change():
     spec = _spec()
-    spec["extrapolation"]["timesteps"] = [1, 2]
-    with pytest.raises(ValueError, match="lead-time contract changed"):
+    spec["extrapolation"]["timesteps"] = [2, 6]
+    with pytest.raises(ValueError, match="extrapolation contract changed"):
         _validate_spec(spec)
+
+
+def test_spec_rejects_runtime_version_change():
+    spec = _spec()
+    spec["environment"]["scipy_version"] = "999"
+    with pytest.raises(ValueError, match="scipy version contract changed"):
+        _validate_spec(spec)
+
+
+def test_optional_mechanics_encoding_and_semilagrangian():
+    pytest.importorskip("cv2")
+    pytest.importorskip("scipy")
+    from lpz_risk.f4_field_motion import (
+        latest_definite_ge30,
+        motion_signal_stack,
+        semilagrangian_nearest,
+    )
+
+    stack = _stack()
+    signal = motion_signal_stack(stack)
+    assert signal.dtype == np.float32
+    assert np.count_nonzero(np.ma.getmaskarray(signal)) == 0
+    assert float(signal[0, 0, 0]) == 0.0
+    assert float(signal[0, 3, 2]) == 6.0
+
+    event = latest_definite_ge30(stack)
+    assert event.dtype == np.float32
+    assert event[3, 9] == 1.0
+    assert event[0, 0] == 0.0
+
+    field = np.zeros((32, 32), dtype=np.float32)
+    field[15, 10] = 1.0
+    velocity = np.zeros((2, 32, 32), dtype=np.float32)
+    velocity[0, :, :] = 1.0
+    forecast = semilagrangian_nearest(
+        field,
+        velocity,
+        [3.0, 6.0],
+        vel_timestep=1.0,
+        outval=0.0,
+        n_iter=1,
+        velocity_interp_order=1,
+        field_interp_order=0,
+    )
+    assert forecast.shape == (2, 32, 32)
+    assert forecast[0, 15, 13] == pytest.approx(1.0)
+    assert forecast[1, 15, 16] == pytest.approx(1.0)
+
+
+def test_optional_lucas_kanade_detects_positive_x_translation():
+    pytest.importorskip("cv2")
+    pytest.importorskip("scipy")
+    from lpz_risk.f4_field_motion import (
+        estimate_dense_lucas_kanade,
+        motion_signal_stack,
+    )
+
+    data = np.full((4, 96, 96), -1, dtype=np.int8)
+    origins = [(20, 15), (20, 17), (20, 19), (20, 21)]
+    for frame, (row, col) in enumerate(origins):
+        for dy, dx, cls in (
+            (0, 0, 5),
+            (0, 22, 6),
+            (22, 0, 7),
+            (22, 22, 5),
+        ):
+            data[frame, row + dy : row + dy + 9, col + dx : col + dx + 9] = cls
+
+    velocity = estimate_dense_lucas_kanade(
+        motion_signal_stack(data),
+        _spec()["motion_estimation"]["parameters"],
+    )
+    assert velocity.shape == (2, 96, 96)
+    assert np.all(np.isfinite(velocity))
+    assert float(np.median(velocity[0, 15:70, 10:70])) > 0.5
