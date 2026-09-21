@@ -22,10 +22,14 @@ on:
       - "scripts/build_f3_research_batch.py"
       - "scripts/build_f4_observed_origin_join.py"
       - "scripts/build_f4_observed_origin_batch.py"
+      - "scripts/build_f4_research_motion_baseline.py"
+      - "scripts/build_f4_research_motion_batch.py"
       - "tests/test_lpz_research_candidates.py"
       - "tests/test_f3_research_batch.py"
       - "tests/test_f4_observed_origin_join.py"
       - "tests/test_f4_observed_origin_batch.py"
+      - "tests/test_f4_research_motion_baseline.py"
+      - "tests/test_f4_research_motion_batch.py"
       - "src/lpz_risk/**"
       - "tests/test_o8_1_self_healing_batch.py"
 
@@ -219,6 +223,57 @@ jobs:
               'slots': f4['source_slot_count'],
               'research_objects': f4['research_object_count'],
               'current_origins': f4['current_origin_count'],
+          }, indent=2))
+          PY
+
+      - name: Run F4-1 research point baseline tests
+        run: |
+          python -m pytest -q tests/test_f4_research_motion_baseline.py tests/test_f4_research_motion_batch.py
+
+      - name: Build F4-1 research point motion batch
+        run: |
+          python scripts/build_f4_research_motion_batch.py \
+            --batch-root reports/prospective/o8_1_batch
+
+      - name: Assert F4-1 research-point-only contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('reports/prospective/o8_1_batch')
+          o8 = json.loads((root / 'batch_manifest.json').read_text(encoding='utf-8'))
+          f4 = json.loads((root / 'f4_observed_origins' / 'manifest.json').read_text(encoding='utf-8'))
+          motion = json.loads((root / 'f4_research_motion' / 'manifest.json').read_text(encoding='utf-8'))
+          assert motion['product'] == 'F4_RESEARCH_POINT_MOTION_BATCH'
+          assert motion['source_run_id'] == f4['source_run_id'] == o8['run_id']
+          assert motion['source_slot_count'] == o8['requested_slot_count']
+          assert motion['research_object_count'] == f4['research_object_count']
+          assert motion['risk_engine_allowed'] is False
+          assert motion['official_risk_output'] is False
+          assert motion['lpz_forecast_generated'] is False
+          for row in motion['slot_results']:
+              assert row['risk_engine_allowed'] is False
+              assert row['lpz_forecast_generated'] is False
+              if row['research_status'] != 'RESEARCH_POINT_BASELINE':
+                  continue
+              payload = json.loads((root / row['output_file']).read_text(encoding='utf-8'))
+              assert payload['risk_engine_allowed'] is False
+              assert payload['official_risk_output'] is False
+              assert payload['lpz_forecast_generated'] is False
+              assert payload['projected_object_count'] == row['projected_object_count']
+              for obj in payload['objects']:
+                  assert obj['lpz_classification'] is None
+                  assert obj['forecast_probability'] is None
+                  for p in obj['projections']:
+                      assert p['geometry_type'] == 'POINT_ONLY_NOT_PRECIPITATION_FOOTPRINT'
+                      assert p['lead_from_as_of_minutes'] in (15, 30)
+                      assert p['target_valid_time_utc'] > payload['source_as_of_utc']
+          print('PASS_F4_1_RESEARCH_POINT_ONLY_BATCH')
+          print(json.dumps({
+              'slots': motion['source_slot_count'],
+              'research_objects': motion['research_object_count'],
+              'projected_objects': motion['projected_object_count'],
           }, indent=2))
           PY
 
