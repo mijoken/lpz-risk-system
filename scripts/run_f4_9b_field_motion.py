@@ -25,6 +25,33 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPEC = ROOT / "config" / "f4_9b_field_motion_spec.json"
 
+FROZEN_PYSTEPS_VERSION = "1.21.5"
+FROZEN_OPENCV_HEADLESS_VERSION = "4.14.0.94"
+FROZEN_LK_PARAMETERS = {
+    "lk_kwargs": None,
+    "fd_method": "shitomasi",
+    "fd_kwargs": None,
+    "interp_method": "idwinterp2d",
+    "interp_kwargs": None,
+    "dense": True,
+    "nr_std_outlier": 3,
+    "k_outlier": 30,
+    "size_opening": 3,
+    "decl_scale": 20,
+    "verbose": False,
+}
+FROZEN_EXTRAPOLATION = {
+    "timesteps": [3, 6],
+    "lead_minutes": [15, 30],
+    "vel_timestep": 1,
+    "outval": 0.0,
+    "allow_nonfinite_values": False,
+    "n_iter": 1,
+    "interp_order": 0,
+    "return_displacement": False,
+    "numerical_binary_decode_threshold": 0.5,
+}
+
 
 def _read_json(path: Path) -> dict:
     payload = json.loads(path.read_text(encoding="utf-8"))
@@ -59,19 +86,31 @@ def _validate_spec(spec: dict) -> None:
     if locks.get("specification_frozen") is not True:
         raise ValueError("F4-9B specification is not frozen")
 
+    environment = spec["environment"]
+    if environment.get("pysteps_version") != FROZEN_PYSTEPS_VERSION:
+        raise ValueError("pysteps version contract changed")
+    if (
+        environment.get("opencv_python_headless_version")
+        != FROZEN_OPENCV_HEADLESS_VERSION
+    ):
+        raise ValueError("opencv-python-headless version contract changed")
+    if environment.get("production_pyproject_modified") is not False:
+        raise ValueError("production dependency isolation contract changed")
+
     motion = spec["motion_estimation"]
     if motion["library"] != "pysteps.motion.lucaskanade.dense_lucaskanade":
         raise ValueError("unexpected motion method")
     if motion.get("alternate_motion_methods_allowed") is not False:
         raise ValueError("alternate motion method unexpectedly allowed")
+    if motion.get("parameters") != FROZEN_LK_PARAMETERS:
+        raise ValueError("Lucas-Kanade parameter contract changed")
 
     extrap = spec["extrapolation"]
     if extrap["library"] != "pysteps.extrapolation.semilagrangian.extrapolate":
         raise ValueError("unexpected extrapolation method")
-    if extrap["timesteps"] != [3, 6] or extrap["lead_minutes"] != [15, 30]:
-        raise ValueError("lead-time contract changed")
-    if extrap["interp_order"] != 0:
-        raise ValueError("binary-mask interpolation contract changed")
+    for key, value in FROZEN_EXTRAPOLATION.items():
+        if extrap.get(key) != value:
+            raise ValueError(f"extrapolation contract changed: {key}")
 
     prohibited = spec.get("prohibited") or {}
     if not all(bool(value) for value in prohibited.values()):
@@ -106,8 +145,8 @@ def _validate_archive(manifest: dict, class_index: np.ndarray) -> None:
 
 
 def _runtime_versions(spec: dict) -> dict:
-    expected_pysteps = spec["environment"]["pysteps_version"]
-    expected_opencv = spec["environment"]["opencv_python_headless_version"]
+    expected_pysteps = FROZEN_PYSTEPS_VERSION
+    expected_opencv = FROZEN_OPENCV_HEADLESS_VERSION
     actual_pysteps = importlib.metadata.version("pysteps")
     actual_opencv = importlib.metadata.version("opencv-python-headless")
     if actual_pysteps != expected_pysteps:
