@@ -27,17 +27,17 @@ def test_joint_calibration_gate_counts_wrong_close_competitor():
     rows = [
         {
             "motion_nearest_distance_pixels": 4.0,
-            "motion_true_vs_nearest_competitor_margin_pixels": 4.0,
+            "motion_top1_to_second_margin_pixels": 4.0,
             "motion_top1_matches_primary": True,
         },
         {
             "motion_nearest_distance_pixels": 4.5,
-            "motion_true_vs_nearest_competitor_margin_pixels": 1.0,
+            "motion_top1_to_second_margin_pixels": 1.0,
             "motion_top1_matches_primary": False,
         },
         {
             "motion_nearest_distance_pixels": 7.0,
-            "motion_true_vs_nearest_competitor_margin_pixels": None,
+            "motion_top1_to_second_margin_pixels": None,
             "motion_top1_matches_primary": True,
         },
     ]
