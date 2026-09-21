@@ -92,8 +92,8 @@
     "reference": "pySTEPS 1.21.5 semilagrangian mechanics",
     "field_advected": "latest_definite_ge_30mmph_binary_mask",
     "timesteps": [
-      3,
-      6
+      6,
+      9
     ],
     "lead_minutes": [
       15,
@@ -106,7 +106,13 @@
     "velocity_interp_order": 1,
     "field_interp_order": 0,
     "return_displacement": false,
-    "numerical_binary_decode_threshold": 0.5
+    "numerical_binary_decode_threshold": 0.5,
+    "lead_reference": "prospective_as_of_utc",
+    "source_observation_to_as_of_minutes": 15,
+    "lead_from_latest_observation_minutes": [
+      30,
+      45
+    ]
   },
   "baseline": {
     "name": "EULERIAN_PERSISTENCE",
@@ -130,7 +136,9 @@
       "minimum_distinct_collection_slots_or_events": 3,
       "maximum_calendar_days": 14,
       "stop_when": "target_conditions_met_or_14_days_whichever_first"
-    }
+    },
+    "lead_reference": "prospective_as_of_utc",
+    "required_source_observation_lag_minutes": 15
   },
   "go_no_go": {
     "go_requires_all": [
