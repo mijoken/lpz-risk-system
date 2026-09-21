@@ -135,3 +135,51 @@ def test_future_at_or_before_asof_rejected():
     a = _bundle(0, "L-A")
     with pytest.raises(ValueError, match="strictly after"):
         trace_identity(a, "L-A", _stamp(20), [])
+
+
+def test_break_diagnostic_ranks_motion_predicted_candidate_without_changing_identity():
+    a, b = _bundle(0, "L-A"), _bundle(15, "L-B")
+
+    # Source motion before the break: col 20 -> 30, so the one-step
+    # constant-velocity prediction is col 40.
+    a_prev = a["components"]["radar_tracking"]["tracking"]["30"]["frames"][-2]["components"][0]
+    a_curr = a["components"]["radar_tracking"]["tracking"]["30"]["frames"][-1]["components"][0]
+    b_curr = b["components"]["radar_tracking"]["tracking"]["30"]["frames"][0]["components"][0]
+    for component, col in ((a_prev, 20.0), (a_curr, 30.0), (b_curr, 30.0)):
+        component["centroid_pixel"]["col"] = col
+        component["centroid"]["lon"] = 139.0 + col * 0.001
+
+    next_frame = b["components"]["radar_tracking"]["tracking"]["30"]["frames"][1]
+    true_motion = next_frame["components"][0]
+    true_motion["centroid_pixel"]["col"] = 40.0
+    true_motion["centroid"]["lon"] = 139.04
+    distractor = copy.deepcopy(true_motion)
+    distractor["local_id"] = 999
+    distractor["lineage_id"] = "DISTRACTOR"
+    distractor["centroid_pixel"]["col"] = 31.0
+    distractor["centroid"]["lon"] = 139.031
+    distractor["bbox_pixel"] = [30, 19, 32, 21]
+    next_frame["components"].append(distractor)
+
+    transition = b["components"]["radar_tracking"]["tracking"]["30"]["transitions"][0]
+    transition["primary_matches"] = []
+
+    result = trace_identity(a, "L-A", _stamp(30), [b])
+    assert result["status"] == "NO_CONTINUOUS_PRIMARY_MATCH"
+    assert result["identity_verified"] is False
+
+    diagnostic = result["break_diagnostic"]
+    # Persistence-nearest is the distractor around col 31.
+    assert diagnostic["nearest_next_frame_component"]["centroid_displacement_pixels"] == pytest.approx(1.0)
+
+    motion = diagnostic["motion_candidate_diagnostic"]
+    assert motion is not None
+    assert motion["motion_reference_valid_time_utc"] == _stamp(10)
+    assert motion["predicted_next_centroid_pixel"]["col"] == pytest.approx(40.0)
+    assert motion["nearest_candidate"]["local_id"] == 21
+    assert motion["nearest_candidate"]["motion_error_pixels"] == pytest.approx(0.0)
+    assert motion["second_nearest_motion_error_pixels"] == pytest.approx(9.0)
+    assert motion["nearest_to_second_margin_pixels"] == pytest.approx(9.0)
+    assert motion["within_motion_error_threshold_counts"]["8"] == 1
+    assert motion["within_motion_error_threshold_counts"]["10"] == 2
+    assert motion["research_candidate_only"] is True
