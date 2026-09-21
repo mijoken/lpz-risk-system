@@ -150,6 +150,7 @@ def test_motion_prediction_recovers_primary_when_persistence_nearest_is_wrong(tm
     assert row["persistence_top1_matches_primary"] is False
     assert row["actual_displacement_pixels"] == pytest.approx(4.0)
     assert row["motion_true_vs_nearest_competitor_margin_pixels"] == pytest.approx(4.0)
+    assert row["motion_top1_to_second_margin_pixels"] == pytest.approx(4.0)
 
     clean = result["clean_known_matches"]
     assert clean["motion_top1_accuracy"] == pytest.approx(1.0)
