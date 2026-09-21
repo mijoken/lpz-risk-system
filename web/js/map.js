@@ -503,13 +503,13 @@
     rainImage.style.display = "none";
     viewport.appendChild(rainImage);
 
-    const researchGroup = document.createElementNS(SVG_NS, "g");
-    researchGroup.setAttribute("class", "research-envelope-layer");
-    viewport.appendChild(researchGroup);
-
     const boundaryGroup = document.createElementNS(SVG_NS, "g");
     boundaryGroup.setAttribute("class", "boundary-layer");
     viewport.appendChild(boundaryGroup);
+
+    const researchGroup = document.createElementNS(SVG_NS, "g");
+    researchGroup.setAttribute("class", "research-envelope-layer");
+    viewport.appendChild(researchGroup);
 
     const cityLayer = document.createElementNS(SVG_NS, "g");
     cityLayer.setAttribute("class", "reference-city-layer");
