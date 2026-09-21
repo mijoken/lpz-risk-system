@@ -31,6 +31,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from lpz_risk.radar_geographic_envelope import component_geographic_envelope  # noqa: E402
 from lpz_risk.radar_morphology import ALLOWED_EXACT_THRESHOLDS_MMPH  # noqa: E402
 from lpz_risk.radar_science import (  # noqa: E402
     decode_jma_precipitation_png,
@@ -219,6 +220,13 @@ def component_summary(component, *, origin_tile_x: int, origin_tile_y: int, mosa
         pixel_y,
     )
     pixel_area = web_mercator_pixel_area_km2(lat, TRACKING_ZOOM)
+    geographic_envelope = component_geographic_envelope(
+        component,
+        mosaic_width=mosaic_width,
+        zoom=TRACKING_ZOOM,
+        origin_tile_x=origin_tile_x,
+        origin_tile_y=origin_tile_y,
+    )
     return {
         "local_id": component.local_id,
         "pixel_count": component.pixel_count,
@@ -227,6 +235,7 @@ def component_summary(component, *, origin_tile_x: int, origin_tile_y: int, mosa
         "centroid": {"lon": lon, "lat": lat},
         "bbox_pixel": list(component.bbox_pixel),
         "boundary_truncated": component.boundary_truncated,
+        "geographic_envelope": geographic_envelope,
     }
 
 
