@@ -58,7 +58,7 @@ def _nearest(
     components: list[dict],
     target_row: float,
     target_col: float,
-) -> tuple[int, float, bool]:
+) -> tuple[int, float, bool, float | None]:
     ranked = sorted(
         (
             (
@@ -77,8 +77,12 @@ def _nearest(
     if not ranked:
         raise ValueError("cannot rank empty current component set")
     best_distance, best_id = ranked[0]
-    tied = len(ranked) > 1 and abs(ranked[1][0] - best_distance) <= 1e-12
-    return best_id, best_distance, tied
+    second_distance = ranked[1][0] if len(ranked) > 1 else None
+    tied = second_distance is not None and abs(second_distance - best_distance) <= 1e-12
+    top1_to_second_margin = (
+        second_distance - best_distance if second_distance is not None else None
+    )
+    return best_id, best_distance, tied, top1_to_second_margin
 
 
 def _percentile(values: list[float], fraction: float) -> float | None:
@@ -212,12 +216,18 @@ def _iter_bundle_samples(bundle: dict, run_id: str, source_file: str):
             predicted_row = previous_row + velocity_row
             predicted_col = previous_col + velocity_col
 
-            motion_id, motion_nearest_distance, motion_tied = _nearest(
-                current_list, predicted_row, predicted_col
-            )
-            persistence_id, persistence_nearest_distance, persistence_tied = _nearest(
-                current_list, previous_row, previous_col
-            )
+            (
+                motion_id,
+                motion_nearest_distance,
+                motion_tied,
+                motion_top1_to_second_margin,
+            ) = _nearest(current_list, predicted_row, predicted_col)
+            (
+                persistence_id,
+                persistence_nearest_distance,
+                persistence_tied,
+                persistence_top1_to_second_margin,
+            ) = _nearest(current_list, previous_row, previous_col)
             true_motion_distance = _distance(
                 predicted_row, predicted_col, actual_row, actual_col
             )
@@ -275,10 +285,12 @@ def _iter_bundle_samples(bundle: dict, run_id: str, source_file: str):
                 "motion_top1_current_id": motion_id,
                 "motion_top1_matches_primary": motion_id == current_id and not motion_tied,
                 "motion_top1_tied": motion_tied,
+                "motion_top1_to_second_margin_pixels": motion_top1_to_second_margin,
                 "persistence_nearest_distance_pixels": persistence_nearest_distance,
                 "persistence_top1_current_id": persistence_id,
                 "persistence_top1_matches_primary": persistence_id == current_id and not persistence_tied,
                 "persistence_top1_tied": persistence_tied,
+                "persistence_top1_to_second_margin_pixels": persistence_top1_to_second_margin,
                 "motion_true_vs_nearest_competitor_margin_pixels": margin,
                 "current_to_previous_pixel_count_ratio": size_ratio,
             }
@@ -336,6 +348,7 @@ def _sample_summary(samples: list[dict]) -> dict:
             "motion_true_distance_pixels": _summary([]),
             "persistence_true_distance_pixels": _summary([]),
             "motion_competitor_margin_pixels": _summary([]),
+            "motion_top1_to_second_margin_pixels": _summary([]),
             "pixel_count_ratio": _summary([]),
             "motion_distance_gate_proxy": {},
             "persistence_distance_gate_proxy": {},
@@ -360,6 +373,11 @@ def _sample_summary(samples: list[dict]) -> dict:
         for row in samples
         if row["motion_true_vs_nearest_competitor_margin_pixels"] is not None
     ]
+    observable_margins = [
+        float(row["motion_top1_to_second_margin_pixels"])
+        for row in samples
+        if row["motion_top1_to_second_margin_pixels"] is not None
+    ]
     ratios = [
         float(row["current_to_previous_pixel_count_ratio"])
         for row in samples
@@ -381,6 +399,7 @@ def _sample_summary(samples: list[dict]) -> dict:
             float(row["actual_displacement_pixels"]) for row in samples
         ]),
         "motion_competitor_margin_pixels": _summary(margins),
+        "motion_top1_to_second_margin_pixels": _summary(observable_margins),
         "pixel_count_ratio": _summary(ratios),
         "motion_distance_gate_proxy": _gate_table(
             samples,
