@@ -24,12 +24,17 @@ on:
       - "scripts/build_f4_observed_origin_batch.py"
       - "scripts/build_f4_research_motion_baseline.py"
       - "scripts/build_f4_research_motion_batch.py"
+      - "scripts/build_f4_geographic_envelope.py"
+      - "scripts/build_f4_geographic_envelope_batch.py"
       - "tests/test_lpz_research_candidates.py"
       - "tests/test_f3_research_batch.py"
       - "tests/test_f4_observed_origin_join.py"
       - "tests/test_f4_observed_origin_batch.py"
       - "tests/test_f4_research_motion_baseline.py"
       - "tests/test_f4_research_motion_batch.py"
+      - "tests/test_radar_geographic_envelope.py"
+      - "tests/test_f4_geographic_envelope.py"
+      - "tests/test_f4_geographic_envelope_batch.py"
       - "scripts/verify_f4_research_point_proximity.py"
       - "tests/test_f4_research_point_proximity.py"
       - "scripts/verify_f4_cross_run_point_proximity.py"
@@ -298,6 +303,98 @@ jobs:
               'slots': motion['source_slot_count'],
               'research_objects': motion['research_object_count'],
               'projected_objects': motion['projected_object_count'],
+          }, indent=2))
+          PY
+
+      - name: Run F4-4 geographic envelope tests
+        run: |
+          python -m pytest -q \
+            tests/test_radar_geographic_envelope.py \
+            tests/test_f4_geographic_envelope.py \
+            tests/test_f4_geographic_envelope_batch.py
+
+      - name: Build F4-4 research geographic envelope batch
+        run: |
+          python scripts/build_f4_geographic_envelope_batch.py \
+            --batch-root reports/prospective/o8_1_batch
+
+      - name: Assert F4-4 research-envelope-only contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('reports/prospective/o8_1_batch')
+          o8 = json.loads((root / 'batch_manifest.json').read_text(encoding='utf-8'))
+          f4 = json.loads((root / 'f4_observed_origins' / 'manifest.json').read_text(encoding='utf-8'))
+          motion = json.loads((root / 'f4_research_motion' / 'manifest.json').read_text(encoding='utf-8'))
+          geo = json.loads((root / 'f4_geographic_envelopes' / 'manifest.json').read_text(encoding='utf-8'))
+
+          assert geo['product'] == 'F4_RESEARCH_GEOGRAPHIC_ENVELOPE_BATCH'
+          assert geo['source_run_id'] == motion['source_run_id'] == f4['source_run_id'] == o8['run_id']
+          assert geo['source_slot_count'] == o8['requested_slot_count']
+          assert geo['research_object_count'] == f4['research_object_count']
+          assert geo['risk_engine_allowed'] is False
+          assert geo['official_risk_output'] is False
+          assert geo['lpz_forecast_generated'] is False
+          assert geo['probability_generated'] is False
+          assert geo['severity_generated'] is False
+
+          for row in geo['slot_results']:
+              assert row['risk_engine_allowed'] is False
+              assert row['official_risk_output'] is False
+              assert row['lpz_forecast_generated'] is False
+              assert row['probability_generated'] is False
+              assert row['severity_generated'] is False
+
+              if row['research_status'] == 'RESEARCH_GEOGRAPHIC_ENVELOPE':
+                  payload = json.loads((root / row['output_file']).read_text(encoding='utf-8'))
+                  assert payload['product'] == 'F4_RESEARCH_GEOGRAPHIC_ENVELOPES'
+                  assert payload['risk_engine_allowed'] is False
+                  assert payload['official_risk_output'] is False
+                  assert payload['lpz_forecast_generated'] is False
+                  assert payload['probability_generated'] is False
+                  assert payload['severity_generated'] is False
+                  assert payload['feature_count'] == row['feature_count']
+                  assert payload['source_envelope_count'] == row['source_envelope_count']
+                  assert payload['projected_envelope_count'] == row['projected_envelope_count']
+                  assert payload['missing_envelope_count'] == row['missing_envelope_count']
+
+                  for feature in payload['features']:
+                      props = feature['properties']
+                      assert feature['geometry']['type'] == 'Polygon'
+                      assert props['research_only'] is True
+                      assert props['risk_engine_allowed'] is False
+                      assert props['lpz_forecast_generated'] is False
+                      assert props['probability'] is None
+                      assert props['severity'] is None
+                      assert props['intensity'] is None
+                      assert props['exact_precipitation_contour'] is False
+                      assert props['envelope_method'] == 'CONVEX_HULL_OF_COMPONENT_PIXEL_CELLS'
+                      assert props['kind'] in {
+                          'OBSERVED_THRESHOLD_COMPONENT_ENVELOPE',
+                          'PROJECTED_RESEARCH_GEOGRAPHIC_ENVELOPE',
+                      }
+                      if props['kind'] == 'PROJECTED_RESEARCH_GEOGRAPHIC_ENVELOPE':
+                          assert props['lead_from_as_of_minutes'] in (15, 30)
+              elif row['research_status'] == 'NO_DOWNSTREAM_RESEARCH_OBJECT':
+                  assert row['output_file'] is None
+                  assert row['source_envelope_count'] == 0
+                  assert row['projected_envelope_count'] == 0
+                  assert row['feature_count'] == 0
+              elif row['research_status'] == 'SOURCE_INCOMPLETE':
+                  assert row['output_file'] is None
+              else:
+                  raise AssertionError(row)
+
+          print('PASS_F4_4_RESEARCH_GEOGRAPHIC_ENVELOPE_BATCH')
+          print(json.dumps({
+              'slots': geo['source_slot_count'],
+              'research_objects': geo['research_object_count'],
+              'observed_envelopes': geo['source_envelope_count'],
+              'projected_envelopes': geo['projected_envelope_count'],
+              'missing_envelopes': geo['missing_envelope_count'],
+              'features': geo['feature_count'],
           }, indent=2))
           PY
 
