@@ -20,8 +20,12 @@ on:
       - "scripts/build_parent_precursor_report.py"
       - "scripts/build_lpz_research_candidates.py"
       - "scripts/build_f3_research_batch.py"
+      - "scripts/build_f4_observed_origin_join.py"
+      - "scripts/build_f4_observed_origin_batch.py"
       - "tests/test_lpz_research_candidates.py"
       - "tests/test_f3_research_batch.py"
+      - "tests/test_f4_observed_origin_join.py"
+      - "tests/test_f4_observed_origin_batch.py"
       - "src/lpz_risk/**"
       - "tests/test_o8_1_self_healing_batch.py"
 
@@ -168,6 +172,54 @@ jobs:
           assert len(result['slot_results']) == result['source_slot_count']
 
           print('PASS_F3_RESEARCH_ONLY_BATCH')
+          PY
+
+      - name: Run F4 observed-origin join tests
+        run: |
+          python -m pytest -q tests/test_f4_observed_origin_join.py tests/test_f4_observed_origin_batch.py
+
+      - name: Build F4 observed-origin research batch
+        run: |
+          python scripts/build_f4_observed_origin_batch.py \
+            --batch-root reports/prospective/o8_1_batch
+
+      - name: Assert F4 observed-input-only contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('reports/prospective/o8_1_batch')
+          source = json.loads((root / 'batch_manifest.json').read_text(encoding='utf-8'))
+          f3 = json.loads((root / 'f3_research' / 'manifest.json').read_text(encoding='utf-8'))
+          f4 = json.loads((root / 'f4_observed_origins' / 'manifest.json').read_text(encoding='utf-8'))
+
+          assert f4['product'] == 'F4_OBSERVED_ORIGIN_BATCH'
+          assert f4['source_run_id'] == source['run_id'] == f3['source_run_id']
+          assert f4['source_slot_count'] == source['requested_slot_count']
+          assert f4['research_object_count'] == f3['research_object_count']
+          assert f4['risk_engine_allowed'] is False
+          assert f4['official_risk_output'] is False
+          assert f4['forecast_generated'] is False
+          assert len(f4['slot_results']) == f4['source_slot_count']
+          for row in f4['slot_results']:
+              assert row['risk_engine_allowed'] is False
+              assert row['forecast_generated'] is False
+              if row['join_status'] == 'OBSERVED_INPUT_JOINED':
+                  obj = json.loads((root / row['output_file']).read_text(encoding='utf-8'))
+                  assert obj['forecast_generated'] is False
+                  assert obj['risk_engine_allowed'] is False
+                  assert obj['current_origin_count'] <= obj['research_object_count']
+                  assert all(o['forecast_probability'] is None
+                             and o['lpz_classification'] is None
+                             and o['forecast_valid_time_utc'] is None
+                             for o in obj['objects'])
+          print('PASS_F4_OBSERVED_INPUT_ONLY_BATCH')
+          print(json.dumps({
+              'slots': f4['source_slot_count'],
+              'research_objects': f4['research_object_count'],
+              'current_origins': f4['current_origin_count'],
+          }, indent=2))
           PY
 
       - name: Write O8.1-C workflow summary
