@@ -45,7 +45,8 @@ def test_disjoint_envelopes_have_zero_overlap():
         _box(141.0, 35.0, 142.0, 36.0),
     )
     assert result["iou"] == pytest.approx(0.0)
-    assert result["intersection_area_km2"] == pytest.approx(0.0)
+    assert result["intersection_planar_area_km2"] == pytest.approx(0.0)
+    assert result["projection"] == "WEB_MERCATOR_TRACKING_PLANE"
 
 
 def test_ring_orientation_does_not_change_result():
