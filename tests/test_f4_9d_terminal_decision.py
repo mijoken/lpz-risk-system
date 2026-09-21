@@ -144,3 +144,24 @@ def test_invariant_violation_forces_no_go(tmp_path):
     result = evaluate(root)
     assert result["decision"] == "NO_GO"
     assert result["go_checks"]["scientific_invariants_ok"] is False
+
+
+def test_deadline_with_zero_verified_rows_is_no_go_and_closes(tmp_path):
+    root = tmp_path / "cohort"
+    _write(
+        root / "cohort_status.json",
+        {
+            "state": "READY_FOR_F4_9D_DEADLINE",
+            "verified_comparison_count": 0,
+            "verified_distinct_slot_count": 0,
+        },
+    )
+
+    result = evaluate(root)
+    assert result["decision"] == "NO_GO"
+    assert result["f4_closed"] is True
+    assert result["lead_summaries"]["15"]["comparison_count"] == 0
+    assert result["lead_summaries"]["30"]["comparison_count"] == 0
+    assert result["go_checks"]["comparison_rows_available_15m"] is False
+    assert result["go_checks"]["comparison_rows_available_30m"] is False
+    assert result["next_step"] == "KEEP_PERSISTENCE_BASELINE_AND_END_F4"
