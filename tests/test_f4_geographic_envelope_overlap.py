@@ -363,11 +363,28 @@ def test_unresolved_identity_is_unknown_not_zero_score(tmp_path):
     assert row["persistence_envelope"] is None
     assert result["counts"]["identity_unresolved_count"] == 1
     assert result["counts"]["comparable_envelope_count"] == 0
-    assert result["identity_diagnostics"] == {
-        "unresolved_count": 1,
-        "identity_status_counts": {"NO_CONTINUOUS_PRIMARY_MATCH": 1},
-        "break_association_category_counts": {"NO_RECORDED_OVERLAP_CANDIDATE": 1},
+    diagnostics = result["identity_diagnostics"]
+    assert diagnostics["unresolved_count"] == 1
+    assert diagnostics["identity_status_counts"] == {
+        "NO_CONTINUOUS_PRIMARY_MATCH": 1
     }
+    assert diagnostics["break_association_category_counts"] == {
+        "NO_RECORDED_OVERLAP_CANDIDATE": 1
+    }
+    geometry = diagnostics["all_break_geometry"]
+    assert geometry["nearest_component_available_count"] == 1
+    assert geometry["nearest_centroid_displacement_pixels"]["median"] == pytest.approx(5.0)
+    assert geometry["nearest_centroid_displacement_pixels"]["within_threshold_counts"]["3"] == 0
+    assert geometry["nearest_centroid_displacement_pixels"]["within_threshold_counts"]["5"] == 1
+    assert geometry["nearest_bbox_intersects_true_count"] == 0
+    assert geometry["nearest_bbox_intersects_false_count"] == 1
+    assert geometry["nearest_to_previous_pixel_count_ratio"]["median"] == pytest.approx(1.0)
+    assert geometry["death_record_count_distribution"] == {"0": 1}
+    by_category = diagnostics["break_geometry_by_category"][
+        "NO_RECORDED_OVERLAP_CANDIDATE"
+    ]
+    assert by_category["count"] == 1
+    assert by_category["geometry"]["nearest_centroid_displacement_pixels"]["median"] == pytest.approx(5.0)
     h15 = result["horizons_from_as_of_minutes"]["15"]
     assert h15["exact_target_count"] == 1
     assert h15["identity_verified_count"] == 0
