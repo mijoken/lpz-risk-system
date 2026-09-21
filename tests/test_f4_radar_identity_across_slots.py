@@ -62,7 +62,9 @@ def test_chains_across_local_lineage_reset():
     assert result["status"] == "CONTINUOUS_PRIMARY_MATCH_OBSERVED"
     assert result["identity_verified"] is True
     assert result["verified_transition_count"] == 3
-    assert result["target_component"]["lineage_id"] == "L-B"
+    # The exact 04:00 frame is present in both B and C. Their lineage IDs
+    # are local to each tracking run, so neither L-B nor L-C is canonical.
+    assert result["target_component"]["local_id"] == 31
 
 
 def test_gap_is_unknown_not_negative():
