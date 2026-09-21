@@ -34,30 +34,58 @@
   "environment": {
     "isolation": "separate_research_venv",
     "production_pyproject_modified": false,
-    "python_supported": ">=3.11,<3.14",
-    "pysteps_version": "1.21.5",
-    "opencv_python_headless_version": "4.14.0.94"
+    "python_supported": ">=3.11,<3.15",
+    "reference_pysteps_version": "1.21.5",
+    "implementation": "LPZ_LOCAL_PYSTEPS_ALIGNED",
+    "opencv_python_headless_version": "4.14.0.94",
+    "scipy_version": "1.17.1"
   },
   "motion_estimation": {
-    "library": "pysteps.motion.lucaskanade.dense_lucaskanade",
+    "library": "lpz_local_lucas_kanade_dense",
+    "reference": "pySTEPS 1.21.5 dense_lucaskanade defaults",
     "parameters": {
-      "lk_kwargs": null,
-      "fd_method": "shitomasi",
-      "fd_kwargs": null,
-      "interp_method": "idwinterp2d",
-      "interp_kwargs": null,
-      "dense": true,
+      "feature_detection": {
+        "method": "shitomasi",
+        "max_corners": 1000,
+        "quality_level": 0.01,
+        "min_distance": 10,
+        "block_size": 5,
+        "buffer_mask": 5,
+        "use_harris": false,
+        "k": 0.04
+      },
+      "tracking": {
+        "winsize": [
+          50,
+          50
+        ],
+        "nr_levels": 3,
+        "criteria": [
+          3,
+          10,
+          0
+        ],
+        "flags": 0,
+        "min_eig_thr": 0.0001
+      },
       "nr_std_outlier": 3,
       "k_outlier": 30,
       "size_opening": 3,
       "decl_scale": 20,
-      "verbose": false
+      "interpolation": {
+        "method": "idw",
+        "power": 0.5,
+        "k": 20,
+        "dist_offset": 0.5,
+        "chunk_points": 100000
+      }
     },
     "no_motion_behavior": "accept_zero_velocity_field_as_valid_persistence_equivalent",
     "alternate_motion_methods_allowed": false
   },
   "extrapolation": {
-    "library": "pysteps.extrapolation.semilagrangian.extrapolate",
+    "library": "lpz_local_semilagrangian_nearest",
+    "reference": "pySTEPS 1.21.5 semilagrangian mechanics",
     "field_advected": "latest_definite_ge_30mmph_binary_mask",
     "timesteps": [
       3,
@@ -71,7 +99,8 @@
     "outval": 0,
     "allow_nonfinite_values": false,
     "n_iter": 1,
-    "interp_order": 0,
+    "velocity_interp_order": 1,
+    "field_interp_order": 0,
     "return_displacement": false,
     "numerical_binary_decode_threshold": 0.5
   },
