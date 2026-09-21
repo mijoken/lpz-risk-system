@@ -170,6 +170,14 @@ def _rescue_gate_table(rows: list[dict]) -> dict:
                 "distance_gate_pixels": distance,
                 "minimum_competitor_margin_pixels": margin,
                 "candidate_count": len(accepted),
+                "lead_15_candidate_count": sum(
+                    int(row["lead_from_as_of_minutes"]) == 15
+                    for row in accepted
+                ),
+                "lead_30_candidate_count": sum(
+                    int(row["lead_from_as_of_minutes"]) == 30
+                    for row in accepted
+                ),
                 "candidate_fraction_of_all_no_overlap_breaks": (
                     len(accepted) / len(rows) if rows else None
                 ),
