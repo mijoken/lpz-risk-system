@@ -1,13 +1,27 @@
 """F4-9C frozen prospective cohort tests."""
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
+import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
 import pytest
+
+# This module validates the frozen F4-9C research mechanics and is executed in
+# the dedicated pinned research environment. Generic unittest-based CI imports
+# every test module even though it cannot execute pytest functions; skip this
+# module there when the heavy research-only mechanics dependencies are absent.
+if (
+    importlib.util.find_spec("cv2") is None
+    or importlib.util.find_spec("scipy") is None
+):
+    raise unittest.SkipTest(
+        "F4-9C research mechanics require the dedicated OpenCV/SciPy environment"
+    )
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
