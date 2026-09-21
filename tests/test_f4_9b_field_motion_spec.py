@@ -38,8 +38,12 @@ def test_frozen_spec_has_terminal_locks_and_no_model_branching():
     assert spec["environment"]["reference_pysteps_version"] == "1.21.5"
     assert spec["environment"]["production_pyproject_modified"] is False
     assert spec["motion_estimation"]["alternate_motion_methods_allowed"] is False
-    assert spec["extrapolation"]["timesteps"] == [3, 6]
+    assert spec["extrapolation"]["timesteps"] == [6, 9]
     assert spec["extrapolation"]["lead_minutes"] == [15, 30]
+    assert spec["extrapolation"]["lead_reference"] == "prospective_as_of_utc"
+    assert spec["extrapolation"]["source_observation_to_as_of_minutes"] == 15
+    assert spec["extrapolation"]["lead_from_latest_observation_minutes"] == [30, 45]
+    assert spec["f4_9c_verification"]["lead_reference"] == "prospective_as_of_utc"
     assert spec["baseline"]["name"] == "EULERIAN_PERSISTENCE"
     assert spec["prohibited"]["parameter_tuning_during_f4_9c"] is True
     assert spec["prohibited"]["alternate_optical_flow_model"] is True
