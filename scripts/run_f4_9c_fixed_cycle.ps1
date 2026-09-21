@@ -78,7 +78,7 @@ if ($Status.risk_engine_allowed -ne $false) {
     throw "F4-9C Risk Engine invariant violated"
 }
 
-Write-Host (
+$StatusLine = (
     "F4-9C STATUS: state={0}; cases={1}; verified={2}; pending={3}; " +
     "verified_comparisons={4}; pending_comparisons={5}; slots={6}"
 ) -f @(
@@ -90,5 +90,7 @@ Write-Host (
     $Status.pending_planned_comparison_count,
     $Status.verified_plus_pending_distinct_slot_count
 )
+
+Write-Host $StatusLine
 
 exit 0
