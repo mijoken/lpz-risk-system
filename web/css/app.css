@@ -164,6 +164,7 @@ h1 {
 }
 
 .toggle-chip input { accent-color: var(--accent); }
+.research-toggle input { accent-color: #ffd34d; }
 .locked-toggle { opacity: .65; cursor: not-allowed; }
 
 .map-buttons button,
@@ -272,6 +273,40 @@ h1 {
   stroke: #e7fbff;
   stroke-width: 1.05;
   filter: drop-shadow(0 0 4px rgba(84, 200, 255, .5));
+}
+
+.research-envelope-layer { pointer-events: auto; }
+
+.research-envelope {
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  fill: rgba(255, 211, 77, .18);
+  stroke: rgba(255, 222, 105, .96);
+  stroke-width: 1.15;
+  transition: fill .12s ease, stroke .12s ease, filter .12s ease;
+}
+
+.research-envelope-15 {
+  fill: rgba(255, 211, 77, .24);
+  stroke-dasharray: none;
+}
+
+.research-envelope-30 {
+  fill: rgba(255, 211, 77, .10);
+  stroke-dasharray: 6 4;
+}
+
+.research-envelope:hover,
+.research-envelope.is-active,
+.research-envelope.is-selected {
+  fill: rgba(255, 226, 125, .34);
+  stroke: #fff4bd;
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 5px rgba(255, 211, 77, .75));
+}
+
+.research-envelope.is-selected {
+  stroke-width: 2.2;
 }
 
 .reference-city-layer { pointer-events: none; }
@@ -478,6 +513,52 @@ h1 {
 .metric-label { color: var(--muted); font-size: .76rem; }
 .metric-value { margin-top: 4px; font-size: 1.16rem; font-weight: 800; }
 .metric-value-small { font-size: .74rem; line-height: 1.4; overflow-wrap: anywhere; }
+
+.f4-live-panel { padding: 19px; }
+.f4-live-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.f4-live-heading h2 { margin: 0; font-size: 1.06rem; }
+.f4-live-heading .brand-kicker { color: #ffd34d; }
+.f4-live-summary {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.55;
+}
+.f4-live-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 13px;
+}
+.f4-live-detail-grid > div {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: rgba(7, 17, 31, .48);
+}
+.f4-live-detail-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: .71rem;
+}
+.f4-live-detail-grid strong {
+  display: block;
+  margin-top: 3px;
+  font-size: .88rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.f4-live-note {
+  margin: 12px 0 0;
+  color: #8fa7c0;
+  font-size: .76rem;
+  line-height: 1.58;
+}
 
 .info-panel { padding: 19px; }
 .info-panel p {
