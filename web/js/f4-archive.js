@@ -33,7 +33,14 @@
   const valid = c => Array.isArray(c) && c.length === 2
     && Number.isFinite(c[0]) && Number.isFinite(c[1])
     && c[0] >= -180 && c[0] <= 180 && c[1] >= -90 && c[1] <= 90;
-  const zoomTransform = () => viewport.setAttribute("transform", `translate(${tx} ${ty}) scale(${scale})`);
+  const zoomTransform = () => {
+    viewport.setAttribute("transform", `translate(${tx} ${ty}) scale(${scale})`);
+    for (const circle of viewport.querySelectorAll(".f4-origin")) circle.setAttribute("r",String(9/scale));
+    for (const circle of viewport.querySelectorAll(".f4-end")) circle.setAttribute("r",String(4/scale));
+    for (const label of viewport.querySelectorAll(".f4-origin-number")) label.setAttribute("font-size",String(10/scale));
+    for (const circle of viewport.querySelectorAll(".f4-city circle")) circle.setAttribute("r",String(2.3/scale));
+    for (const label of viewport.querySelectorAll(".f4-city text")) label.setAttribute("font-size",String(12/scale));
+  };
   const zoomTo = (lon, lat, desired = 5) => {
     const [x,y] = point([lon,lat]); scale = desired;
     tx = W / 2 - x * scale; ty = H / 2 - y * scale; zoomTransform();
@@ -138,6 +145,7 @@
       list.append(button);
     });
     viewport.append(layer);
+    zoomTransform();
     document.getElementById("f4-context").textContent=
       "観測："+jst(slot)+" ／ 研究用基準時刻から"+lead+"分先 ／ 対象"+selectedRows.length+"件";
     status.textContent="保存済み研究表示 · "+selectedRows.length+"件 · 予報ではありません";
