@@ -58,8 +58,10 @@ Dense-field cleanup/interpolation:
 
 ## Frozen semi-Lagrangian parameters
 
-- timesteps = [3, 6]
-- lead minutes = [15, 30]
+- timesteps from latest radar observation = [6, 9]
+- lead minutes from prospective as-of = [15, 30]
+- required latest-observation lag behind prospective as-of = 15 minutes
+- therefore lead minutes from latest observation = [30, 45]
 - vel_timestep = 1 radar interval
 - n_iter = 1
 - velocity interpolation order = 1
