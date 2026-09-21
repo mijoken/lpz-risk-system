@@ -22,7 +22,7 @@ import hashlib
 import importlib.util
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -278,7 +278,7 @@ def capture(
 
     slot_name = compact_utc(target)
     output_dir = output_root / f"{slot_name}_z{REPLAY.TRACK.TRACKING_ZOOM}"
-    prospective_as_of = target + REPLAY.timedelta(
+    prospective_as_of = target + timedelta(
         minutes=REPLAY.SETTLEMENT_LAG_MINUTES
     )
     return write_archive(
