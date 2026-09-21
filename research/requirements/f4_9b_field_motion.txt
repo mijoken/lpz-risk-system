@@ -1,4 +1,4 @@
 # F4-9B isolated research environment only.
-# Do not add these dependencies to the production pyproject during F4.
-pysteps==1.21.5
+# Wheel-backed dependencies for Windows; production pyproject remains unchanged.
 opencv-python-headless==4.14.0.94
+scipy==1.17.1
