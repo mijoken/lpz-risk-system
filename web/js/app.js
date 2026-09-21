@@ -5,6 +5,7 @@
   const RAIN_MANIFEST_URL = "./data/rain/latest.json";
   const MAP_MANIFEST_URL = "./assets/map/manifest.json";
   const F4_RESEARCH_URL = "./data/research/f4_archived_identity_summary.json";
+  const F4_LIVE_RESEARCH_URL = "./data/research/f4_live_geographic_research.geojson";
   const REFERENCE_CITIES_URL = "./data/reference_cities.json";
   const SUPPORTED_MAJOR = 1;
 
@@ -14,6 +15,7 @@
   let referenceCities = [];
   let regionSearchFeatures = [];
   let latestProduct = null;
+  let f4LiveResearch = null;
   let activeLodId = null;
   let lodRequestToken = 0;
   const lodCache = new Map();
@@ -127,6 +129,187 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return null;
     return Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  }
+
+  function haversineKm(lon1, lat1, lon2, lat2) {
+    const rad = Math.PI / 180;
+    const p1 = Number(lat1) * rad;
+    const p2 = Number(lat2) * rad;
+    const dLat = (Number(lat2) - Number(lat1)) * rad;
+    const dLon = (Number(lon2) - Number(lon1)) * rad;
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(p1) * Math.cos(p2) * Math.sin(dLon / 2) ** 2;
+    return 6371.0088 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+  }
+
+  function bearingDegrees(lon1, lat1, lon2, lat2) {
+    const rad = Math.PI / 180;
+    const y = Math.sin((Number(lon2) - Number(lon1)) * rad) * Math.cos(Number(lat2) * rad);
+    const x = Math.cos(Number(lat1) * rad) * Math.sin(Number(lat2) * rad)
+      - Math.sin(Number(lat1) * rad) * Math.cos(Number(lat2) * rad)
+        * Math.cos((Number(lon2) - Number(lon1)) * rad);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+
+  function directionJa(degrees) {
+    const dirs = ["北", "北東", "東", "南東", "南", "南西", "西", "北西"];
+    return dirs[Math.round(Number(degrees) / 45) % 8];
+  }
+
+  function nearestReferenceCity(lon, lat) {
+    let best = null;
+    for (const city of referenceCities) {
+      const cityLon = Number(city.lon);
+      const cityLat = Number(city.lat);
+      if (!Number.isFinite(cityLon) || !Number.isFinite(cityLat)) continue;
+      const distanceKm = haversineKm(cityLon, cityLat, lon, lat);
+      if (!best || distanceKm < best.distanceKm) {
+        best = {
+          city,
+          distanceKm,
+          bearing: bearingDegrees(cityLon, cityLat, lon, lat),
+        };
+      }
+    }
+    return best;
+  }
+
+  function assertF4LiveResearch(doc) {
+    assertProduct(doc, "LPZ_F4_LIVE_RESEARCH_ENVELOPES");
+    if (doc.research_only !== true
+        || doc.validated_forecast !== false
+        || doc.risk_engine_allowed !== false
+        || doc.official_risk_output !== false
+        || doc.lpz_forecast_generated !== false
+        || doc.probability_generated !== false
+        || doc.severity_generated !== false
+        || doc.coverage !== "SELECTED_FIXED_MOSAIC_NOT_NATIONWIDE") {
+      throw new Error("F4 live research lock or coverage contract mismatch.");
+    }
+    const features = Array.isArray(doc.features) ? doc.features : [];
+    if (Number(doc.feature_count) !== features.length) {
+      throw new Error("F4 live feature count mismatch.");
+    }
+    for (const feature of features) {
+      const props = feature?.properties || {};
+      const lead = Number(props.lead_from_as_of_minutes);
+      if (feature?.geometry?.type !== "Polygon"
+          || props.kind !== "PROJECTED_RESEARCH_GEOGRAPHIC_ENVELOPE"
+          || (lead !== 15 && lead !== 30)
+          || props.research_only !== true
+          || props.risk_engine_allowed !== false
+          || props.lpz_forecast_generated !== false
+          || props.probability !== null
+          || props.severity !== null
+          || props.intensity !== null
+          || props.exact_precipitation_contour !== false) {
+        throw new Error("F4 live feature violates research-only contract.");
+      }
+    }
+  }
+
+  function resetF4LiveSelection() {
+    setText("f4-live-area", "候補域を地図で選択");
+    setText("f4-live-center", "—");
+    setText("f4-live-scale", "—");
+    setText("f4-live-target", "—");
+    setText("f4-live-lead", "—");
+    setText("f4-live-object", "—");
+  }
+
+  function renderF4LiveSelection(feature) {
+    const props = feature?.properties || {};
+    const centroid = props.projected_centroid_lon_lat;
+    const lon = Number(Array.isArray(centroid) ? centroid[0] : NaN);
+    const lat = Number(Array.isArray(centroid) ? centroid[1] : NaN);
+
+    let areaText = "位置参照なし";
+    if (Number.isFinite(lon) && Number.isFinite(lat)) {
+      const nearest = nearestReferenceCity(lon, lat);
+      if (nearest) {
+        const city = nearest.city;
+        const base = `${city.prefecture_ja || ""} ${city.name_ja || ""}`.trim();
+        areaText = nearest.distanceKm < 12
+          ? `${base}付近`
+          : `${base}の${directionJa(nearest.bearing)} 約${Math.round(nearest.distanceKm)}km`;
+      } else {
+        areaText = "参照都市なし";
+      }
+      setText("f4-live-center", `${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`);
+    } else {
+      setText("f4-live-center", "—");
+    }
+
+    const areaKm2 = Number(props.observed_approx_area_km2);
+    setText("f4-live-area", areaText);
+    setText("f4-live-scale", Number.isFinite(areaKm2) ? `${areaKm2.toFixed(1)} km²` : "—");
+    setText("f4-live-target", formatJst(props.target_valid_time_utc));
+    setText(
+      "f4-live-lead",
+      Number.isFinite(Number(props.lead_from_as_of_minutes))
+        ? `${Number(props.lead_from_as_of_minutes)}分先（as-of基準）`
+        : "—"
+    );
+    setText("f4-live-object", String(props.research_object_id || "—"));
+  }
+
+  function setupF4LiveResearch(doc) {
+    const toggle = document.getElementById("f4-live-layer-toggle");
+    const disable = (status, summary) => {
+      f4LiveResearch = null;
+      window.LPZMap.setResearchEnvelopes(null);
+      window.LPZMap.setResearchVisible(false);
+      if (toggle) {
+        toggle.checked = false;
+        toggle.disabled = true;
+      }
+      applyStatusValue("f4-live-status", status, "wait");
+      setText("f4-live-summary", summary);
+      resetF4LiveSelection();
+      updateMapLegend();
+    };
+
+    if (!doc) {
+      disable("NOT PUBLISHED", "最新のF4-4研究候補域は公開されていません。");
+      return;
+    }
+
+    try {
+      assertF4LiveResearch(doc);
+    } catch (error) {
+      console.warn("F4 live research contract error", error);
+      disable("CONTRACT ERROR", "F4-4研究候補域の公開契約に不一致があるため表示を停止しました。");
+      return;
+    }
+
+    if (doc.status !== "AVAILABLE" || !doc.features.length) {
+      const label = doc.status === "STALE_SUPPRESSED" ? "STALE SUPPRESSED" : doc.status || "UNAVAILABLE";
+      const summary = doc.status === "STALE_SUPPRESSED"
+        ? "候補域が古いため自動的に非表示にしました。"
+        : "現在の最新研究slotには表示可能な短時間候補域がありません。";
+      disable(label, summary);
+      return;
+    }
+
+    f4LiveResearch = doc;
+    const rendered = window.LPZMap.setResearchEnvelopes(doc);
+    window.LPZMap.setResearchVisible(true);
+    if (rendered !== doc.feature_count) {
+      disable("RENDER ERROR", "F4-4候補域の描画件数が公開データと一致しません。");
+      return;
+    }
+
+    if (toggle) {
+      toggle.disabled = false;
+      toggle.checked = true;
+    }
+    applyStatusValue("f4-live-status", "RESEARCH ONLY", "wait");
+    setText(
+      "f4-live-summary",
+      `${doc.projected_object_count}対象 · ${doc.feature_count}候補域 · as-of ${formatJst(doc.source_as_of_utc)} · 固定モザイク範囲のみ`
+    );
+    resetF4LiveSelection();
+    updateMapLegend();
   }
 
   function renderStatus(systemStatus, sourceHealth) {
@@ -309,14 +492,15 @@
 
   function updateMapLegend() {
     const rainToggle = document.getElementById("rain-layer-toggle");
+    const researchToggle = document.getElementById("f4-live-layer-toggle");
     const rainOn = Boolean(rainToggle?.checked && rainState?.frames?.length);
+    const researchOn = Boolean(researchToggle?.checked && f4LiveResearch?.features?.length);
     const lod = activeLodId ? ` · ${activeLodId} detail` : "";
-    setText(
-      "map-legend-text",
-      rainOn
-        ? `実況降水（表示用加工） + JMA一次細分区域${lod} · LPZ Risk locked`
-        : `JMA一次細分区域${lod} · LPZ Risk locked`
-    );
+    const layers = [];
+    if (rainOn) layers.push("実況降水（表示用加工）");
+    if (researchOn) layers.push("F4短時間研究候補域（未検証）");
+    layers.push(`JMA一次細分区域${lod}`);
+    setText("map-legend-text", `${layers.join(" + ")} · LPZ Risk locked`);
   }
 
   function setRainFrame(index) {
@@ -546,6 +730,14 @@
         window.LPZMap.setCityLabelsVisible(cityToggle.checked);
       });
     }
+
+    const researchToggle = document.getElementById("f4-live-layer-toggle");
+    if (researchToggle) {
+      researchToggle.addEventListener("change", () => {
+        window.LPZMap.setResearchVisible(researchToggle.checked);
+        updateMapLegend();
+      });
+    }
   }
 
   async function start() {
@@ -559,13 +751,14 @@
       assertProduct(systemStatus, "LPZ_PUBLIC_SYSTEM_STATUS");
 
       const data = systemStatus.public_data || {};
-      const [sourceHealth, latest, geojson, rainManifest, optionalMapManifest, citiesDoc] = await Promise.all([
+      const [sourceHealth, latest, geojson, rainManifest, optionalMapManifest, citiesDoc, f4LiveDoc] = await Promise.all([
         fetchJson(publicUrl(data.source_health_path)),
         fetchJson(publicUrl(data.latest_path)),
         fetchJson(publicUrl(data.geography_path)),
         fetchOptionalJson(RAIN_MANIFEST_URL),
         fetchOptionalJson(MAP_MANIFEST_URL),
         fetchOptionalJson(REFERENCE_CITIES_URL),
+        fetchOptionalJson(F4_LIVE_RESEARCH_URL),
       ]);
 
       assertProduct(sourceHealth, "LPZ_PUBLIC_SOURCE_HEALTH");
@@ -581,6 +774,7 @@
       const rendered = window.LPZMap.render(svg, geojson, {
         tooltip,
         onSelect: renderRegionSelection,
+        onResearchSelect: renderF4LiveSelection,
       });
       const expected = Number(latest.map?.region_count);
       if (Number.isInteger(expected) && rendered !== expected) {
@@ -596,6 +790,7 @@
 
       bindMapControls();
       setupReferenceCities(citiesDoc);
+      setupF4LiveResearch(f4LiveDoc);
       setupSearch();
       renderStatus(systemStatus, sourceHealth);
       setupRain(rainManifest);
