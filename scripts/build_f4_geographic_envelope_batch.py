@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime
 from pathlib import Path
 
 from build_f4_geographic_envelope import build
@@ -60,10 +61,14 @@ def build_batch(root: Path) -> dict:
     if (not isinstance(source_rows, list)
             or not isinstance(origin_rows, list)
             or not isinstance(motion_rows, list)
+            or origins_manifest.get("source_slot_count") != expected_slots
+            or motion_manifest.get("source_slot_count") != expected_slots
             or len(source_rows) != expected_slots
             or len(origin_rows) != expected_slots
             or len(motion_rows) != expected_slots):
         raise ValueError("F4 upstream slot counts disagree")
+    if motion_manifest.get("research_object_count") != origins_manifest.get("research_object_count"):
+        raise ValueError("F4 upstream aggregate object counts disagree")
 
     origin_by_file = {row.get("source_file"): row for row in origin_rows}
     motion_by_file = {row.get("source_file"): row for row in motion_rows}
@@ -79,12 +84,12 @@ def build_batch(root: Path) -> dict:
         if not isinstance(slot, str) or not slot.endswith("Z"):
             raise ValueError("invalid O8.1 slot timestamp")
 
-        # F4 batch adapters use deterministic filenames from the UTC slot.
-        name = slot.replace("-", "").replace(":", "")
-        if name.endswith("Z"):
-            name = name[:-1] + "Z.json"
-        if "T" not in name or name in seen:
-            raise ValueError("invalid or duplicate derived source filename")
+        parsed = datetime.fromisoformat(slot.replace("Z", "+00:00"))
+        if parsed.tzinfo is None or parsed.utcoffset().total_seconds() != 0:
+            raise ValueError("F4 slot must be UTC")
+        name = parsed.strftime("%Y%m%dT%H%M%SZ.json")
+        if name in seen:
+            raise ValueError("duplicate derived source filename")
         seen.add(name)
 
         origin_row = origin_by_file.get(name)
