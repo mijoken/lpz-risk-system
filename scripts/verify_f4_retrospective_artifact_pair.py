@@ -45,6 +45,22 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
                 and tr.get("execution_ok") is True
                 and tr.get("scientific_tracking_proven") is True):
             targets.append(b)
+    # The source artifact may contain the intermediate 5-minute radar frames
+    # needed to bridge an origin to a target in a DIFFERENT artifact.
+    # Only the target artifact is used for the exact future verification point.
+    bridges = list(targets)
+    for row in source_manifest["slot_results"]:
+        slot = row["collection_slot_utc"]
+        name = utc(slot).strftime("%Y%m%dT%H%M%SZ.json")
+        b = read(source_root / "slots" / name)
+        if b.get("collection_slot_utc") != slot:
+            raise ValueError("source bridge slot mismatch")
+        tr = b.get("components", {}).get("radar_tracking", {})
+        if (b.get("bundle_complete") is True and b.get("as_of_time_guard_pass") is True
+                and b.get("risk_engine_allowed") is False
+                and tr.get("execution_ok") is True
+                and tr.get("scientific_tracking_proven") is True):
+            bridges.append(b)
     rows = []
     counts = {"source_research_objects": 0, "current_origin_objects": 0,
               "projected_objects": 0, "comparable_projections": 0,
@@ -114,7 +130,7 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
                             distance_km(point, c["centroid"]) for c in frame["components"])
                         counts["comparable_projections"] += 1
                         identity = trace_identity(
-                            source, obj["parent_lineage_id"], valid, targets)
+                            source, obj["parent_lineage_id"], valid, bridges)
                         result["identity_status"] = identity["status"]
                         result["identity_verified"] = identity["identity_verified"]
                         if identity["identity_verified"]:
