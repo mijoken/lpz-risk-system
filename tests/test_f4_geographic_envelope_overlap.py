@@ -323,6 +323,7 @@ def test_identity_matched_motion_envelope_beats_persistence(tmp_path):
     _make_comparison(target_root)
 
     result = evaluate(source_root, [target_root])
+    assert result["schema_version"] == "0.2.0"
     assert result["counts"]["projection_count"] == 1
     assert result["counts"]["exact_target_count"] == 1
     assert result["counts"]["identity_verified_count"] == 1
@@ -335,6 +336,13 @@ def test_identity_matched_motion_envelope_beats_persistence(tmp_path):
     assert row["motion_minus_persistence_iou"] == pytest.approx(1.0)
 
     h15 = result["horizons_from_as_of_minutes"]["15"]
+    assert h15["projection_count"] == 1
+    assert h15["exact_target_count"] == 1
+    assert h15["identity_verified_count"] == 1
+    assert h15["identity_unresolved_count"] == 0
+    assert h15["identity_verification_rate_among_exact_targets"] == pytest.approx(1.0)
+    assert h15["identity_status_counts"] == {}
+    assert h15["break_association_category_counts"] == {}
     assert h15["comparison_count"] == 1
     assert h15["motion_iou_median"] == pytest.approx(1.0)
     assert h15["persistence_iou_median"] == pytest.approx(0.0)
@@ -355,6 +363,20 @@ def test_unresolved_identity_is_unknown_not_zero_score(tmp_path):
     assert row["persistence_envelope"] is None
     assert result["counts"]["identity_unresolved_count"] == 1
     assert result["counts"]["comparable_envelope_count"] == 0
+    assert result["identity_diagnostics"] == {
+        "unresolved_count": 1,
+        "identity_status_counts": {"NO_CONTINUOUS_PRIMARY_MATCH": 1},
+        "break_association_category_counts": {"NO_RECORDED_OVERLAP_CANDIDATE": 1},
+    }
+    h15 = result["horizons_from_as_of_minutes"]["15"]
+    assert h15["exact_target_count"] == 1
+    assert h15["identity_verified_count"] == 0
+    assert h15["identity_unresolved_count"] == 1
+    assert h15["identity_verification_rate_among_exact_targets"] == pytest.approx(0.0)
+    assert h15["identity_status_counts"] == {"NO_CONTINUOUS_PRIMARY_MATCH": 1}
+    assert h15["break_association_category_counts"] == {
+        "NO_RECORDED_OVERLAP_CANDIDATE": 1
+    }
 
 
 def test_boundary_truncated_target_is_excluded_not_scored(tmp_path):
