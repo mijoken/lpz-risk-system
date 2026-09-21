@@ -24,6 +24,7 @@ if str(SRC) not in sys.path:
 from lpz_risk.f4_field_motion import run_frozen_field_motion  # noqa: E402
 
 DEFAULT_SPEC = ROOT / "config" / "f4_9b_field_motion_spec.json"
+FROZEN_NUMPY_VERSION = "2.4.6"
 FROZEN_OPENCV_HEADLESS_VERSION = "4.14.0.94"
 FROZEN_SCIPY_VERSION = "1.17.1"
 
@@ -100,6 +101,8 @@ def _validate_spec(spec: dict) -> None:
         raise ValueError("F4-9B implementation contract changed")
     if environment.get("reference_pysteps_version") != "1.21.5":
         raise ValueError("reference pySTEPS version contract changed")
+    if environment.get("numpy_version") != FROZEN_NUMPY_VERSION:
+        raise ValueError("numpy version contract changed")
     if environment.get("opencv_python_headless_version") != FROZEN_OPENCV_HEADLESS_VERSION:
         raise ValueError("opencv-python-headless version contract changed")
     if environment.get("scipy_version") != FROZEN_SCIPY_VERSION:
@@ -160,8 +163,13 @@ def _validate_archive(manifest: dict, class_index: np.ndarray) -> None:
 
 
 def _runtime_versions() -> dict:
+    numpy_version = importlib.metadata.version("numpy")
     opencv = importlib.metadata.version("opencv-python-headless")
     scipy = importlib.metadata.version("scipy")
+    if numpy_version != FROZEN_NUMPY_VERSION:
+        raise RuntimeError(
+            f"numpy version mismatch: expected {FROZEN_NUMPY_VERSION}, got {numpy_version}"
+        )
     if opencv != FROZEN_OPENCV_HEADLESS_VERSION:
         raise RuntimeError(
             f"opencv-python-headless version mismatch: expected "
@@ -172,9 +180,9 @@ def _runtime_versions() -> dict:
             f"scipy version mismatch: expected {FROZEN_SCIPY_VERSION}, got {scipy}"
         )
     return {
+        "numpy": numpy_version,
         "opencv_python_headless": opencv,
         "scipy": scipy,
-        "numpy": np.__version__,
     }
 
 
