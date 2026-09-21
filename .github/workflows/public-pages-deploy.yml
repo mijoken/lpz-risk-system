@@ -183,6 +183,10 @@ jobs:
           root = Path("web")
           required = [
               root / "index.html",
+              root / "f4-archive.html",
+              root / "css" / "f4-archive.css",
+              root / "js" / "f4-archive.js",
+              root / "data" / "research" / "f4_archived_geographic_research.geojson",
               root / "css" / "app.css",
               root / "js" / "app.js",
               root / "js" / "map.js",
@@ -205,6 +209,17 @@ jobs:
           assert len(latest["regions"]) == 142
           assert all(row["risk"] is None for row in latest["regions"])
           assert all(row["display_state"] != "RISK_AVAILABLE" for row in latest["regions"])
+
+          f4 = json.loads((root / "data" / "research" / "f4_archived_geographic_research.geojson").read_text(encoding="utf-8"))
+          assert f4["type"] == "FeatureCollection"
+          assert f4["product"] == "LPZ_F4_ARCHIVED_GEOGRAPHIC_RESEARCH"
+          assert f4["source_run_id"] == "35564667965"
+          assert f4["archived_research_only"] is True
+          assert f4["risk_engine_allowed"] is False
+          assert f4["lpz_forecast_generated"] is False
+          assert f4["radar_coverage"] == "SELECTED_FIXED_MOSAIC_NOT_NATIONWIDE"
+          assert f4["projected_object_count"] == 106
+          assert f4["feature_count"] == 530 == len(f4["features"])
 
           assert rain["product"] == "LPZ_PUBLIC_RAIN_OVERLAY"
           assert rain["display_only"] is True

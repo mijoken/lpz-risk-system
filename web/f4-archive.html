@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F4 観測降雨域の地理表示 · LPZ研究</title>
+  <link rel="stylesheet" href="./css/app.css">
+  <link rel="stylesheet" href="./css/f4-archive.css">
+  <script src="./js/f4-archive.js" defer></script>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div>
+      <p class="brand-kicker">ARCHIVED GEOGRAPHIC RESEARCH · NOT LIVE</p>
+      <h1>F4 観測降雨域と15・30分先の位置外挿</h1>
+      <p class="subtitle">保存済みレーダー観測を地図で確認する研究画面。現在の線状降水帯の発生・予測・警報ではありません。</p>
+    </div>
+    <a class="badge" href="./index.html">実況降水の画面へ戻る</a>
+  </header>
+  <section class="panel archive-controls" aria-label="Archived F4 controls">
+    <label for="f4-slot">観測時刻（JST）</label>
+    <select id="f4-slot" disabled><option>研究データを読み込み中…</option></select>
+    <label for="f4-lead">移動外挿</label>
+    <select id="f4-lead" disabled>
+      <option value="15">15分先</option><option value="30">30分先</option>
+    </select>
+    <button id="f4-focus" type="button" disabled>対象範囲へ移動</button>
+    <span id="f4-status" role="status">読み込み中…</span>
+  </section>
+  <section class="archive-layout">
+    <div class="panel archive-map-panel">
+      <svg id="f4-map" viewBox="0 0 1200 760" role="img" aria-label="保存済み観測降雨域の中心位置および研究用移動外挿"></svg>
+      <p class="archive-legend"><span class="archive-origin">●</span> 観測された降雨域の中心　
+      <span class="archive-arrow">→</span> 研究用15/30分先への外挿（実際の移動・線状降水帯予測ではない）</p>
+    </div>
+    <aside class="panel archive-detail">
+      <h2>位置と時刻</h2>
+      <p id="f4-context">選択した観測時刻の研究対象を表示します。地図上の点を選択すると緯度経度を確認できます。</p>
+      <div id="f4-selected" aria-live="polite">地図上の観測点を選択してください。</div>
+      <h2>重要な区別</h2>
+      <p>観測点は30 mm/h以上のレーダー降雨域の中心です。線は二時刻の位置から求めた研究用の等速外挿であり、降雨域の幅・長さ・雨量・線状降水帯の発生確率を表しません。</p>
+      <p>記録は選択された固定レーダーモザイクの一部であり、全国を均一に検査した結果ではありません。</p>
+    </aside>
+  </section>
+  <p class="notice">出典データ：保存済みO8.1レーダー観測Artifact。研究用表示であり、防災行動の判断には気象庁などの公式情報をご確認ください。</p>
+</main>
+</body>
+</html>
