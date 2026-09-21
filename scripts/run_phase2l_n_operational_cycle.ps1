@@ -8,6 +8,8 @@ $Repo = "D:\program\lpz-risk-system_dev"
 $Python = Join-Path $Repo ".venv\Scripts\python.exe"
 $HealthScript = Join-Path $Repo "scripts\phase2l_l_source_health.py"
 $CollectorScript = Join-Path $Repo "scripts\phase2l_m_local_prospective_collector.py"
+$F49cRunner = Join-Path $Repo "scripts\run_f4_9c_fixed_cycle.ps1"
+$PwshExe = "C:\Program Files\PowerShell\7\pwsh.exe"
 $HealthReport = Join-Path $Repo "local_data\phase2l_l_source_health\phase2l_l_source_health_report.json"
 $StateRoot = Join-Path $Repo "local_data\phase2l_n_scheduler"
 $LogRoot = Join-Path $StateRoot "logs"
@@ -106,6 +108,31 @@ try {
     }
 
     Write-PhaseLog "Phase 2L-M collector PASS."
+
+    # F4-9C is research-only and fail-isolated from the operational collector.
+    # It reuses this existing 15-minute scheduler but runs a fixed Git commit
+    # from a separate worktree/research venv. Failure here must never convert a
+    # successful Phase 2L operational cycle into an operational failure.
+    if ((Test-Path $F49cRunner) -and (Test-Path $PwshExe)) {
+        try {
+            & $PwshExe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $F49cRunner
+            $f49cExit = $LASTEXITCODE
+
+            if ($f49cExit -eq 0) {
+                Write-PhaseLog "F4-9C research hook PASS/SKIP."
+            }
+            if ($f49cExit -ne 0) {
+                Write-PhaseLog "F4-9C research hook FAIL-ISOLATED. exit=$f49cExit"
+            }
+        }
+        catch {
+            Write-PhaseLog ("F4-9C research hook EXCEPTION-ISOLATED: " + $_.Exception.Message)
+        }
+    }
+    if (-not ((Test-Path $F49cRunner) -and (Test-Path $PwshExe))) {
+        Write-PhaseLog "F4-9C research hook unavailable; Phase 2L remains unaffected."
+    }
+
     Write-PhaseLog "Phase 2L-N operational cycle COMPLETE."
     exit 0
 }
