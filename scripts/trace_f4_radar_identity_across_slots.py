@@ -136,6 +136,27 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
                 previous_id == row.get("previous_id")
                 for _, transition in transition_records
                 for row in transition.get("deaths", []))
+            # Retrospective geometry only. The nearest next-frame component
+            # is NOT treated as the same precipitation object or ground truth.
+            previous_component = frames[a][current]
+            nearby = []
+            for candidate in frames[b].values():
+                pr = previous_component["centroid_pixel"]
+                cr = candidate["centroid_pixel"]
+                dr = float(cr["row"]) - float(pr["row"])
+                dc = float(cr["col"]) - float(pr["col"])
+                nearby.append((dr * dr + dc * dc, candidate))
+            nearest = min(nearby, key=lambda x: x[0]) if nearby else None
+            previous_bbox = previous_component["bbox_pixel"]
+            if nearest is not None:
+                next_component = nearest[1]
+                next_bbox = next_component["bbox_pixel"]
+                bbox_intersects = not (
+                    previous_bbox[2] < next_bbox[0] or next_bbox[2] < previous_bbox[0]
+                    or previous_bbox[3] < next_bbox[1] or next_bbox[3] < previous_bbox[1])
+            else:
+                next_component = None
+                bbox_intersects = None
             # A single overlap candidate cannot lose the greedy one-to-one
             # match unless its destination has a competing previous component
             # (recorded as a merge candidate). These categories describe
@@ -163,6 +184,15 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
                         "merge_candidate_records": merge_records,
                         "death_records": death_records,
                         "association_category": association_category,
+                        "previous_component_pixel_count": previous_component["pixel_count"],
+                        "previous_component_boundary_truncated": previous_component["boundary_truncated"],
+                        "nearest_next_frame_component": ({
+                            "centroid_displacement_pixels": nearest[0] ** 0.5,
+                            "pixel_count": next_component["pixel_count"],
+                            "boundary_truncated": next_component["boundary_truncated"],
+                            "bbox_intersects": bbox_intersects,
+                        } if nearest is not None else None),
+                        "geometry_diagnostic_only": True,
                     }}
         if len(matches) > 1:
             return {"status": "CONFLICTING_PRIMARY_MATCHES",
