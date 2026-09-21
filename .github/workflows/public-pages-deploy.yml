@@ -61,6 +61,10 @@ jobs:
             tests/test_publish_f4_archived_research_summary.py \
             -q
 
+      - name: Check archived F4 browser JavaScript syntax
+        run: |
+          node --check web/js/f4-archive.js
+
       - name: Build GitHub operational source health
         run: |
           python scripts/build_public_operational_source_health.py \
@@ -187,6 +191,7 @@ jobs:
               root / "css" / "f4-archive.css",
               root / "js" / "f4-archive.js",
               root / "data" / "research" / "f4_archived_geographic_research.geojson",
+              root / "data" / "reference_cities.json",
               root / "css" / "app.css",
               root / "js" / "app.js",
               root / "js" / "map.js",
