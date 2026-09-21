@@ -45,7 +45,7 @@ def _bundle(start, lineage):
     return {
         "bundle_complete": True, "as_of_time_guard_pass": True,
         "risk_engine_allowed": False,
-        "prospective_as_of_utc": _stamp(start + 30),
+        "prospective_as_of_utc": _stamp(start + 20),
         "components": {"radar_tracking": {
             "execution_ok": True, "scientific_tracking_proven": True,
             "fixed_mosaic": {"zoom": 8, "origin_tile_x": 224,
@@ -90,4 +90,4 @@ def test_overlapping_frame_conflict_rejected():
 def test_future_at_or_before_asof_rejected():
     a = _bundle(0, "L-A")
     with pytest.raises(ValueError, match="strictly after"):
-        trace_identity(a, "L-A", _stamp(30), [])
+        trace_identity(a, "L-A", _stamp(20), [])
