@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "product": "LPZ_F4_ARCHIVED_RESEARCH_PUBLIC_SUMMARY",
+  "archived_research_only": true,
+  "source_run_id": "35564667965",
+  "target_run_id": "35565907043",
+  "counts": {
+    "source_research_objects": 1536,
+    "current_origin_objects": 466,
+    "projected_objects": 106,
+    "comparable_projections": 58,
+    "no_exact_comparable_target": 154,
+    "identity_matched_projections": 6,
+    "identity_unresolved_projections": 52
+  },
+  "identity_status_counts": {
+    "CONTINUOUS_PRIMARY_MATCH_OBSERVED": 6,
+    "NOT_EVALUATED_NO_EXACT_TARGET": 154,
+    "NO_CONTINUOUS_PRIMARY_MATCH": 52
+  },
+  "no_continuous_match_association_categories": {
+    "MERGE_CANDIDATE": 12,
+    "NO_RECORDED_OVERLAP_CANDIDATE": 39,
+    "SPLIT_AND_MERGE_CANDIDATES": 1
+  },
+  "no_overlap_geometry_diagnostics": {
+    "counts": {
+      "NEAREST_BBOX_DISJOINT": 35,
+      "NEAREST_BBOX_INTERSECTS": 4,
+      "NEXT_NEAREST_NOT_BOUNDARY_TRUNCATED": 39,
+      "PREVIOUS_BOUNDARY_TRUNCATED": 1,
+      "PREVIOUS_NOT_BOUNDARY_TRUNCATED": 38
+    },
+    "nearest_next_frame_centroid_displacement_pixels_median": 10.334762589937958,
+    "nearest_next_frame_centroid_displacement_pixels_min": 3.0413812651491097,
+    "nearest_next_frame_centroid_displacement_pixels_max": 62.98035162936154,
+    "nearest_component_is_not_object_identity": true
+  },
+  "horizons_from_as_of_minutes": {
+    "15": {
+      "identity_matched_count": 3,
+      "motion_median_km": 5.1050842406120065,
+      "persistence_median_km": 13.831491214490015
+    },
+    "30": {
+      "identity_matched_count": 3,
+      "motion_median_km": 9.016153359497016,
+      "persistence_median_km": 21.280073545510078
+    }
+  },
+  "risk_engine_allowed": false,
+  "lpz_forecast_generated": false,
+  "not_operational_warning": true,
+  "interpretation": "Retrospective 30 mm/h observed radar-object centroid research, not nationwide LPZ prediction, live alert, independent tracking ground truth or skill certification."
+}
