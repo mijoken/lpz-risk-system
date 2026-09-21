@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+import pytest
 
 from lpz_risk.radar_geographic_envelope import (
     component_geographic_envelope,
@@ -86,8 +87,8 @@ def test_translate_polygon_moves_ring_and_preserves_closure():
     )
     ring = shifted["coordinates"][0]
     assert ring[0] == ring[-1]
-    assert ring[0][0] == 139.3
-    assert ring[0][1] == 35.2
+    assert ring[0][0] == pytest.approx(139.3)
+    assert ring[0][1] == pytest.approx(35.2)
 
 
 def test_empty_component_returns_none():
