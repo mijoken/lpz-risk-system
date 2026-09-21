@@ -194,3 +194,6 @@ web/data/*.json
 web/data/history/
 web/data/rain/
 !web/data/README.md
+
+# Local-only research data and decoded field archives.
+local_data/
