@@ -36,6 +36,7 @@
             <label class="toggle-chip"><input id="boundary-layer-toggle" type="checkbox" checked> 一次細分区域</label>
             <label class="toggle-chip"><input id="city-layer-toggle" type="checkbox" checked> 主要都市名</label>
             <label class="toggle-chip research-toggle"><input id="f4-live-layer-toggle" type="checkbox" disabled> 短時間研究候補域</label>
+            <label class="toggle-chip field-motion-toggle"><input id="field-motion-layer-toggle" type="checkbox" disabled> Lucas–Kanade研究予測</label>
             <label class="toggle-chip locked-toggle"><input id="risk-layer-toggle" type="checkbox" disabled> LPZ Risk 🔒</label>
           </div>
           <div class="map-buttons">
@@ -204,6 +205,61 @@
             </div>
           </div>
           <p class="f4-live-note">黄色の候補域を選択すると詳細を表示します。固定モザイク研究範囲のみを対象とした未検証の短時間移動外挿で、線状降水帯の発生確率・危険度・警報ではありません。</p>
+        </section>
+
+        <section class="panel field-motion-panel" aria-labelledby="field-motion-title">
+          <div class="f4-live-heading">
+            <div>
+              <p class="brand-kicker">FIELD MOTION · RESEARCH ONLY</p>
+              <h2 id="field-motion-title">Lucas–Kanade 短時間研究予測</h2>
+            </div>
+            <span class="status-value value-wait" id="field-motion-status">LOADING</span>
+          </div>
+
+          <p class="field-motion-summary" id="field-motion-summary">
+            凍結済みF4-9Bモデルの研究表示データを確認しています。
+          </p>
+
+          <div class="field-motion-grid">
+            <div>
+              <span>F4-9D判定</span>
+              <strong id="field-motion-decision">PENDING</strong>
+            </div>
+            <div>
+              <span>研究as-of</span>
+              <strong id="field-motion-asof">—</strong>
+            </div>
+            <div>
+              <span>表示対象</span>
+              <strong id="field-motion-count">—</strong>
+            </div>
+            <div>
+              <span>選択した予測域</span>
+              <strong id="field-motion-selected">地図上の紫色領域を選択</strong>
+            </div>
+            <div>
+              <span>予測中心</span>
+              <strong id="field-motion-center">—</strong>
+            </div>
+            <div>
+              <span>概算面積</span>
+              <strong id="field-motion-area">—</strong>
+            </div>
+            <div>
+              <span>予測対象時刻</span>
+              <strong id="field-motion-target">—</strong>
+            </div>
+          </div>
+
+          <div class="field-motion-key" id="field-motion-key" hidden>
+            <span><i class="field-motion-key-line"></i>15分先</span>
+            <span><i class="field-motion-key-line field-motion-key-30"></i>30分先</span>
+          </div>
+
+          <p class="f4-live-note">
+            紫色はLucas–Kanadeで推定したfield-level motionをsemi-Lagrangian移流した研究予測です。
+            GO / NO-GOにかかわらず研究成果として表示します。線状降水帯の発生確率・危険度・警報ではありません。
+          </p>
         </section>
 
         <section class="panel info-panel">
