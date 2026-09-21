@@ -167,6 +167,94 @@ def _counter_dict(values) -> dict[str, int]:
     return dict(sorted(Counter(str(value) for value in values if value).items()))
 
 
+def _percentile(values: list[float], fraction: float) -> float | None:
+    if not values:
+        return None
+    if not 0.0 <= fraction <= 1.0:
+        raise ValueError("percentile fraction outside [0, 1]")
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    position = fraction * (len(ordered) - 1)
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def _break_geometry_summary(rows: list[dict]) -> dict:
+    diagnostics = [
+        row.get("identity_break_diagnostic") or {}
+        for row in rows
+        if row["verification_status"] == "IDENTITY_UNRESOLVED_UNKNOWN"
+    ]
+    nearest = [
+        diag.get("nearest_next_frame_component")
+        for diag in diagnostics
+        if isinstance(diag.get("nearest_next_frame_component"), dict)
+    ]
+    distances = [
+        float(item["centroid_displacement_pixels"])
+        for item in nearest
+        if item.get("centroid_displacement_pixels") is not None
+    ]
+    size_ratios = []
+    bbox_intersects_true = 0
+    bbox_intersects_false = 0
+    for row, diag in zip(
+        [
+            row for row in rows
+            if row["verification_status"] == "IDENTITY_UNRESOLVED_UNKNOWN"
+        ],
+        diagnostics,
+    ):
+        item = diag.get("nearest_next_frame_component")
+        if not isinstance(item, dict):
+            continue
+        bbox = item.get("bbox_intersects")
+        if bbox is True:
+            bbox_intersects_true += 1
+        elif bbox is False:
+            bbox_intersects_false += 1
+        previous_pixels = diag.get("previous_component_pixel_count")
+        next_pixels = item.get("pixel_count")
+        if (
+            isinstance(previous_pixels, (int, float))
+            and isinstance(next_pixels, (int, float))
+            and previous_pixels > 0
+            and next_pixels > 0
+        ):
+            size_ratios.append(float(next_pixels) / float(previous_pixels))
+
+    thresholds = (1, 2, 3, 5, 8, 10, 15, 20)
+    return {
+        "nearest_component_available_count": len(nearest),
+        "nearest_centroid_displacement_pixels": {
+            "min": min(distances) if distances else None,
+            "median": _median(distances),
+            "p75": _percentile(distances, 0.75),
+            "p90": _percentile(distances, 0.90),
+            "max": max(distances) if distances else None,
+            "within_threshold_counts": {
+                str(threshold): sum(value <= threshold for value in distances)
+                for threshold in thresholds
+            },
+        },
+        "nearest_bbox_intersects_true_count": bbox_intersects_true,
+        "nearest_bbox_intersects_false_count": bbox_intersects_false,
+        "nearest_to_previous_pixel_count_ratio": {
+            "median": _median(size_ratios),
+            "p10": _percentile(size_ratios, 0.10),
+            "p90": _percentile(size_ratios, 0.90),
+        },
+        "death_record_count_distribution": _counter_dict(
+            str(diag.get("death_records"))
+            for diag in diagnostics
+            if diag.get("death_records") is not None
+        ),
+    }
+
+
 def _identity_diagnostics(rows: list[dict]) -> dict:
     unresolved = [
         row for row in rows
@@ -176,12 +264,27 @@ def _identity_diagnostics(rows: list[dict]) -> dict:
         (row.get("identity_break_diagnostic") or {}).get("association_category")
         for row in unresolved
     ]
+    by_category = {}
+    for category in sorted(set(value for value in break_categories if value)):
+        category_rows = [
+            row for row in unresolved
+            if (row.get("identity_break_diagnostic") or {}).get(
+                "association_category"
+            ) == category
+        ]
+        by_category[category] = {
+            "count": len(category_rows),
+            "geometry": _break_geometry_summary(category_rows),
+        }
+
     return {
         "unresolved_count": len(unresolved),
         "identity_status_counts": _counter_dict(
             row.get("identity_status") for row in unresolved
         ),
         "break_association_category_counts": _counter_dict(break_categories),
+        "all_break_geometry": _break_geometry_summary(unresolved),
+        "break_geometry_by_category": by_category,
     }
 
 
