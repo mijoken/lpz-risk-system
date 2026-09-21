@@ -16,6 +16,7 @@ import argparse
 import json
 import math
 import statistics
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -27,6 +28,15 @@ def _read(path: Path) -> dict:
     if not isinstance(payload, dict):
         raise ValueError(f"expected JSON object: {path}")
     return payload
+
+
+def _slot_filename(value: str) -> str:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        raise ValueError(f"expected UTC Z slot timestamp: {value!r}")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+        raise ValueError(f"slot timestamp is not UTC: {value!r}")
+    return parsed.strftime("%Y%m%dT%H%M%SZ.json")
 
 
 def _component_signature(component: dict) -> tuple:
@@ -405,10 +415,7 @@ def evaluate(batch_roots: list[Path]) -> dict:
             raise ValueError("batch slot count mismatch")
         for row in rows:
             slot = row["collection_slot_utc"]
-            name = slot.replace("-", "").replace(":", "")
-            if not name.endswith("Z"):
-                raise ValueError("slot timestamp is not compact-convertible UTC")
-            name = name.replace("T", "T") + ".json"
+            name = _slot_filename(slot)
             path = root / "slots" / name
             bundle = _read(path)
             if bundle.get("collection_slot_utc") != slot:
