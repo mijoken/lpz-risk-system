@@ -2,107 +2,114 @@
 
 ## Purpose
 
-Freeze one and only one field-level short-time motion model before the F4-9C prospective head-to-head cohort is inspected.
-
-This stage is a mechanics/specification stage. It does **not** evaluate forecast skill.
+Freeze one and only one field-level short-time motion model before F4-9C prospective evaluation.
+F4-9B is a mechanics/specification stage. It does not evaluate forecast skill.
 
 ## Frozen model
 
 - Input: one F4-9A decoded field archive.
-- Frames: exactly four JMA HRPN z8 class-index fields at 5-minute spacing.
-- Motion estimation: pySTEPS 1.21.5 Lucas–Kanade dense motion.
-- OpenCV runtime: opencv-python-headless 4.14.0.94.
-- All four input frames are used.
-- Input values remain JMA precipitation class indices. No class midpoint or continuous mm/h reconstruction is allowed.
-- Pixels with class_index < 0 are masked during optical-flow estimation.
-- The forecast field is the latest-frame binary mask for intervals definitely >=30 mm/h, i.e. JMA class indices 5, 6, and 7.
-- Forecast transport: pySTEPS semi-Lagrangian extrapolation.
+- Exactly four JMA HRPN z8 class-index fields at 5-minute spacing.
+- Motion family: Lucas–Kanade local feature tracking with dense IDW interpolation.
+- Reference behavior/parameters: pySTEPS 1.21.5 Lucas–Kanade defaults.
+- Implementation: LPZ local research implementation so Windows does not require building pySTEPS Cython extensions.
+- Forecast transport: local semi-Lagrangian implementation aligned to pySTEPS mechanics.
 - Leads: +15 and +30 minutes only.
-- Velocity timestep: one 5-minute radar interval.
-- Interpolation order: nearest-neighbor (0) so the advected event mask remains categorical.
-- Outside-domain value: 0 for the predicted >=30 mm/h event mask.
-- Mandatory baseline: Eulerian persistence of the same latest definite >=30 mm/h mask.
+- Mandatory baseline: Eulerian persistence.
+- No alternative motion algorithm is allowed during F4.
 
-The exact executable contract is stored in:
+## Motion-input encoding
 
-- config/f4_9b_field_motion_spec.json
-- scripts/run_f4_9b_field_motion.py
-- research/requirements/f4_9b_field_motion.txt
+Optical flow receives a categorical image signal only:
 
-## Explicit Lucas–Kanade parameters
+- JMA class_index -1 -> signal 0;
+- JMA class_index 0..7 -> signal 1..8.
 
-The following values are frozen and must match exactly:
+This encoding has no physical rainfall meaning. Signal 0 must not be described as 0 mm/h, and values 1..8 must not be described as rainfall intensities.
+No class midpoint or continuous mm/h reconstruction is allowed.
 
-- fd_method = shitomasi
-- interp_method = idwinterp2d
-- dense = true
+The actual forecast event remains the conservative definite >=30 mm/h mask from JMA classes 5, 6, and 7.
+
+## Frozen Lucas–Kanade parameters
+
+Shi–Tomasi feature detection:
+- max_corners = 1000
+- quality_level = 0.01
+- min_distance = 10
+- block_size = 5
+- buffer_mask = 5
+- use_harris = false
+- k = 0.04
+
+LK feature tracking:
+- winsize = [50, 50]
+- nr_levels = 3
+- criteria = [3, 10, 0]
+- flags = 0
+- min_eig_thr = 1e-4
+
+Dense-field cleanup/interpolation:
 - nr_std_outlier = 3
 - k_outlier = 30
 - size_opening = 3
 - decl_scale = 20
-- lk_kwargs = null
-- fd_kwargs = null
-- interp_kwargs = null
-- verbose = false
+- IDW power = 0.5
+- IDW k = 20
+- IDW distance offset = 0.5 pixel
 
-No alternative optical-flow method is allowed during F4.
+## Frozen semi-Lagrangian parameters
 
-## Explicit extrapolation parameters
-
-- timesteps: [3, 6]
-- lead minutes: [15, 30]
-- vel_timestep = 1
-- outval = 0.0
-- allow_nonfinite_values = false
+- timesteps = [3, 6]
+- lead minutes = [15, 30]
+- vel_timestep = 1 radar interval
 - n_iter = 1
-- interp_order = 0
-- return_displacement = false
-- numerical categorical decode threshold: 0.5
+- velocity interpolation order = 1
+- event-mask interpolation order = 0
+- outside-domain event value = 0
+- binary decode threshold = 0.5
 
-The decode threshold is only a numerical conversion of nearest-neighbor 0/1 transport output. It is not a meteorological threshold and must not be tuned.
+The 0.5 decode is numerical only: nearest-neighbor transport is categorical and this is not a meteorological threshold.
+
+## Frozen research environment
+
+Production pyproject is unchanged. F4-9B runs in a separate research venv with:
+
+- numpy 2.4.6
+- scipy 1.17.1
+- opencv-python-headless 4.14.0.94
+- pytest 9.1.1 (test runner only)
+
+Executable artifacts:
+
+- config/f4_9b_field_motion_spec.json
+- src/lpz_risk/f4_field_motion.py
+- scripts/run_f4_9b_field_motion.py
+- research/requirements/f4_9b_field_motion.txt
+- tests/test_f4_9b_field_motion_spec.py
 
 ## F4-9B completion rule
 
-F4-9B is complete when all of the following are true:
+F4-9B ends when one existing F4-9A archive passes the frozen mechanics proof:
 
-1. the specification JSON passes its exact-contract tests;
-2. the isolated research environment contains the frozen dependency versions;
-3. one existing F4-9A archive can be processed end-to-end;
-4. output shapes are exactly velocity (2,1024,1024), forecast masks (2,1024,1024), and persistence masks (2,1024,1024) for the current geometry;
-5. output is immutable and SHA-256 recorded;
-6. no future observation is read;
-7. no skill score is calculated;
-8. all Risk Engine / LPZ probability / severity / validated-forecast locks remain false.
+1. exact specification tests pass;
+2. frozen runtime versions match;
+3. velocity output shape is (2, H, W);
+4. forecast and persistence output shapes are (2, H, W);
+5. +15/+30 leads only;
+6. output SHA-256 is recorded;
+7. future observations are not read;
+8. forecast skill is not scored;
+9. parameter tuning is false;
+10. all Risk Engine / probability / severity / validated-forecast locks remain false.
 
-Once these are satisfied, the implementation and parameters are frozen for F4-9C.
+After this proof, no F4-9B model or parameter change is permitted.
 
-## F4-9C prospective evaluation
+## F4-9C and F4-9D
 
-F4-9C may use only the frozen F4-9B implementation.
+F4-9C uses only the frozen F4-9B implementation. Collection stops at 100 exact future comparisons with at least 3 distinct collection slots/events, or after 14 eligible calendar days, whichever occurs first.
 
-Stop when:
+Primary endpoint: paired best-IoU delta (field-motion minus persistence), separately at +15 and +30 minutes.
+Secondary endpoints: any-overlap rate, median nearest >=30 mm/h component-centroid distance, and technical/missing-frame rate.
 
-- 100 exact future comparisons are available across the two lead horizons and at least 3 distinct collection slots/events contribute, or
-- 14 calendar days of eligible prospective collection have elapsed,
+F4-9D applies the already frozen GO/NO-GO rule. No retuning, second model, area/speed gate, or post-hoc rescue is permitted.
 
-whichever occurs first.
-
-Primary endpoint:
-
-- paired best-IoU delta = optical-flow advection minus Eulerian persistence, reported separately for +15 and +30 minutes.
-
-Secondary endpoints:
-
-- any-overlap rate;
-- median nearest observed >=30 mm/h component centroid distance;
-- technical/missing-frame rate.
-
-No parameter tuning, area/speed gate, second optical-flow algorithm, or post-hoc rescue rule is allowed.
-
-## F4-9D terminal decision
-
-GO only when every condition in config/f4_9b_field_motion_spec.json is satisfied.
-
-Otherwise: **NO-GO and close F4.**
-
-Regardless of outcome, F4 ends at F4-9D.
+Regardless of result, F4 closes at F4-9D.
