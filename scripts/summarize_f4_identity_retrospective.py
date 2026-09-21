@@ -35,6 +35,7 @@ def summarize(report: dict) -> dict:
     # First broken link is a radar-algorithm diagnostic, not a claim that
     # a precipitation system disappeared or an LPZ forecast was wrong.
     first_breaks = Counter()
+    association_categories = Counter()
     first_break_by_horizon = {"15": Counter(), "30": Counter()}
     for row in rows:
         if row["identity_status"] != "NO_CONTINUOUS_PRIMARY_MATCH":
@@ -49,6 +50,7 @@ def summarize(report: dict) -> dict:
         else:
             category = "PRIMARY_MATCH_UNRESOLVED"
         first_breaks[category] += 1
+        association_categories[info["association_category"]] += 1
         lead = str(row["lead_from_as_of_minutes"])
         if lead not in first_break_by_horizon:
             raise ValueError("unsupported horizon")
@@ -65,6 +67,7 @@ def summarize(report: dict) -> dict:
         "counts": report["counts"],
         "identity_status_counts": dict(sorted(statuses.items())),
         "no_continuous_match_first_break_counts": dict(sorted(first_breaks.items())),
+        "no_continuous_match_association_categories": dict(sorted(association_categories.items())),
         "no_continuous_match_first_break_by_horizon": {
             lead: dict(sorted(counts.items()))
             for lead, counts in first_break_by_horizon.items()},
