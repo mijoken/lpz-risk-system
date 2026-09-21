@@ -14,6 +14,7 @@ from pathlib import Path
 from build_f4_observed_origin_join import join
 from build_f4_research_motion_baseline import project, utc
 from verify_f4_research_point_proximity import distance_km, verify
+from trace_f4_radar_identity_across_slots import trace_identity
 
 
 def read(path):
@@ -47,7 +48,9 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
     rows = []
     counts = {"source_research_objects": 0, "current_origin_objects": 0,
               "projected_objects": 0, "comparable_projections": 0,
-              "no_exact_comparable_target": 0}
+              "no_exact_comparable_target": 0,
+              "identity_matched_projections": 0,
+              "identity_unresolved_projections": 0}
     for f3_row in f3_manifest["slot_results"]:
         if f3_row["research_status"] != "DESCRIPTIVE_ONLY":
             continue
@@ -88,6 +91,10 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
                     "target_slot_utc": None,
                     "nearest_component_distance_km": None,
                     "persistence_nearest_component_distance_km": None,
+                    "identity_status": "NOT_EVALUATED_NO_EXACT_TARGET",
+                    "identity_verified": False,
+                    "identity_matched_distance_km": None,
+                    "identity_persistence_distance_km": None,
                     "lpz_classification": None,
                 }
                 if candidates:
@@ -106,11 +113,24 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
                         result["persistence_nearest_component_distance_km"] = min(
                             distance_km(point, c["centroid"]) for c in frame["components"])
                         counts["comparable_projections"] += 1
+                        identity = trace_identity(
+                            source, obj["parent_lineage_id"], valid, targets)
+                        result["identity_status"] = identity["status"]
+                        result["identity_verified"] = identity["identity_verified"]
+                        if identity["identity_verified"]:
+                            actual = identity["target_component"]["centroid"]
+                            result["identity_matched_distance_km"] = distance_km(
+                                projection["projected_centroid"], actual)
+                            result["identity_persistence_distance_km"] = distance_km(
+                                point, actual)
+                            counts["identity_matched_projections"] += 1
+                        else:
+                            counts["identity_unresolved_projections"] += 1
                 else:
                     counts["no_exact_comparable_target"] += 1
                 rows.append(result)
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "product": "F4_RETROSPECTIVE_ARCHIVED_POINT_PROXIMITY",
         "source_run_id": source_manifest["run_id"],
         "target_run_id": target_manifest["run_id"],
@@ -119,8 +139,8 @@ def evaluate(source_root: Path, target_root: Path) -> dict:
         "results": rows,
         "risk_engine_allowed": False,
         "lpz_forecast_generated": False,
-        "object_identity_verified": False,
-        "interpretation": "Nearest sampled-mosaic component only. Persistence comparator uses source observed centroid; neither distance proves same-object identity or LPZ skill.",
+        "object_identity_verified": counts["identity_matched_projections"] > 0,
+        "interpretation": "Identity-matched distances use continuous primary-match chains over exact shared radar frames. Unresolved is unknown, not negative LPZ; algorithmic identity is not independent truth or validated LPZ skill.",
     }
 
 
