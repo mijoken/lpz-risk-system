@@ -14,6 +14,8 @@ on:
       - "scripts/build_public_operational_source_health.py"
       - "scripts/build_public_rain_overlay.py"
       - "scripts/build_public_web_data.py"
+      - "scripts/publish_f4_archived_research_summary.py"
+      - "tests/test_publish_f4_archived_research_summary.py"
       - "scripts/acquisition_probe.py"
       - "src/**"
       - "tests/test_public_web.py"
@@ -56,6 +58,7 @@ jobs:
           python -m pytest \
             tests/test_public_web.py \
             tests/test_public_rain_overlay.py \
+            tests/test_publish_f4_archived_research_summary.py \
             -q
 
       - name: Build GitHub operational source health
