@@ -13,7 +13,7 @@ on:
       - "docs/architecture/O8_1_SELF_HEALING_PROSPECTIVE_COLLECTION.md"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: lpz-o8-1-jma-retention-census
@@ -91,16 +91,3 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Commit retention evidence
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/operations/o8_1_jma_retention_latest.json research/operations/o8_1_jma_retention_history.jsonl
-          if git diff --cached --quiet; then
-            echo "No O8.1 retention evidence changes to commit."
-            exit 0
-          fi
-          git commit -m "ops: record O8.1 JMA retention census"
-          git pull --rebase origin main
-          git push origin HEAD:main
