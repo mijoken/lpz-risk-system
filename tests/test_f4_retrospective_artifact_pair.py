@@ -47,7 +47,10 @@ def test_real_future_exact_time_retrospective_not_prospective(tmp_path):
                if r["verification_status"] == "NEAREST_COMPONENT_PROXIMITY_ONLY")
     assert row["nearest_component_distance_km"] >= 0
     assert row["persistence_nearest_component_distance_km"] >= 0
-    assert result["object_identity_verified"] is False
+    assert result["counts"]["identity_matched_projections"] + result["counts"]["identity_unresolved_projections"] == 1
+    assert row["identity_status"] != "NOT_EVALUATED_NO_EXACT_TARGET"
+    assert row["identity_verified"] is (row["identity_matched_distance_km"] is not None)
+    assert result["object_identity_verified"] is (result["counts"]["identity_matched_projections"] > 0)
     assert result["lpz_forecast_generated"] is False
 
 
@@ -59,6 +62,7 @@ def test_mismatched_grid_has_no_comparable_pair(tmp_path):
     path.write_text(json.dumps(target))
     result = evaluate(a, b)
     assert result["counts"]["comparable_projections"] == 0
+    assert result["counts"]["identity_matched_projections"] == 0
     assert result["counts"]["no_exact_comparable_target"] >= 1
 
 
