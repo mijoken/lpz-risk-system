@@ -15,8 +15,10 @@
     "valid_class_index_max": 7,
     "motion_input": {
       "dtype": "float32",
-      "values": "JMA precipitation class index without midpoint conversion",
-      "mask_rule": "class_index < 0",
+      "encoding": "unclassified_or_transparent -> 0; JMA class_index 0..7 -> 1..8",
+      "physical_rainfall_interpretation": false,
+      "continuous_mmph_reconstruction": false,
+      "mask_rule": "none",
       "frames_used": "all_four",
       "temporal_order": "oldest_to_newest"
     },
