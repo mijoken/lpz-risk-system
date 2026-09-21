@@ -61,8 +61,11 @@ FROZEN_EXTRAPOLATION = {
     "library": "lpz_local_semilagrangian_nearest",
     "reference": "pySTEPS 1.21.5 semilagrangian mechanics",
     "field_advected": "latest_definite_ge_30mmph_binary_mask",
-    "timesteps": [3, 6],
+    "timesteps": [6, 9],
     "lead_minutes": [15, 30],
+    "lead_reference": "prospective_as_of_utc",
+    "source_observation_to_as_of_minutes": 15,
+    "lead_from_latest_observation_minutes": [30, 45],
     "vel_timestep": 1,
     "outval": 0.0,
     "allow_nonfinite_values": False,
@@ -225,6 +228,27 @@ def execute(archive_dir: Path, output_dir: Path, spec_path: Path) -> dict:
     if valid_time_unix_s.shape != (4,):
         raise ValueError("input valid_time_unix_s must have four entries")
 
+    latest_observation_unix_s = int(valid_time_unix_s[-1])
+    as_of_text = manifest.get("prospective_as_of_utc")
+    if not isinstance(as_of_text, str) or not as_of_text.endswith("Z"):
+        raise ValueError("input prospective_as_of_utc missing")
+    from datetime import datetime, timezone
+    as_of_unix_s = int(
+        datetime.fromisoformat(as_of_text.replace("Z", "+00:00"))
+        .astimezone(timezone.utc)
+        .timestamp()
+    )
+    observation_lag_seconds = as_of_unix_s - latest_observation_unix_s
+    if observation_lag_seconds != 15 * 60:
+        raise ValueError(
+            f"F4-9B requires exact 15-minute source observation lag, got "
+            f"{observation_lag_seconds} seconds"
+        )
+    target_valid_time_unix_s = np.asarray(
+        [as_of_unix_s + 15 * 60, as_of_unix_s + 30 * 60],
+        dtype=np.int64,
+    )
+
     versions = _runtime_versions()
     from lpz_risk.f4_field_motion import run_frozen_field_motion
     result = run_frozen_field_motion(class_index, spec)
@@ -237,6 +261,7 @@ def execute(archive_dir: Path, output_dir: Path, spec_path: Path) -> dict:
         forecast_ge30=result["forecast_ge30"],
         persistence_ge30=result["persistence_ge30"],
         lead_minutes=result["lead_minutes"],
+        target_valid_time_unix_s=target_valid_time_unix_s,
     )
 
     output_manifest = {
@@ -254,6 +279,13 @@ def execute(archive_dir: Path, output_dir: Path, spec_path: Path) -> dict:
         "motion_reference": spec["motion_estimation"]["reference"],
         "extrapolation_method": spec["extrapolation"]["library"],
         "lead_minutes": spec["extrapolation"]["lead_minutes"],
+        "lead_reference": spec["extrapolation"]["lead_reference"],
+        "lead_from_latest_observation_minutes": spec["extrapolation"][
+            "lead_from_latest_observation_minutes"
+        ],
+        "source_observation_valid_time_unix_s": latest_observation_unix_s,
+        "prospective_as_of_unix_s": as_of_unix_s,
+        "target_valid_time_unix_s": target_valid_time_unix_s.tolist(),
         "velocity_shape": list(map(int, result["velocity"].shape)),
         "forecast_shape": list(map(int, result["forecast_ge30"].shape)),
         "forecast_positive_pixels": [
@@ -302,6 +334,11 @@ def main() -> int:
         "input_collection_slot_utc": result["input_collection_slot_utc"],
         "runtime_versions": result["runtime_versions"],
         "lead_minutes": result["lead_minutes"],
+        "lead_reference": result["lead_reference"],
+        "lead_from_latest_observation_minutes": result[
+            "lead_from_latest_observation_minutes"
+        ],
+        "target_valid_time_unix_s": result["target_valid_time_unix_s"],
         "velocity_shape": result["velocity_shape"],
         "forecast_shape": result["forecast_shape"],
         "forecast_positive_pixels": result["forecast_positive_pixels"],
