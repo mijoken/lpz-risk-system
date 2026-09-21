@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "product": "F4_FIELD_MOTION_SPEC_FREEZE",
   "research_stage": "F4-9B",
-  "frozen_at_utc": "2026-09-21T11:50:00Z",
+  "frozen_at_utc": "2026-09-21T11:41:00Z",
   "upstream_product": "F4_DECODED_FIELD_RESEARCH_ARCHIVE",
   "upstream_schema_version": "0.1.0",
   "input_contract": {
