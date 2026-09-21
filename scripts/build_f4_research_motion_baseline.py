@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from build_f4_observed_origin_join import join
@@ -53,6 +53,8 @@ def project(bundle: dict, f3: dict) -> dict:
         raise ValueError("last transition time mismatch")
     previous = {str(c["lineage_id"]): c for c in frames[-2]["components"]}
     current = {str(c["lineage_id"]): c for c in frames[-1]["components"]}
+    if len(previous) != len(frames[-2]["components"]) or len(current) != len(frames[-1]["components"]):
+        raise ValueError("duplicate parent lineage in observed frames")
     matches = {}
     for match in transition.get("primary_matches", []):
         key = str(match["lineage_id"])
