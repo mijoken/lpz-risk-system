@@ -291,7 +291,7 @@ def evaluate(
     ]
 
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "product": "F4_ZERO_OVERLAP_MOTION_RESCUE_CANDIDATE_RESEARCH",
         "source_run_id": f4_result["source_run_id"],
         "comparison_run_ids": f4_result["comparison_run_ids"],
@@ -317,7 +317,9 @@ def evaluate(
         "identity_inference_generated": False,
         "zero_overlap_identity_verified": False,
         "interpretation": (
-            "Candidate-screening research only. Gate precision is calibrated against existing "
+            "Candidate-screening research only. Projection rows sharing the same source object and "
+            "tracker break are collapsed to one unique physical break for rescue-rate denominators. "
+            "Gate precision is calibrated against existing "
             "clean overlap-based primary matches, which are an engineering proxy rather than "
             "independent truth. Applying the same gate to zero-overlap breaks does NOT verify "
             "identity. No production tracking decision is made by this artifact."
