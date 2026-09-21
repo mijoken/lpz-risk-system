@@ -54,6 +54,9 @@ def test_new_parent_without_previous_match_is_not_predicted():
         "to_valid_time": "2026-09-21T03:30:00Z",
         "elapsed_seconds": 300.0, "primary_matches": [],
     }]
+    # The test changes the source bundle. Rebuild the F3 fingerprint before
+    # calling project, as production rightly rejects mismatched bundle/F3 pairs.
+    f3 = adapt(bundle)
     result = project(bundle, f3)
     assert result["projected_object_count"] == 0
     assert result["objects"][0]["baseline_status"] == "INSUFFICIENT_MATCHED_MOTION"
