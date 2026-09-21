@@ -6,6 +6,7 @@
   const MAP_MANIFEST_URL = "./assets/map/manifest.json";
   const F4_RESEARCH_URL = "./data/research/f4_archived_identity_summary.json";
   const F4_LIVE_RESEARCH_URL = "./data/research/f4_live_geographic_research.geojson";
+  const F4_FIELD_MOTION_URL = "./data/research/f4_field_motion_research.geojson";
   const REFERENCE_CITIES_URL = "./data/reference_cities.json";
   const SUPPORTED_MAJOR = 1;
 
@@ -16,6 +17,7 @@
   let regionSearchFeatures = [];
   let latestProduct = null;
   let f4LiveResearch = null;
+  let f4FieldMotionResearch = null;
   let activeLodId = null;
   let lodRequestToken = 0;
   const lodCache = new Map();
@@ -206,6 +208,89 @@
         throw new Error("F4 live feature violates research-only contract.");
       }
     }
+  }
+
+  function assertFieldMotionResearch(doc) {
+    assertProduct(doc, "LPZ_F4_FIELD_MOTION_RESEARCH");
+    const decision = String(doc.terminal_decision || "");
+    if (doc.model_id !== "LUCAS_KANADE_SEMILAGRANGIAN"
+        || !["PENDING", "GO", "NO_GO"].includes(decision)
+        || doc.research_only !== true
+        || doc.validated_forecast !== false
+        || doc.production_integration_enabled !== false
+        || doc.risk_engine_allowed !== false
+        || doc.official_risk_output !== false
+        || doc.lpz_forecast_generated !== false
+        || doc.probability_generated !== false
+        || doc.severity_generated !== false
+        || doc.coverage !== "SELECTED_FIXED_MOSAIC_NOT_NATIONWIDE") {
+      throw new Error("F4 field-motion research lock or coverage contract mismatch.");
+    }
+    if ((decision === "GO" || decision === "NO_GO") !== (doc.f4_closed === true)) {
+      throw new Error("F4 field-motion decision/closure contract mismatch.");
+    }
+    const features = Array.isArray(doc.features) ? doc.features : [];
+    if (Number(doc.feature_count) !== features.length) {
+      throw new Error("F4 field-motion feature count mismatch.");
+    }
+    for (const feature of features) {
+      const props = feature?.properties || {};
+      const lead = Number(props.lead_from_as_of_minutes);
+      if (feature?.geometry?.type !== "Polygon"
+          || props.kind !== "FIELD_MOTION_RESEARCH_ENVELOPE"
+          || props.model_id !== "LUCAS_KANADE_SEMILAGRANGIAN"
+          || (lead !== 15 && lead !== 30)
+          || props.terminal_decision !== decision
+          || props.research_only !== true
+          || props.validated_forecast !== false
+          || props.production_integration_enabled !== false
+          || props.risk_engine_allowed !== false
+          || props.lpz_forecast_generated !== false
+          || props.probability !== null
+          || props.severity !== null
+          || props.intensity !== null
+          || props.exact_precipitation_contour !== false) {
+        throw new Error("F4 field-motion feature violates research-only contract.");
+      }
+    }
+  }
+
+  function resetFieldMotionSelection() {
+    setText("field-motion-selected", "地図上の紫色領域を選択");
+    setText("field-motion-center", "—");
+    setText("field-motion-area", "—");
+    setText("field-motion-target", "—");
+  }
+
+  function renderFieldMotionSelection(feature) {
+    const props = feature?.properties || {};
+    const centroid = props.projected_centroid_lon_lat;
+    const lon = Number(Array.isArray(centroid) ? centroid[0] : NaN);
+    const lat = Number(Array.isArray(centroid) ? centroid[1] : NaN);
+    const lead = Number(props.lead_from_as_of_minutes);
+
+    let areaText = "位置参照なし";
+    if (Number.isFinite(lon) && Number.isFinite(lat)) {
+      const nearest = nearestReferenceCity(lon, lat);
+      if (nearest) {
+        const city = nearest.city;
+        const base = `${city.prefecture_ja || ""} ${city.name_ja || ""}`.trim();
+        areaText = nearest.distanceKm < 12
+          ? `${base}付近`
+          : `${base}の${directionJa(nearest.bearing)} 約${Math.round(nearest.distanceKm)}km`;
+      }
+      setText("field-motion-center", `${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`);
+    } else {
+      setText("field-motion-center", "—");
+    }
+
+    setText(
+      "field-motion-selected",
+      `${areaText}${Number.isFinite(lead) ? ` · ${lead}分先` : ""}`
+    );
+    const area = Number(props.projected_approx_area_km2);
+    setText("field-motion-area", Number.isFinite(area) ? `${area.toFixed(1)} km²` : "—");
+    setText("field-motion-target", formatJst(props.target_valid_time_utc));
   }
 
   function resetF4LiveSelection() {
@@ -464,6 +549,88 @@
     updateMapLegend();
   }
 
+  function setupFieldMotionResearch(doc) {
+    const toggle = document.getElementById("field-motion-layer-toggle");
+    const key = document.getElementById("field-motion-key");
+
+    const disable = (status, summary, decision = "PENDING") => {
+      f4FieldMotionResearch = null;
+      window.LPZMap.setFieldMotionEnvelopes(null);
+      window.LPZMap.setFieldMotionVisible(false);
+      if (toggle) {
+        toggle.checked = false;
+        toggle.disabled = true;
+      }
+      if (key) key.hidden = true;
+      applyStatusValue("field-motion-status", status, "wait");
+      setText("field-motion-summary", summary);
+      setText("field-motion-decision", decision);
+      setText("field-motion-asof", "—");
+      setText("field-motion-count", "—");
+      resetFieldMotionSelection();
+      updateMapLegend();
+    };
+
+    if (!doc) {
+      disable("NOT PUBLISHED", "Lucas–Kanade研究表示データはまだ公開されていません。");
+      return;
+    }
+
+    try {
+      assertFieldMotionResearch(doc);
+    } catch (error) {
+      console.warn("F4 field-motion research contract error", error);
+      disable("CONTRACT ERROR", "Field-motion研究表示の公開契約に不一致があるため表示を停止しました。");
+      return;
+    }
+
+    const decision = String(doc.terminal_decision || "PENDING");
+    if (doc.status !== "AVAILABLE" || !doc.features.length) {
+      const label = doc.status === "STALE_SUPPRESSED"
+        ? "STALE SUPPRESSED"
+        : doc.status || "UNAVAILABLE";
+      const summary = doc.status === "STALE_SUPPRESSED"
+        ? "研究予測が古いため地図形状を自動的に非表示にしています。"
+        : "Field-motion研究予測の表示artifactはまだありません。";
+      disable(label, summary, decision);
+      return;
+    }
+
+    f4FieldMotionResearch = doc;
+    const rendered = window.LPZMap.setFieldMotionEnvelopes(doc);
+    window.LPZMap.setFieldMotionVisible(true);
+    if (rendered !== doc.feature_count) {
+      disable("RENDER ERROR", "Field-motion研究予測の描画件数が公開データと一致しません。", decision);
+      return;
+    }
+
+    if (toggle) {
+      toggle.disabled = false;
+      toggle.checked = true;
+    }
+    if (key) key.hidden = false;
+
+    const decisionLabel = decision === "GO"
+      ? "GO · RESEARCH"
+      : decision === "NO_GO"
+        ? "NO-GO · RESEARCH"
+        : "VALIDATION PENDING";
+
+    applyStatusValue("field-motion-status", decisionLabel, decision === "GO" ? "ok" : "wait");
+    setText("field-motion-decision", decision);
+    setText("field-motion-asof", formatJst(doc.source_as_of_utc));
+    setText(
+      "field-motion-count",
+      `${doc.projected_component_count}対象 · ${doc.feature_count}予測域`
+    );
+    setText(
+      "field-motion-summary",
+      `Lucas–Kanade + semi-Lagrangian · ${decisionLabel} · 固定モザイク範囲のみ`
+    );
+    resetFieldMotionSelection();
+    updateMapLegend();
+  }
+
   function renderStatus(systemStatus, sourceHealth) {
     const release = systemStatus.scientific_release || {};
     const pipeline = systemStatus.pipeline || {};
@@ -645,12 +812,17 @@
   function updateMapLegend() {
     const rainToggle = document.getElementById("rain-layer-toggle");
     const researchToggle = document.getElementById("f4-live-layer-toggle");
+    const fieldMotionToggle = document.getElementById("field-motion-layer-toggle");
     const rainOn = Boolean(rainToggle?.checked && rainState?.frames?.length);
     const researchOn = Boolean(researchToggle?.checked && f4LiveResearch?.features?.length);
+    const fieldMotionOn = Boolean(
+      fieldMotionToggle?.checked && f4FieldMotionResearch?.features?.length
+    );
     const lod = activeLodId ? ` · ${activeLodId} detail` : "";
     const layers = [];
     if (rainOn) layers.push("実況降水（表示用加工）");
     if (researchOn) layers.push("F4短時間研究候補域（未検証）");
+    if (fieldMotionOn) layers.push("Lucas–Kanade研究予測");
     layers.push(`JMA一次細分区域${lod}`);
     setText("map-legend-text", `${layers.join(" + ")} · LPZ Risk locked`);
   }
@@ -890,6 +1062,14 @@
         updateMapLegend();
       });
     }
+
+    const fieldMotionToggle = document.getElementById("field-motion-layer-toggle");
+    if (fieldMotionToggle) {
+      fieldMotionToggle.addEventListener("change", () => {
+        window.LPZMap.setFieldMotionVisible(fieldMotionToggle.checked);
+        updateMapLegend();
+      });
+    }
   }
 
   async function start() {
@@ -903,7 +1083,7 @@
       assertProduct(systemStatus, "LPZ_PUBLIC_SYSTEM_STATUS");
 
       const data = systemStatus.public_data || {};
-      const [sourceHealth, latest, geojson, rainManifest, optionalMapManifest, citiesDoc, f4LiveDoc] = await Promise.all([
+      const [sourceHealth, latest, geojson, rainManifest, optionalMapManifest, citiesDoc, f4LiveDoc, fieldMotionDoc] = await Promise.all([
         fetchJson(publicUrl(data.source_health_path)),
         fetchJson(publicUrl(data.latest_path)),
         fetchJson(publicUrl(data.geography_path)),
@@ -911,6 +1091,7 @@
         fetchOptionalJson(MAP_MANIFEST_URL),
         fetchOptionalJson(REFERENCE_CITIES_URL),
         fetchOptionalJson(F4_LIVE_RESEARCH_URL),
+        fetchOptionalJson(F4_FIELD_MOTION_URL),
       ]);
 
       assertProduct(sourceHealth, "LPZ_PUBLIC_SOURCE_HEALTH");
@@ -927,6 +1108,7 @@
         tooltip,
         onSelect: renderRegionSelection,
         onResearchSelect: renderF4LiveSelection,
+        onFieldMotionSelect: renderFieldMotionSelection,
       });
       const expected = Number(latest.map?.region_count);
       if (Number.isInteger(expected) && rendered !== expected) {
@@ -943,6 +1125,7 @@
       bindMapControls();
       setupReferenceCities(citiesDoc);
       setupF4LiveResearch(f4LiveDoc);
+      setupFieldMotionResearch(fieldMotionDoc);
       setupSearch();
       renderStatus(systemStatus, sourceHealth);
       setupRain(rainManifest);
