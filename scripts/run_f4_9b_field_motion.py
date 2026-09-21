@@ -95,6 +95,24 @@ def _validate_spec(spec: dict) -> None:
     if spec.get("research_stage") != "F4-9B":
         raise ValueError("unexpected F4-9B research stage")
 
+    input_contract = spec["input_contract"]
+    motion_input = input_contract.get("motion_input") or {}
+    if motion_input.get("encoding") != "unclassified_or_transparent -> 0; JMA class_index 0..7 -> 1..8":
+        raise ValueError("motion-input encoding contract changed")
+    if motion_input.get("physical_rainfall_interpretation") is not False:
+        raise ValueError("motion-input physical interpretation unexpectedly enabled")
+    if motion_input.get("continuous_mmph_reconstruction") is not False:
+        raise ValueError("continuous mmph reconstruction unexpectedly enabled")
+    if motion_input.get("mask_rule") != "none":
+        raise ValueError("motion-input mask contract changed")
+    event_mask = input_contract.get("event_mask") or {}
+    if event_mask.get("threshold_mmph") != 30:
+        raise ValueError("event threshold contract changed")
+    if event_mask.get("qualifying_class_indices") != [5, 6, 7]:
+        raise ValueError("event class contract changed")
+    if spec.get("baseline", {}).get("name") != "EULERIAN_PERSISTENCE":
+        raise ValueError("persistence baseline contract changed")
+
     environment = spec["environment"]
     if environment.get("implementation") != "LPZ_LOCAL_PYSTEPS_ALIGNED":
         raise ValueError("F4-9B implementation contract changed")
