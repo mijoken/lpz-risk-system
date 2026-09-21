@@ -33,10 +33,10 @@ def _utc(value: str) -> datetime:
     return parsed
 
 
-def _find_manifest(search_root: Path) -> Path:
+def _find_manifest(search_root: Path) -> Path | None:
     matches = sorted(search_root.rglob("f4_geographic_envelopes/manifest.json"))
     if not matches:
-        raise FileNotFoundError("F4-4 batch manifest not found under artifact search root")
+        return None
     if len(matches) != 1:
         raise ValueError(f"expected one F4-4 batch manifest, found {len(matches)}")
     return matches[0]
@@ -97,6 +97,17 @@ def build_public(
         raise ValueError("max_age_minutes must be positive")
 
     manifest_path = _find_manifest(search_root)
+    if manifest_path is None:
+        return _empty_output(
+            source_run_id="",
+            source_slot_utc=None,
+            source_as_of_utc=None,
+            latest_observation_utc=None,
+            status="NOT_PUBLISHED",
+            age_minutes=None,
+            max_age_minutes=max_age_minutes,
+            source_manifest_path="",
+        )
     manifest = _read(manifest_path)
     if (manifest.get("product") != "F4_RESEARCH_GEOGRAPHIC_ENVELOPE_BATCH"
             or manifest.get("risk_engine_allowed") is not False
