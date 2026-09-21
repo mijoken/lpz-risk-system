@@ -32,6 +32,27 @@ def summarize(report: dict) -> dict:
                 r["identity_persistence_distance_km"] for r in eligible)
                 if eligible else None),
         }
+    # First broken link is a radar-algorithm diagnostic, not a claim that
+    # a precipitation system disappeared or an LPZ forecast was wrong.
+    first_breaks = Counter()
+    first_break_by_horizon = {"15": Counter(), "30": Counter()}
+    for row in rows:
+        if row["identity_status"] != "NO_CONTINUOUS_PRIMARY_MATCH":
+            continue
+        info = row.get("identity_break_diagnostic")
+        if not isinstance(info, dict):
+            raise ValueError("missing F4-3 first-break diagnostic")
+        if info["available_transition_records"] == 0:
+            category = "NO_ARCHIVED_TRANSITION_RECORD"
+        elif info["previous_id_primary_match_records"] == 0:
+            category = "NO_PRIMARY_MATCH_FOR_PREVIOUS_COMPONENT"
+        else:
+            category = "PRIMARY_MATCH_UNRESOLVED"
+        first_breaks[category] += 1
+        lead = str(row["lead_from_as_of_minutes"])
+        if lead not in first_break_by_horizon:
+            raise ValueError("unsupported horizon")
+        first_break_by_horizon[lead][category] += 1
     verified = sum(r["identity_verified"] is True for r in rows)
     if (verified != report["counts"]["identity_matched_projections"]
             or sum(r["identity_status"] != "NOT_EVALUATED_NO_EXACT_TARGET"
@@ -43,6 +64,10 @@ def summarize(report: dict) -> dict:
         "target_run_id": report["target_run_id"],
         "counts": report["counts"],
         "identity_status_counts": dict(sorted(statuses.items())),
+        "no_continuous_match_first_break_counts": dict(sorted(first_breaks.items())),
+        "no_continuous_match_first_break_by_horizon": {
+            lead: dict(sorted(counts.items()))
+            for lead, counts in first_break_by_horizon.items()},
         "horizons_from_as_of_minutes": horizons,
         "risk_engine_allowed": False,
         "lpz_forecast_generated": False,
