@@ -35,6 +35,7 @@
             <label class="toggle-chip"><input id="rain-layer-toggle" type="checkbox" checked> 実況降水</label>
             <label class="toggle-chip"><input id="boundary-layer-toggle" type="checkbox" checked> 一次細分区域</label>
             <label class="toggle-chip"><input id="city-layer-toggle" type="checkbox" checked> 主要都市名</label>
+            <label class="toggle-chip research-toggle"><input id="f4-live-layer-toggle" type="checkbox" disabled> 短時間研究候補域</label>
             <label class="toggle-chip locked-toggle"><input id="risk-layer-toggle" type="checkbox" disabled> LPZ Risk 🔒</label>
           </div>
           <div class="map-buttons">
@@ -142,6 +143,44 @@
               <div class="metric-value metric-value-small" id="public-data-time">—</div>
             </div>
           </div>
+        </section>
+
+        <section class="panel f4-live-panel" aria-labelledby="f4-live-title">
+          <div class="f4-live-heading">
+            <div>
+              <p class="brand-kicker">LIVE RESEARCH · UNVALIDATED</p>
+              <h2 id="f4-live-title">短時間研究候補域</h2>
+            </div>
+            <span class="status-value value-wait" id="f4-live-status">LOADING</span>
+          </div>
+          <p class="f4-live-summary" id="f4-live-summary">最新の研究用F4-4候補域を確認しています。</p>
+          <div class="f4-live-detail-grid">
+            <div>
+              <span>大まかな場所</span>
+              <strong id="f4-live-area">—</strong>
+            </div>
+            <div>
+              <span>中心緯度経度</span>
+              <strong id="f4-live-center">—</strong>
+            </div>
+            <div>
+              <span>観測域の概算面積</span>
+              <strong id="f4-live-scale">—</strong>
+            </div>
+            <div>
+              <span>予測対象時刻</span>
+              <strong id="f4-live-target">—</strong>
+            </div>
+            <div>
+              <span>リードタイム</span>
+              <strong id="f4-live-lead">—</strong>
+            </div>
+            <div>
+              <span>研究オブジェクト</span>
+              <strong id="f4-live-object">—</strong>
+            </div>
+          </div>
+          <p class="f4-live-note">黄色の候補域を選択すると詳細を表示します。固定モザイク研究範囲のみを対象とした未検証の短時間移動外挿で、線状降水帯の発生確率・危険度・警報ではありません。</p>
         </section>
 
         <section class="panel info-panel">
