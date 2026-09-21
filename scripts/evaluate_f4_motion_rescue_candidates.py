@@ -69,7 +69,7 @@ def _calibration_gate_table(rows: list[dict]) -> dict:
                 row for row in rows
                 if float(row["motion_nearest_distance_pixels"]) <= distance
                 and _margin_passes(
-                    row.get("motion_true_vs_nearest_competitor_margin_pixels"),
+                    row.get("motion_top1_to_second_margin_pixels"),
                     margin,
                 )
             ]
@@ -319,6 +319,8 @@ def evaluate(
         "interpretation": (
             "Candidate-screening research only. Projection rows sharing the same source object and "
             "tracker break are collapsed to one unique physical break for rescue-rate denominators. "
+            "Distance and margin gates use the same deployable observables in calibration and rescue: "
+            "top-1 motion error and top-1-to-second candidate distance margin. "
             "Gate precision is calibrated against existing "
             "clean overlap-based primary matches, which are an engineering proxy rather than "
             "independent truth. Applying the same gate to zero-overlap breaks does NOT verify "
