@@ -114,25 +114,31 @@ def _lead_summary(rows: list[dict[str, Any]], lead: int) -> dict[str, Any]:
 
 def evaluate(cohort_root: Path) -> dict[str, Any]:
     rows, status = _load_rows(cohort_root)
-    if not rows:
-        raise ValueError("no exact-future comparison rows available")
 
     summaries = {str(lead): _lead_summary(rows, lead) for lead in LEADS}
-    if any(summaries[str(lead)]["comparison_count"] == 0 for lead in LEADS):
-        raise ValueError("both frozen lead horizons require comparison rows")
 
     checks: dict[str, bool] = {}
     for lead in LEADS:
         summary = summaries[str(lead)]
+        enough_rows = int(summary["comparison_count"]) > 0
+        checks[f"comparison_rows_available_{lead}m"] = enough_rows
         checks[f"mean_iou_delta_positive_{lead}m"] = (
-            float(summary["paired_best_iou_delta_mean"]) > 0.0
+            enough_rows
+            and summary["paired_best_iou_delta_mean"] is not None
+            and float(summary["paired_best_iou_delta_mean"]) > 0.0
         )
         checks[f"any_overlap_not_worse_{lead}m"] = (
-            float(summary["optical_flow_any_overlap_rate"])
+            enough_rows
+            and summary["optical_flow_any_overlap_rate"] is not None
+            and summary["persistence_any_overlap_rate"] is not None
+            and float(summary["optical_flow_any_overlap_rate"])
             >= float(summary["persistence_any_overlap_rate"])
         )
         checks[f"median_centroid_distance_not_worse_{lead}m"] = (
-            float(
+            enough_rows
+            and summary["optical_flow_nearest_centroid_distance_km_median"] is not None
+            and summary["persistence_nearest_centroid_distance_km_median"] is not None
+            and float(
                 summary[
                     "optical_flow_nearest_centroid_distance_km_median"
                 ]
