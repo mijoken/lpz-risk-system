@@ -15,7 +15,9 @@ on:
       - "scripts/build_public_rain_overlay.py"
       - "scripts/build_public_web_data.py"
       - "scripts/publish_f4_archived_research_summary.py"
+      - "scripts/publish_latest_f4_geographic_research.py"
       - "tests/test_publish_f4_archived_research_summary.py"
+      - "tests/test_publish_latest_f4_geographic_research.py"
       - "scripts/acquisition_probe.py"
       - "src/**"
       - "tests/test_public_web.py"
@@ -24,6 +26,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   issues: write
   pages: write
   id-token: write
@@ -59,10 +62,13 @@ jobs:
             tests/test_public_web.py \
             tests/test_public_rain_overlay.py \
             tests/test_publish_f4_archived_research_summary.py \
+            tests/test_publish_latest_f4_geographic_research.py \
             -q
 
-      - name: Check archived F4 browser JavaScript syntax
+      - name: Check browser JavaScript syntax
         run: |
+          node --check web/js/map.js
+          node --check web/js/app.js
           node --check web/js/f4-archive.js
 
       - name: Build GitHub operational source health
@@ -178,6 +184,47 @@ jobs:
             --run-id "${{ github.run_id }}" \
             --commit-sha "${{ github.sha }}"
 
+      - name: Download latest successful prospective F4-4 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          rm -rf incoming/f4_live
+          mkdir -p incoming/f4_live
+
+          RUN_ID="$(
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow prospective-feature-collector.yml \
+              --branch main \
+              --status success \
+              --limit 10 \
+              --json databaseId,createdAt \
+              --jq '.[0].databaseId // empty'
+          )"
+
+          if [ -z "$RUN_ID" ]; then
+            echo "No successful prospective collector run found; public F4-4 layer will be NOT_PUBLISHED."
+          else
+            echo "Latest successful prospective collector run: $RUN_ID"
+            if ! gh run download "$RUN_ID" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern "prospective-batch-$RUN_ID" \
+              --dir incoming/f4_live; then
+              echo "Prospective artifact download failed; public F4-4 layer will be NOT_PUBLISHED."
+              rm -rf incoming/f4_live
+              mkdir -p incoming/f4_live
+            fi
+          fi
+
+      - name: Publish latest F4-4 research envelope layer
+        run: |
+          rm -f web/data/research/f4_live_geographic_research.geojson
+          python scripts/publish_latest_f4_geographic_research.py \
+            --artifact-search-root incoming/f4_live \
+            --output web/data/research/f4_live_geographic_research.geojson \
+            --max-age-minutes 90
+
       - name: Assert production deploy surface
         run: |
           python - <<'PY'
@@ -191,6 +238,7 @@ jobs:
               root / "css" / "f4-archive.css",
               root / "js" / "f4-archive.js",
               root / "data" / "research" / "f4_archived_geographic_research.geojson",
+              root / "data" / "research" / "f4_live_geographic_research.geojson",
               root / "data" / "reference_cities.json",
               root / "css" / "app.css",
               root / "js" / "app.js",
@@ -225,6 +273,38 @@ jobs:
           assert f4["radar_coverage"] == "SELECTED_FIXED_MOSAIC_NOT_NATIONWIDE"
           assert f4["projected_object_count"] == 106
           assert f4["feature_count"] == 530 == len(f4["features"])
+
+          f4_live = json.loads((root / "data" / "research" / "f4_live_geographic_research.geojson").read_text(encoding="utf-8"))
+          assert f4_live["type"] == "FeatureCollection"
+          assert f4_live["product"] == "LPZ_F4_LIVE_RESEARCH_ENVELOPES"
+          assert f4_live["coverage"] == "SELECTED_FIXED_MOSAIC_NOT_NATIONWIDE"
+          assert f4_live["research_only"] is True
+          assert f4_live["validated_forecast"] is False
+          assert f4_live["risk_engine_allowed"] is False
+          assert f4_live["official_risk_output"] is False
+          assert f4_live["lpz_forecast_generated"] is False
+          assert f4_live["probability_generated"] is False
+          assert f4_live["severity_generated"] is False
+          assert f4_live["feature_count"] == len(f4_live["features"])
+          assert f4_live["status"] in {
+              "AVAILABLE",
+              "NO_PROJECTED_ENVELOPES",
+              "NO_RESEARCH_SLOT",
+              "STALE_SUPPRESSED",
+              "NOT_PUBLISHED",
+          }
+          for feature in f4_live["features"]:
+              props = feature["properties"]
+              assert feature["geometry"]["type"] == "Polygon"
+              assert props["kind"] == "PROJECTED_RESEARCH_GEOGRAPHIC_ENVELOPE"
+              assert props["lead_from_as_of_minutes"] in (15, 30)
+              assert props["research_only"] is True
+              assert props["public_display_only"] is True
+              assert props["risk_engine_allowed"] is False
+              assert props["lpz_forecast_generated"] is False
+              assert props["probability"] is None
+              assert props["severity"] is None
+              assert props["intensity"] is None
 
           assert rain["product"] == "LPZ_PUBLIC_RAIN_OVERLAY"
           assert rain["display_only"] is True
