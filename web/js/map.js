@@ -448,6 +448,25 @@
     }
   }
 
+  function selectResearchObject(objectId, leadMinutes = 15) {
+    if (!state.researchGroup) return false;
+    const wantedId = String(objectId || "");
+    const wantedLead = String(Number(leadMinutes));
+    let selected = null;
+
+    for (const path of state.researchGroup.querySelectorAll(".research-envelope")) {
+      path.classList.remove("is-selected");
+      if (path.dataset.researchObjectId === wantedId
+          && path.dataset.leadMinutes === wantedLead) {
+        selected = path;
+      }
+    }
+
+    if (!selected) return false;
+    selected.classList.add("is-selected");
+    return true;
+  }
+
   function renderCities(cities) {
     if (!state.cityLayer) return;
     state.cityLayer.replaceChildren();
@@ -577,6 +596,7 @@
     setRainVisible,
     setResearchEnvelopes,
     setResearchVisible,
+    selectResearchObject,
     setBoundariesVisible,
     setCityLabelsVisible,
   });
