@@ -21,7 +21,6 @@ import sys
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from lpz_risk.f4_field_motion import run_frozen_field_motion  # noqa: E402
 
 DEFAULT_SPEC = ROOT / "config" / "f4_9b_field_motion_spec.json"
 FROZEN_NUMPY_VERSION = "2.4.6"
@@ -209,6 +208,7 @@ def execute(archive_dir: Path, output_dir: Path, spec_path: Path) -> dict:
         raise ValueError("input valid_time_unix_s must have four entries")
 
     versions = _runtime_versions()
+    from lpz_risk.f4_field_motion import run_frozen_field_motion
     result = run_frozen_field_motion(class_index, spec)
 
     output_dir.mkdir(parents=True, exist_ok=False)
