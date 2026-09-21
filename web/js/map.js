@@ -18,10 +18,13 @@
     svg: null,
     viewport: null,
     rainImage: null,
+    researchGroup: null,
     boundaryGroup: null,
     cityLayer: null,
     tooltip: null,
     onSelect: null,
+    onResearchSelect: null,
+    researchVisible: true,
     viewChangeHandler: null,
     cityLabelsVisible: true,
     cities: [],
@@ -386,6 +389,65 @@
     return count;
   }
 
+  function setResearchEnvelopes(featureCollection) {
+    if (!state.researchGroup) return 0;
+    state.researchGroup.replaceChildren();
+    if (!featureCollection || featureCollection.type !== "FeatureCollection") return 0;
+
+    const features = Array.isArray(featureCollection.features) ? featureCollection.features : [];
+    const fragment = document.createDocumentFragment();
+    let count = 0;
+
+    for (const feature of features) {
+      const props = feature?.properties || {};
+      if (props.kind !== "PROJECTED_RESEARCH_GEOGRAPHIC_ENVELOPE") continue;
+      const lead = Number(props.lead_from_as_of_minutes);
+      if (lead !== 15 && lead !== 30) continue;
+      const d = geometryPath(feature.geometry);
+      if (!d) continue;
+
+      const path = document.createElementNS(SVG_NS, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("class", `research-envelope research-envelope-${lead}`);
+      path.setAttribute("fill-rule", "evenodd");
+      path.setAttribute("clip-rule", "evenodd");
+      path.setAttribute("tabindex", "0");
+      path.setAttribute("role", "button");
+      path.setAttribute("aria-label", `${lead}分先 研究候補域`);
+      path.dataset.leadMinutes = String(lead);
+      path.dataset.researchObjectId = String(props.research_object_id || "");
+
+      const activate = () => path.classList.add("is-active");
+      const deactivate = () => path.classList.remove("is-active");
+      path.addEventListener("pointerenter", activate);
+      path.addEventListener("pointerleave", deactivate);
+      path.addEventListener("focus", activate);
+      path.addEventListener("blur", deactivate);
+      path.addEventListener("click", (event) => {
+        event.stopPropagation();
+        for (const other of state.researchGroup.querySelectorAll(".research-envelope.is-selected")) {
+          other.classList.remove("is-selected");
+        }
+        path.classList.add("is-selected");
+        if (typeof state.onResearchSelect === "function") state.onResearchSelect(feature);
+      });
+
+      fragment.appendChild(path);
+      count += 1;
+    }
+
+    state.researchGroup.appendChild(fragment);
+    state.researchGroup.style.display = state.researchVisible ? "block" : "none";
+    return count;
+  }
+
+  function setResearchVisible(visible) {
+    state.researchVisible = Boolean(visible);
+    if (state.researchGroup) {
+      state.researchGroup.style.display = state.researchVisible ? "block" : "none";
+    }
+  }
+
   function renderCities(cities) {
     if (!state.cityLayer) return;
     state.cityLayer.replaceChildren();
@@ -423,6 +485,9 @@
 
     state.tooltip = options.tooltip || null;
     state.onSelect = typeof options.onSelect === "function" ? options.onSelect : null;
+    state.onResearchSelect = typeof options.onResearchSelect === "function"
+      ? options.onResearchSelect
+      : null;
 
     const viewport = document.createElementNS(SVG_NS, "g");
     viewport.setAttribute("class", "map-viewport");
@@ -438,6 +503,10 @@
     rainImage.style.display = "none";
     viewport.appendChild(rainImage);
 
+    const researchGroup = document.createElementNS(SVG_NS, "g");
+    researchGroup.setAttribute("class", "research-envelope-layer");
+    viewport.appendChild(researchGroup);
+
     const boundaryGroup = document.createElementNS(SVG_NS, "g");
     boundaryGroup.setAttribute("class", "boundary-layer");
     viewport.appendChild(boundaryGroup);
@@ -451,6 +520,7 @@
     state.svg = svg;
     state.viewport = viewport;
     state.rainImage = rainImage;
+    state.researchGroup = researchGroup;
     state.boundaryGroup = boundaryGroup;
     state.cityLayer = cityLayer;
     const rendered = replaceGeometry(featureCollection);
@@ -505,6 +575,8 @@
     setViewChangeHandler,
     setRainFrame,
     setRainVisible,
+    setResearchEnvelopes,
+    setResearchVisible,
     setBoundariesVisible,
     setCityLabelsVisible,
   });
