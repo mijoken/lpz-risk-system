@@ -36,6 +36,8 @@ def summarize(report: dict) -> dict:
     # a precipitation system disappeared or an LPZ forecast was wrong.
     first_breaks = Counter()
     association_categories = Counter()
+    no_overlap_geometry = Counter()
+    no_overlap_nearest_distances = []
     first_break_by_horizon = {"15": Counter(), "30": Counter()}
     for row in rows:
         if row["identity_status"] != "NO_CONTINUOUS_PRIMARY_MATCH":
@@ -51,6 +53,28 @@ def summarize(report: dict) -> dict:
             category = "PRIMARY_MATCH_UNRESOLVED"
         first_breaks[category] += 1
         association_categories[info["association_category"]] += 1
+        if info["association_category"] == "NO_RECORDED_OVERLAP_CANDIDATE":
+            near = info["nearest_next_frame_component"]
+            if info["next_frame_component_count"] == 0:
+                if near is not None:
+                    raise ValueError("nearest candidate provided for empty next frame")
+                no_overlap_geometry["NO_NEXT_FRAME_COMPONENTS"] += 1
+            elif near is None:
+                raise ValueError("missing nearest next frame component")
+            else:
+                no_overlap_geometry[
+                    "PREVIOUS_BOUNDARY_TRUNCATED"
+                    if info["previous_component_boundary_truncated"]
+                    else "PREVIOUS_NOT_BOUNDARY_TRUNCATED"] += 1
+                no_overlap_geometry[
+                    "NEXT_NEAREST_BOUNDARY_TRUNCATED"
+                    if near["boundary_truncated"]
+                    else "NEXT_NEAREST_NOT_BOUNDARY_TRUNCATED"] += 1
+                no_overlap_geometry[
+                    "NEAREST_BBOX_INTERSECTS"
+                    if near["bbox_intersects"]
+                    else "NEAREST_BBOX_DISJOINT"] += 1
+                no_overlap_nearest_distances.append(near["centroid_displacement_pixels"])
         lead = str(row["lead_from_as_of_minutes"])
         if lead not in first_break_by_horizon:
             raise ValueError("unsupported horizon")
@@ -68,6 +92,17 @@ def summarize(report: dict) -> dict:
         "identity_status_counts": dict(sorted(statuses.items())),
         "no_continuous_match_first_break_counts": dict(sorted(first_breaks.items())),
         "no_continuous_match_association_categories": dict(sorted(association_categories.items())),
+        "no_overlap_geometry_diagnostics": {
+            "counts": dict(sorted(no_overlap_geometry.items())),
+            "nearest_next_frame_centroid_displacement_pixels_median":
+                statistics.median(no_overlap_nearest_distances)
+                if no_overlap_nearest_distances else None,
+            "nearest_next_frame_centroid_displacement_pixels_min":
+                min(no_overlap_nearest_distances) if no_overlap_nearest_distances else None,
+            "nearest_next_frame_centroid_displacement_pixels_max":
+                max(no_overlap_nearest_distances) if no_overlap_nearest_distances else None,
+            "nearest_component_is_not_object_identity": True,
+        },
         "no_continuous_match_first_break_by_horizon": {
             lead: dict(sorted(counts.items()))
             for lead, counts in first_break_by_horizon.items()},
