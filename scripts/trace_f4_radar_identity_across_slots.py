@@ -118,9 +118,21 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
                     raise ValueError("primary match has ambiguous current component")
                 matches.add(_signature(candidates[0]))
         if len(matches) == 0:
+            transition_records = edges.get((a, b), [])
+            matching_records = sum(
+                m.get("previous_id") == frames[a][current]["local_id"]
+                for _, transition in transition_records
+                for m in transition.get("primary_matches", []))
             return {"status": "NO_CONTINUOUS_PRIMARY_MATCH",
                     "target_component": None, "identity_verified": False,
-                    "verified_transition_count": traversed}
+                    "verified_transition_count": traversed,
+                    "break_diagnostic": {
+                        "from_valid_time_utc": a,
+                        "to_valid_time_utc": b,
+                        "available_transition_records": len(transition_records),
+                        "previous_id_primary_match_records": matching_records,
+                        "next_frame_component_count": len(frames[b]),
+                    }}
         if len(matches) > 1:
             return {"status": "CONFLICTING_PRIMARY_MATCHES",
                     "target_component": None, "identity_verified": False,
