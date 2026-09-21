@@ -668,6 +668,7 @@ def main() -> int:
     print(json.dumps({
         "source_run_id": result["source_run_id"],
         **result["counts"],
+        "identity_diagnostics": result["identity_diagnostics"],
         "horizons_from_as_of_minutes": result["horizons_from_as_of_minutes"],
     }, ensure_ascii=False))
     return 0
