@@ -50,6 +50,7 @@ def verify(source: dict, source_bundle: dict, target_bundle: dict) -> dict:
     target_tracking = target_bundle["components"]["radar_tracking"]
     if (source_tracking.get("execution_ok") is not True
             or target_tracking.get("execution_ok") is not True
+            or source_tracking.get("fixed_mosaic") is None
             or source_tracking.get("fixed_mosaic") != target_tracking.get("fixed_mosaic")):
         # fixed_mosaic may be stored under the tracking component in native bundles
         raise ValueError("tracking missing or fixed mosaics differ")
