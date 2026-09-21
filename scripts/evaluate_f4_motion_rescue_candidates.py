@@ -145,9 +145,63 @@ def _rescue_rows(f4_result: dict) -> list[dict]:
     return rows
 
 
+def _unique_break_events(rows: list[dict]) -> list[dict]:
+    """Collapse projection rows that refer to the same physical tracker break."""
+    grouped = {}
+    invariant_fields = (
+        "break_from_valid_time_utc",
+        "break_to_valid_time_utc",
+        "motion_reference_available",
+        "previous_component_boundary_truncated",
+        "motion_error_pixels",
+        "competitor_margin_pixels",
+        "candidate_count",
+        "candidate_pixel_count_ratio_to_current",
+        "candidate_boundary_truncated",
+        "candidate_local_id",
+    )
+    for row in rows:
+        key = (
+            row.get("source_slot_utc"),
+            row.get("research_object_id"),
+            row.get("break_from_valid_time_utc"),
+            row.get("break_to_valid_time_utc"),
+        )
+        existing = grouped.get(key)
+        if existing is None:
+            event = dict(row)
+            event["projection_leads_from_as_of_minutes"] = sorted({
+                int(row["lead_from_as_of_minutes"])
+            })
+            event["projection_row_count"] = 1
+            grouped[key] = event
+            continue
+
+        for field in invariant_fields:
+            a, b = existing.get(field), row.get(field)
+            if isinstance(a, float) or isinstance(b, float):
+                if a is None or b is None or not math.isclose(
+                    float(a), float(b), rel_tol=0.0, abs_tol=1e-12
+                ):
+                    raise ValueError(
+                        f"inconsistent duplicate break field {field}: {key}"
+                    )
+            elif a != b:
+                raise ValueError(
+                    f"inconsistent duplicate break field {field}: {key}"
+                )
+        existing["projection_leads_from_as_of_minutes"] = sorted(set(
+            existing["projection_leads_from_as_of_minutes"]
+            + [int(row["lead_from_as_of_minutes"])]
+        ))
+        existing["projection_row_count"] += 1
+    return list(grouped.values())
+
+
 def _rescue_gate_table(rows: list[dict]) -> dict:
+    events = _unique_break_events(rows)
     eligible = [
-        row for row in rows
+        row for row in events
         if row["motion_reference_available"]
         and not row["previous_component_boundary_truncated"]
         and row["candidate_boundary_truncated"] is False
@@ -166,20 +220,24 @@ def _rescue_gate_table(rows: list[dict]) -> dict:
                 for row in accepted
                 if row["candidate_pixel_count_ratio_to_current"] is not None
             ]
+            accepted_projection_rows = sum(
+                int(row["projection_row_count"]) for row in accepted
+            )
             output[f"d{distance}_m{margin}"] = {
                 "distance_gate_pixels": distance,
                 "minimum_competitor_margin_pixels": margin,
-                "candidate_count": len(accepted),
+                "unique_break_candidate_count": len(accepted),
+                "projection_candidate_count": accepted_projection_rows,
                 "lead_15_candidate_count": sum(
-                    int(row["lead_from_as_of_minutes"]) == 15
+                    15 in row["projection_leads_from_as_of_minutes"]
                     for row in accepted
                 ),
                 "lead_30_candidate_count": sum(
-                    int(row["lead_from_as_of_minutes"]) == 30
+                    30 in row["projection_leads_from_as_of_minutes"]
                     for row in accepted
                 ),
-                "candidate_fraction_of_all_no_overlap_breaks": (
-                    len(accepted) / len(rows) if rows else None
+                "candidate_fraction_of_unique_no_overlap_breaks": (
+                    len(accepted) / len(events) if events else None
                 ),
                 "candidate_pixel_count_ratio": _summary(ratios),
             }
@@ -206,8 +264,9 @@ def evaluate(
 
     calibration_rows = _calibration_rows(separability)
     rescue_rows = _rescue_rows(f4_result)
+    rescue_events = _unique_break_events(rescue_rows)
     motion_available = [
-        row for row in rescue_rows if row["motion_reference_available"]
+        row for row in rescue_events if row["motion_reference_available"]
     ]
     clean_motion_available = [
         row for row in motion_available
@@ -239,15 +298,18 @@ def evaluate(
         "calibration_source_run_ids": separability["source_run_ids"],
         "research_mode": "KNOWN_MATCH_CALIBRATION_THEN_ZERO_OVERLAP_CANDIDATE_SCREEN",
         "calibration_clean_known_match_count": len(calibration_rows),
-        "zero_overlap_break_count": len(rescue_rows),
-        "motion_reference_available_count": len(motion_available),
-        "clean_motion_candidate_count": len(clean_motion_available),
+        "zero_overlap_projection_row_count": len(rescue_rows),
+        "zero_overlap_unique_break_count": len(rescue_events),
+        "duplicate_projection_row_count": len(rescue_rows) - len(rescue_events),
+        "motion_reference_available_unique_break_count": len(motion_available),
+        "clean_motion_candidate_unique_break_count": len(clean_motion_available),
         "motion_error_pixels": _summary(motion_errors),
         "competitor_margin_pixels": _summary(margins),
         "candidate_pixel_count_ratio": _summary(ratios),
         "calibration_gate_table": _calibration_gate_table(calibration_rows),
         "rescue_gate_table": _rescue_gate_table(rescue_rows),
         "candidates": rescue_rows,
+        "unique_break_events": rescue_events,
         "risk_engine_allowed": False,
         "official_risk_output": False,
         "lpz_forecast_generated": False,
@@ -296,11 +358,15 @@ def main() -> int:
         "calibration_clean_known_match_count": result[
             "calibration_clean_known_match_count"
         ],
-        "zero_overlap_break_count": result["zero_overlap_break_count"],
-        "motion_reference_available_count": result[
-            "motion_reference_available_count"
+        "zero_overlap_projection_row_count": result["zero_overlap_projection_row_count"],
+        "zero_overlap_unique_break_count": result["zero_overlap_unique_break_count"],
+        "duplicate_projection_row_count": result["duplicate_projection_row_count"],
+        "motion_reference_available_unique_break_count": result[
+            "motion_reference_available_unique_break_count"
         ],
-        "clean_motion_candidate_count": result["clean_motion_candidate_count"],
+        "clean_motion_candidate_unique_break_count": result[
+            "clean_motion_candidate_unique_break_count"
+        ],
         "motion_error_pixels": result["motion_error_pixels"],
         "competitor_margin_pixels": result["competitor_margin_pixels"],
     }, ensure_ascii=False))
