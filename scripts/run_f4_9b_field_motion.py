@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
 """F4-9B frozen field-motion mechanics.
 
-Reads one F4-9A decoded-field archive and applies the pre-frozen specification:
-- pySTEPS Lucas-Kanade dense motion from all four class-index frames;
-- no class midpoint conversion;
-- class_index < 0 masked for motion estimation;
-- latest definite >=30 mm/h binary mask advected by semi-Lagrangian transport;
-- +15/+30 min leads only;
-- Eulerian persistence emitted as the mandatory baseline.
-
-This script does NOT read future observations and does NOT score forecast skill.
+Reads one F4-9A decoded-field archive and applies the pre-frozen local
+Lucas-Kanade + semi-Lagrangian specification. This stage never reads future
+observations and never scores forecast skill.
 """
 from __future__ import annotations
 
@@ -21,33 +15,60 @@ from pathlib import Path
 
 import numpy as np
 
-
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SPEC = ROOT / "config" / "f4_9b_field_motion_spec.json"
+SRC = ROOT / "src"
+import sys
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
-FROZEN_PYSTEPS_VERSION = "1.21.5"
+from lpz_risk.f4_field_motion import run_frozen_field_motion  # noqa: E402
+
+DEFAULT_SPEC = ROOT / "config" / "f4_9b_field_motion_spec.json"
 FROZEN_OPENCV_HEADLESS_VERSION = "4.14.0.94"
-FROZEN_LK_PARAMETERS = {
-    "lk_kwargs": None,
-    "fd_method": "shitomasi",
-    "fd_kwargs": None,
-    "interp_method": "idwinterp2d",
-    "interp_kwargs": None,
-    "dense": True,
+FROZEN_SCIPY_VERSION = "1.17.1"
+
+FROZEN_MOTION_PARAMETERS = {
+    "feature_detection": {
+        "method": "shitomasi",
+        "max_corners": 1000,
+        "quality_level": 0.01,
+        "min_distance": 10,
+        "block_size": 5,
+        "buffer_mask": 5,
+        "use_harris": False,
+        "k": 0.04,
+    },
+    "tracking": {
+        "winsize": [50, 50],
+        "nr_levels": 3,
+        "criteria": [3, 10, 0],
+        "flags": 0,
+        "min_eig_thr": 0.0001,
+    },
     "nr_std_outlier": 3,
     "k_outlier": 30,
     "size_opening": 3,
     "decl_scale": 20,
-    "verbose": False,
+    "interpolation": {
+        "method": "idw",
+        "power": 0.5,
+        "k": 20,
+        "dist_offset": 0.5,
+        "chunk_points": 100000,
+    },
 }
 FROZEN_EXTRAPOLATION = {
+    "library": "lpz_local_semilagrangian_nearest",
+    "reference": "pySTEPS 1.21.5 semilagrangian mechanics",
+    "field_advected": "latest_definite_ge_30mmph_binary_mask",
     "timesteps": [3, 6],
     "lead_minutes": [15, 30],
     "vel_timestep": 1,
     "outval": 0.0,
     "allow_nonfinite_values": False,
     "n_iter": 1,
-    "interp_order": 0,
+    "velocity_interp_order": 1,
+    "field_interp_order": 0,
     "return_displacement": False,
     "numerical_binary_decode_threshold": 0.5,
 }
@@ -73,48 +94,46 @@ def _validate_spec(spec: dict) -> None:
         raise ValueError("unexpected F4-9B spec product")
     if spec.get("research_stage") != "F4-9B":
         raise ValueError("unexpected F4-9B research stage")
+
+    environment = spec["environment"]
+    if environment.get("implementation") != "LPZ_LOCAL_PYSTEPS_ALIGNED":
+        raise ValueError("F4-9B implementation contract changed")
+    if environment.get("reference_pysteps_version") != "1.21.5":
+        raise ValueError("reference pySTEPS version contract changed")
+    if environment.get("opencv_python_headless_version") != FROZEN_OPENCV_HEADLESS_VERSION:
+        raise ValueError("opencv-python-headless version contract changed")
+    if environment.get("scipy_version") != FROZEN_SCIPY_VERSION:
+        raise ValueError("scipy version contract changed")
+    if environment.get("production_pyproject_modified") is not False:
+        raise ValueError("production dependency isolation contract changed")
+
+    motion = spec["motion_estimation"]
+    if motion.get("library") != "lpz_local_lucas_kanade_dense":
+        raise ValueError("unexpected motion method")
+    if motion.get("alternate_motion_methods_allowed") is not False:
+        raise ValueError("alternate motion method unexpectedly allowed")
+    if motion.get("parameters") != FROZEN_MOTION_PARAMETERS:
+        raise ValueError("Lucas-Kanade parameter contract changed")
+
+    if spec.get("extrapolation") != FROZEN_EXTRAPOLATION:
+        raise ValueError("extrapolation contract changed")
+
+    prohibited = spec.get("prohibited") or {}
+    if not prohibited or not all(bool(value) for value in prohibited.values()):
+        raise ValueError("F4-9B anti-tuning prohibition missing")
+
     locks = spec.get("locks") or {}
-    required_false = (
+    for key in (
         "risk_engine_allowed",
         "lpz_forecast_generated",
         "probability_generated",
         "severity_generated",
         "validated_forecast",
-    )
-    if any(locks.get(key) is not False for key in required_false):
-        raise ValueError("F4-9B scientific lock mismatch")
+    ):
+        if locks.get(key) is not False:
+            raise ValueError(f"F4-9B scientific lock mismatch: {key}")
     if locks.get("specification_frozen") is not True:
         raise ValueError("F4-9B specification is not frozen")
-
-    environment = spec["environment"]
-    if environment.get("pysteps_version") != FROZEN_PYSTEPS_VERSION:
-        raise ValueError("pysteps version contract changed")
-    if (
-        environment.get("opencv_python_headless_version")
-        != FROZEN_OPENCV_HEADLESS_VERSION
-    ):
-        raise ValueError("opencv-python-headless version contract changed")
-    if environment.get("production_pyproject_modified") is not False:
-        raise ValueError("production dependency isolation contract changed")
-
-    motion = spec["motion_estimation"]
-    if motion["library"] != "pysteps.motion.lucaskanade.dense_lucaskanade":
-        raise ValueError("unexpected motion method")
-    if motion.get("alternate_motion_methods_allowed") is not False:
-        raise ValueError("alternate motion method unexpectedly allowed")
-    if motion.get("parameters") != FROZEN_LK_PARAMETERS:
-        raise ValueError("Lucas-Kanade parameter contract changed")
-
-    extrap = spec["extrapolation"]
-    if extrap["library"] != "pysteps.extrapolation.semilagrangian.extrapolate":
-        raise ValueError("unexpected extrapolation method")
-    for key, value in FROZEN_EXTRAPOLATION.items():
-        if extrap.get(key) != value:
-            raise ValueError(f"extrapolation contract changed: {key}")
-
-    prohibited = spec.get("prohibited") or {}
-    if not all(bool(value) for value in prohibited.values()):
-        raise ValueError("F4-9B anti-tuning prohibition missing")
 
 
 def _validate_archive(manifest: dict, class_index: np.ndarray) -> None:
@@ -126,10 +145,6 @@ def _validate_archive(manifest: dict, class_index: np.ndarray) -> None:
         raise ValueError("input archive Risk Engine lock missing")
     if manifest.get("validated_forecast") is not False:
         raise ValueError("input archive validation lock missing")
-    if manifest.get("raw_radar_png_archived") is not False:
-        raise ValueError("unexpected raw-radar archive semantics")
-    if manifest.get("decoded_field_archived") is not True:
-        raise ValueError("decoded field archive flag missing")
     if manifest.get("field", {}).get("continuous_mmph_recovered") is not False:
         raise ValueError("continuous rainfall unexpectedly claimed")
     if manifest.get("field", {}).get("transparent_pixels_as_zero") is not False:
@@ -144,114 +159,29 @@ def _validate_archive(manifest: dict, class_index: np.ndarray) -> None:
         raise ValueError("F4-9B requires z8 mosaic")
 
 
-def _runtime_versions(spec: dict) -> dict:
-    expected_pysteps = FROZEN_PYSTEPS_VERSION
-    expected_opencv = FROZEN_OPENCV_HEADLESS_VERSION
-    actual_pysteps = importlib.metadata.version("pysteps")
-    actual_opencv = importlib.metadata.version("opencv-python-headless")
-    if actual_pysteps != expected_pysteps:
+def _runtime_versions() -> dict:
+    opencv = importlib.metadata.version("opencv-python-headless")
+    scipy = importlib.metadata.version("scipy")
+    if opencv != FROZEN_OPENCV_HEADLESS_VERSION:
         raise RuntimeError(
-            f"pysteps version mismatch: expected {expected_pysteps}, got {actual_pysteps}"
+            f"opencv-python-headless version mismatch: expected "
+            f"{FROZEN_OPENCV_HEADLESS_VERSION}, got {opencv}"
         )
-    if actual_opencv != expected_opencv:
+    if scipy != FROZEN_SCIPY_VERSION:
         raise RuntimeError(
-            f"opencv-python-headless version mismatch: expected {expected_opencv}, got {actual_opencv}"
+            f"scipy version mismatch: expected {FROZEN_SCIPY_VERSION}, got {scipy}"
         )
     return {
-        "pysteps": actual_pysteps,
-        "opencv_python_headless": actual_opencv,
+        "opencv_python_headless": opencv,
+        "scipy": scipy,
         "numpy": np.__version__,
-    }
-
-
-def _motion_input(class_index: np.ndarray) -> np.ma.MaskedArray:
-    values = class_index.astype(np.float32, copy=False)
-    mask = class_index < 0
-    return np.ma.array(values, mask=mask, copy=False)
-
-
-def _latest_definite_ge30(class_index: np.ndarray) -> np.ndarray:
-    # Frozen from JMA class intervals: P30_50/P50_80/P80_INF are indices 5..7.
-    return (class_index[-1] >= 5).astype(np.float32)
-
-
-def run_model(
-    class_index: np.ndarray,
-    spec: dict,
-    *,
-    dense_lucaskanade,
-    semilagrangian_extrapolate,
-) -> dict:
-    _validate_spec(spec)
-
-    params = spec["motion_estimation"]["parameters"]
-    motion_field = dense_lucaskanade(
-        _motion_input(class_index),
-        lk_kwargs=params["lk_kwargs"],
-        fd_method=params["fd_method"],
-        fd_kwargs=params["fd_kwargs"],
-        interp_method=params["interp_method"],
-        interp_kwargs=params["interp_kwargs"],
-        dense=params["dense"],
-        nr_std_outlier=params["nr_std_outlier"],
-        k_outlier=params["k_outlier"],
-        size_opening=params["size_opening"],
-        decl_scale=params["decl_scale"],
-        verbose=params["verbose"],
-    )
-    motion_field = np.asarray(motion_field, dtype=np.float32)
-    expected_shape = (2, class_index.shape[1], class_index.shape[2])
-    if motion_field.shape != expected_shape:
-        raise RuntimeError(
-            f"unexpected dense motion shape {motion_field.shape}, expected {expected_shape}"
-        )
-    if not np.all(np.isfinite(motion_field)):
-        raise RuntimeError("motion field contains non-finite values")
-
-    latest_mask = _latest_definite_ge30(class_index)
-    extrap = spec["extrapolation"]
-    forecast = semilagrangian_extrapolate(
-        latest_mask,
-        motion_field,
-        extrap["timesteps"],
-        outval=float(extrap["outval"]),
-        allow_nonfinite_values=bool(extrap["allow_nonfinite_values"]),
-        vel_timestep=float(extrap["vel_timestep"]),
-        n_iter=int(extrap["n_iter"]),
-        interp_order=int(extrap["interp_order"]),
-        return_displacement=bool(extrap["return_displacement"]),
-    )
-    forecast = np.asarray(forecast, dtype=np.float32)
-    expected_forecast_shape = (
-        len(extrap["timesteps"]),
-        class_index.shape[1],
-        class_index.shape[2],
-    )
-    if forecast.shape != expected_forecast_shape:
-        raise RuntimeError(
-            f"unexpected forecast shape {forecast.shape}, expected {expected_forecast_shape}"
-        )
-    if not np.all(np.isfinite(forecast)):
-        raise RuntimeError("forecast contains non-finite values")
-
-    threshold = float(extrap["numerical_binary_decode_threshold"])
-    forecast_mask = (forecast >= threshold).astype(np.uint8)
-    persistence = np.repeat(
-        latest_mask.astype(np.uint8)[None, :, :],
-        len(extrap["timesteps"]),
-        axis=0,
-    )
-    return {
-        "velocity": motion_field,
-        "forecast_ge30": forecast_mask,
-        "persistence_ge30": persistence,
-        "lead_minutes": np.asarray(extrap["lead_minutes"], dtype=np.int16),
     }
 
 
 def execute(archive_dir: Path, output_dir: Path, spec_path: Path) -> dict:
     if output_dir.exists():
         raise FileExistsError(f"refusing existing output directory: {output_dir}")
+
     spec = _read_json(spec_path)
     _validate_spec(spec)
 
@@ -270,16 +200,8 @@ def execute(archive_dir: Path, output_dir: Path, spec_path: Path) -> dict:
     if valid_time_unix_s.shape != (4,):
         raise ValueError("input valid_time_unix_s must have four entries")
 
-    versions = _runtime_versions(spec)
-    from pysteps.motion.lucaskanade import dense_lucaskanade
-    from pysteps.extrapolation.semilagrangian import extrapolate
-
-    result = run_model(
-        class_index,
-        spec,
-        dense_lucaskanade=dense_lucaskanade,
-        semilagrangian_extrapolate=extrapolate,
-    )
+    versions = _runtime_versions()
+    result = run_frozen_field_motion(class_index, spec)
 
     output_dir.mkdir(parents=True, exist_ok=False)
     forecast_path = output_dir / "field_motion_forecast.npz"
@@ -291,19 +213,19 @@ def execute(archive_dir: Path, output_dir: Path, spec_path: Path) -> dict:
         lead_minutes=result["lead_minutes"],
     )
 
-    spec_sha = _sha256(spec_path)
     output_manifest = {
         "schema_version": "1.0.0",
         "product": "F4_FIELD_MOTION_FROZEN_MECHANICS",
         "research_stage": "F4-9B",
         "spec_file": str(spec_path.relative_to(ROOT)),
-        "spec_sha256": spec_sha,
+        "spec_sha256": _sha256(spec_path),
         "input_archive": str(archive_dir),
         "input_archive_product": manifest["product"],
         "input_collection_slot_utc": manifest["collection_slot_utc"],
         "input_decoded_field_sha256": actual_sha,
         "runtime_versions": versions,
         "motion_method": spec["motion_estimation"]["library"],
+        "motion_reference": spec["motion_estimation"]["reference"],
         "extrapolation_method": spec["extrapolation"]["library"],
         "lead_minutes": spec["extrapolation"]["lead_minutes"],
         "velocity_shape": list(map(int, result["velocity"].shape)),
@@ -349,25 +271,19 @@ def main() -> int:
     args = parser.parse_args()
 
     result = execute(args.archive_dir, args.output_dir, args.spec)
-    print(
-        json.dumps(
-            {
-                "product": result["product"],
-                "input_collection_slot_utc": result["input_collection_slot_utc"],
-                "runtime_versions": result["runtime_versions"],
-                "lead_minutes": result["lead_minutes"],
-                "velocity_shape": result["velocity_shape"],
-                "forecast_shape": result["forecast_shape"],
-                "forecast_positive_pixels": result["forecast_positive_pixels"],
-                "persistence_positive_pixels": result["persistence_positive_pixels"],
-                "future_observations_read": result["future_observations_read"],
-                "forecast_skill_scored": result["forecast_skill_scored"],
-                "risk_engine_allowed": result["risk_engine_allowed"],
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
+    print(json.dumps({
+        "product": result["product"],
+        "input_collection_slot_utc": result["input_collection_slot_utc"],
+        "runtime_versions": result["runtime_versions"],
+        "lead_minutes": result["lead_minutes"],
+        "velocity_shape": result["velocity_shape"],
+        "forecast_shape": result["forecast_shape"],
+        "forecast_positive_pixels": result["forecast_positive_pixels"],
+        "persistence_positive_pixels": result["persistence_positive_pixels"],
+        "future_observations_read": result["future_observations_read"],
+        "forecast_skill_scored": result["forecast_skill_scored"],
+        "risk_engine_allowed": result["risk_engine_allowed"],
+    }, ensure_ascii=False, indent=2))
     return 0
 
 
