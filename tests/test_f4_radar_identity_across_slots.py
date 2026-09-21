@@ -80,6 +80,11 @@ def test_no_primary_match_is_unknown():
     result = trace_identity(a, "L-A", _stamp(30), [b])
     assert result["status"] == "NO_CONTINUOUS_PRIMARY_MATCH"
     assert result["identity_verified"] is False
+    assert result["break_diagnostic"]["from_valid_time_utc"] == _stamp(15)
+    assert result["break_diagnostic"]["to_valid_time_utc"] == _stamp(20)
+    assert result["break_diagnostic"]["available_transition_records"] == 1
+    assert result["break_diagnostic"]["previous_id_primary_match_records"] == 0
+    assert result["break_diagnostic"]["next_frame_component_count"] == 1
 
 
 def test_overlapping_frame_conflict_rejected():
