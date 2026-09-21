@@ -287,9 +287,13 @@ def evaluate(source_root: Path, comparison_roots: list[Path]) -> dict:
         if len(origin_objects) != origin_payload.get("research_object_count"):
             raise ValueError("duplicate or missing F4-0 research object")
 
+        features = geo_payload.get("features")
+        if not isinstance(features, list) or len(features) != geo_payload.get("feature_count"):
+            raise ValueError("F4-4 feature count mismatch")
+
         observed_features: dict[str, dict] = {}
         projections: list[dict] = []
-        for feature in geo_payload.get("features", []):
+        for feature in features:
             props = feature.get("properties") or {}
             object_id = str(props.get("research_object_id") or "")
             if not object_id:
@@ -302,6 +306,12 @@ def evaluate(source_root: Path, comparison_roots: list[Path]) -> dict:
                 projections.append(feature)
             else:
                 raise ValueError("unexpected F4-4 feature kind")
+
+        if (
+            len(observed_features) != geo_payload.get("source_envelope_count")
+            or len(projections) != geo_payload.get("projected_envelope_count")
+        ):
+            raise ValueError("F4-4 observed/projected envelope counts disagree")
 
         for feature in projections:
             props = feature["properties"]
@@ -403,14 +413,18 @@ def evaluate(source_root: Path, comparison_roots: list[Path]) -> dict:
                 target_valid,
             )
             row["target_boundary_truncated"] = bool(actual.get("boundary_truncated"))
-            target_geometry = _envelope_geometry(actual)
-            if target_geometry is None:
-                row["verification_status"] = "TARGET_GEOGRAPHIC_ENVELOPE_MISSING"
+            if row["source_boundary_truncated"] or row["target_boundary_truncated"]:
+                # Validate a present envelope but do not require one for an
+                # already-excluded boundary-truncated target.
+                if actual.get("geographic_envelope") is not None:
+                    _envelope_geometry(actual)
+                row["verification_status"] = "BOUNDARY_TRUNCATED_EXCLUDED"
                 results.append(row)
                 continue
 
-            if row["source_boundary_truncated"] or row["target_boundary_truncated"]:
-                row["verification_status"] = "BOUNDARY_TRUNCATED_EXCLUDED"
+            target_geometry = _envelope_geometry(actual)
+            if target_geometry is None:
+                row["verification_status"] = "TARGET_GEOGRAPHIC_ENVELOPE_MISSING"
                 results.append(row)
                 continue
 
@@ -467,13 +481,15 @@ def evaluate(source_root: Path, comparison_roots: list[Path]) -> dict:
         "probability_generated": False,
         "severity_generated": False,
         "validated_forecast": False,
+        "metric_projection": "WEB_MERCATOR_TRACKING_PLANE",
         "object_identity_semantics": (
             "Same-object comparison requires continuous F4-3 radar primary-match "
             "continuity. This is algorithmic identity, not independent meteorological truth."
         ),
         "envelope_semantics": (
-            "Overlap metrics compare convex hulls of threshold-component pixel cells. "
-            "Concavities and holes are filled; these are research envelopes, not exact precipitation footprints."
+            "Overlap metrics compare convex hulls of threshold-component pixel cells in the "
+            "native Web Mercator tracking plane. Concavities and holes are filled; planar area "
+            "fields are not geodesic area. These are research envelopes, not exact precipitation footprints."
         ),
         "interpretation": (
             "Research-only overlap verification of already-archived prospective F4-4 envelopes. "
