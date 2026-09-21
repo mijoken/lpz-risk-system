@@ -16,6 +16,7 @@ from test_f4_research_motion_baseline import matched_source
 
 def scenario():
     src, f3 = matched_source()
+    src["collection_slot_utc"] = "2026-09-21T03:30:00Z"
     src["components"]["radar_tracking"]["fixed_mosaic"] = {
         "zoom": 8, "origin_tile_x": 1, "origin_tile_y": 2, "tile_count": 16}
     f3 = adapt(src)
@@ -52,7 +53,7 @@ def test_no_components_not_negative_label():
 
 def test_rejects_future_leakage():
     baseline, src, target = scenario()
-    target["prospective_as_of_utc"] = "2026-09-21T03:40:00Z"
+    target["prospective_as_of_utc"] = "2026-09-21T03:50:00Z"
     with pytest.raises(ValueError, match="future observation"):
         verify(baseline, src, target)
 
