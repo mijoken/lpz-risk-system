@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-21T08:04:38Z",
+  "generated_at_utc": "2026-09-21T08:49:26Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -172,14 +172,14 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-09-21T07:30:00Z",
-        "latest_success_run_id": 35573240532,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-21T08:42:26Z",
+        "latest_success_run_id": 35579301764,
         "latest_success_event": "workflow_run",
-        "latest_success_age_minutes": 34.643058133333334,
+        "latest_success_age_minutes": 7.0070542,
         "freshness_limit_minutes": 120.0,
-        "latest_completed_conclusion": "failure",
-        "latest_failure_after_success": true,
+        "latest_completed_conclusion": "success",
+        "latest_failure_after_success": false,
         "runs_examined": 80
       },
       "daily": {
@@ -188,7 +188,7 @@
         "latest_success_created_at_utc": "2026-09-21T08:02:56Z",
         "latest_success_run_id": 35575871333,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.7097248,
+        "latest_success_age_minutes": 46.5070542,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -197,10 +197,10 @@
       "public": {
         "name": "public_pages_production",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-21T07:40:34Z",
-        "latest_success_run_id": 35574082890,
+        "latest_success_created_at_utc": "2026-09-21T08:41:15Z",
+        "latest_success_run_id": 35579197172,
         "latest_success_event": "push",
-        "latest_success_age_minutes": 24.076391466666667,
+        "latest_success_age_minutes": 8.190387533333332,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -221,8 +221,7 @@
     }
   },
   "blockers": [
-    "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON"
+    "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
