@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+from collections import Counter
 from pathlib import Path
 
 from build_f4_research_motion_baseline import utc
@@ -162,17 +163,57 @@ def _mean(values: list[float]) -> float | None:
     return statistics.fmean(values) if values else None
 
 
-def _horizon_summary(rows: list[dict], lead: int) -> dict:
-    comparable = [
+def _counter_dict(values) -> dict[str, int]:
+    return dict(sorted(Counter(str(value) for value in values if value).items()))
+
+
+def _identity_diagnostics(rows: list[dict]) -> dict:
+    unresolved = [
         row for row in rows
-        if row["lead_from_as_of_minutes"] == lead
-        and row["verification_status"] == "IDENTITY_MATCHED_ENVELOPE_COMPARISON"
+        if row["verification_status"] == "IDENTITY_UNRESOLVED_UNKNOWN"
     ]
+    break_categories = [
+        (row.get("identity_break_diagnostic") or {}).get("association_category")
+        for row in unresolved
+    ]
+    return {
+        "unresolved_count": len(unresolved),
+        "identity_status_counts": _counter_dict(
+            row.get("identity_status") for row in unresolved
+        ),
+        "break_association_category_counts": _counter_dict(break_categories),
+    }
+
+
+def _horizon_summary(rows: list[dict], lead: int) -> dict:
+    horizon_rows = [
+        row for row in rows if row["lead_from_as_of_minutes"] == lead
+    ]
+    comparable = [
+        row for row in horizon_rows
+        if row["verification_status"] == "IDENTITY_MATCHED_ENVELOPE_COMPARISON"
+    ]
+    exact_targets = [
+        row for row in horizon_rows if row["target_run_id"] is not None
+    ]
+    verified = [row for row in horizon_rows if row["identity_verified"]]
     motion_iou = [row["motion_envelope"]["iou"] for row in comparable]
     persistence_iou = [row["persistence_envelope"]["iou"] for row in comparable]
     deltas = [a - b for a, b in zip(motion_iou, persistence_iou)]
     tolerance = 1e-12
+    diagnostics = _identity_diagnostics(horizon_rows)
     return {
+        "projection_count": len(horizon_rows),
+        "exact_target_count": len(exact_targets),
+        "identity_verified_count": len(verified),
+        "identity_unresolved_count": diagnostics["unresolved_count"],
+        "identity_verification_rate_among_exact_targets": (
+            len(verified) / len(exact_targets) if exact_targets else None
+        ),
+        "identity_status_counts": diagnostics["identity_status_counts"],
+        "break_association_category_counts": diagnostics[
+            "break_association_category_counts"
+        ],
         "comparison_count": len(comparable),
         "motion_iou_mean": _mean(motion_iou),
         "motion_iou_median": _median(motion_iou),
@@ -464,13 +505,16 @@ def evaluate(source_root: Path, comparison_roots: list[Path]) -> dict:
         ),
     }
 
+    identity_diagnostics = _identity_diagnostics(results)
+
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "product": "F4_RESEARCH_GEOGRAPHIC_ENVELOPE_OVERLAP_VERIFICATION",
         "source_run_id": run_id,
         "comparison_run_ids": comparison_run_ids,
         "research_mode": "ARCHIVED_PROSPECTIVE_SOURCE_RETROSPECTIVE_VERIFICATION",
         "counts": counts,
+        "identity_diagnostics": identity_diagnostics,
         "horizons_from_as_of_minutes": {
             str(lead): _horizon_summary(results, lead) for lead in (15, 30)
         },
