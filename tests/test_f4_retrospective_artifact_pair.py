@@ -1,4 +1,5 @@
 """F4 retrospective archive-pair bridge tests; no weather download."""
+import copy
 import json
 import sys
 from pathlib import Path
@@ -15,6 +16,17 @@ from test_f4_research_point_proximity import scenario
 
 def pair(tmp_path):
     _, source, target = scenario()
+    # F4-2 proximity accepts centroid-only targets; F4-3 identity needs
+    # complete observed component signatures. Keep the source F3 digest
+    # consistent by populating its synthetic components before adapt().
+    source_frames = source["components"]["radar_tracking"]["tracking"]["30"]["frames"]
+    for frame in source_frames:
+        for component in frame["components"]:
+            component["pixel_count"] = 10
+    observed = copy.deepcopy(source_frames[-1]["components"][0])
+    observed["centroid"] = {"lat": 35.0, "lon": 139.03}
+    observed["local_id"] = 42
+    target["components"]["radar_tracking"]["tracking"]["30"]["frames"][0]["components"] = [observed]
     a, b = tmp_path / "source", tmp_path / "target"
     name = "20260921T033000Z.json"
     target_name = "20260921T040000Z.json"
