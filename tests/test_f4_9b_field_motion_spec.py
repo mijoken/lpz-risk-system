@@ -130,9 +130,8 @@ def test_run_model_uses_frozen_parameters_and_outputs_two_leads():
 def test_spec_rejects_posthoc_method_change():
     spec = _spec()
     spec["motion_estimation"]["parameters"]["fd_method"] = "blob"
-    # The validator guarantees locks/structure; exact frozen value is asserted
-    # by this test to prevent silent post-hoc method substitution.
-    assert spec["motion_estimation"]["parameters"]["fd_method"] != _spec()["motion_estimation"]["parameters"]["fd_method"]
+    with pytest.raises(ValueError, match="Lucas-Kanade parameter contract changed"):
+        _validate_spec(spec)
 
 
 def test_bad_lead_contract_is_rejected():
