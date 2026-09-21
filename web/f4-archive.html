@@ -31,15 +31,19 @@
   <section class="archive-layout">
     <div class="panel archive-map-panel">
       <svg id="f4-map" viewBox="0 0 1200 760" role="img" aria-label="保存済み観測降雨域の中心位置および研究用移動外挿"></svg>
+      <p class="archive-map-note">地図の番号・下の一覧から降雨域を選ぶと、観測地点・最寄りの参考都市・面積・移動先を確認できます。黄色は研究用の外挿位置です。</p>
       <p class="archive-legend"><span class="archive-origin">●</span> 観測された降雨域の中心　
       <span class="archive-arrow">→</span> 研究用15/30分先への外挿（実際の移動・線状降水帯予測ではない）</p>
     </div>
     <aside class="panel archive-detail">
       <h2>位置と時刻</h2>
       <p id="f4-context">選択した観測時刻の研究対象を表示します。地図上の点を選択すると緯度経度を確認できます。</p>
-      <div id="f4-selected" aria-live="polite">地図上の観測点を選択してください。</div>
+      <div id="f4-selected" aria-live="polite">地図上の観測点または一覧から選択してください。</div>
+      <h2>この時刻の観測対象一覧</h2>
+      <p>参考都市は距離の目安です。降雨域の所在地や影響地域を確定するものではありません。</p>
+      <div id="f4-object-list" class="archive-object-list"></div>
       <h2>重要な区別</h2>
-      <p>観測点は30 mm/h以上のレーダー降雨域の中心です。線は二時刻の位置から求めた研究用の等速外挿であり、降雨域の幅・長さ・雨量・線状降水帯の発生確率を表しません。</p>
+      <p>観測点は30 mm/h以上のレーダー降雨域の中心です。面積は元データの概算値であり、実際の輪郭・長さ・幅・雨量を表しません。線は二時刻の位置から求めた研究用の等速外挿であり、線状降水帯の発生確率を表しません。</p>
       <p>記録は選択された固定レーダーモザイクの一部であり、全国を均一に検査した結果ではありません。</p>
     </aside>
   </section>
