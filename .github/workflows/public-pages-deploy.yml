@@ -16,8 +16,10 @@ on:
       - "scripts/build_public_web_data.py"
       - "scripts/publish_f4_archived_research_summary.py"
       - "scripts/publish_latest_f4_geographic_research.py"
+      - "scripts/publish_f4_field_motion_research.py"
       - "tests/test_publish_f4_archived_research_summary.py"
       - "tests/test_publish_latest_f4_geographic_research.py"
+      - "tests/test_publish_f4_field_motion_research.py"
       - "scripts/acquisition_probe.py"
       - "src/**"
       - "tests/test_public_web.py"
@@ -63,6 +65,7 @@ jobs:
             tests/test_public_rain_overlay.py \
             tests/test_publish_f4_archived_research_summary.py \
             tests/test_publish_latest_f4_geographic_research.py \
+            tests/test_publish_f4_field_motion_research.py \
             -q
 
       - name: Check browser JavaScript syntax
@@ -306,6 +309,7 @@ jobs:
               root / "js" / "f4-archive.js",
               root / "data" / "research" / "f4_archived_geographic_research.geojson",
               root / "data" / "research" / "f4_live_geographic_research.geojson",
+              root / "data" / "research" / "f4_field_motion_research.geojson",
               root / "data" / "reference_cities.json",
               root / "css" / "app.css",
               root / "js" / "app.js",
@@ -329,6 +333,18 @@ jobs:
           assert len(latest["regions"]) == 142
           assert all(row["risk"] is None for row in latest["regions"])
           assert all(row["display_state"] != "RISK_AVAILABLE" for row in latest["regions"])
+
+          field_motion = json.loads((root / "data" / "research" / "f4_field_motion_research.geojson").read_text(encoding="utf-8"))
+          assert field_motion["type"] == "FeatureCollection"
+          assert field_motion["product"] == "LPZ_F4_FIELD_MOTION_RESEARCH"
+          assert field_motion["model_id"] == "LUCAS_KANADE_SEMILAGRANGIAN"
+          assert field_motion["terminal_decision"] in {"PENDING", "GO", "NO_GO"}
+          assert field_motion["research_only"] is True
+          assert field_motion["validated_forecast"] is False
+          assert field_motion["production_integration_enabled"] is False
+          assert field_motion["risk_engine_allowed"] is False
+          assert field_motion["lpz_forecast_generated"] is False
+          assert field_motion["coverage"] == "SELECTED_FIXED_MOSAIC_NOT_NATIONWIDE"
 
           f4 = json.loads((root / "data" / "research" / "f4_archived_geographic_research.geojson").read_text(encoding="utf-8"))
           assert f4["type"] == "FeatureCollection"
