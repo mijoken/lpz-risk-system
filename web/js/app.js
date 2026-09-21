@@ -217,6 +217,156 @@
     setText("f4-live-object", "—");
   }
 
+  function clearF4LiveOverview() {
+    setText("f4-live-window", "—");
+    setText("f4-live-range", "—");
+    const groups = document.getElementById("f4-live-groups");
+    if (groups) groups.replaceChildren();
+    const key = document.getElementById("f4-live-style-key");
+    if (key) key.hidden = true;
+  }
+
+  function renderF4LiveOverview(doc) {
+    const lead15 = (doc.features || []).filter(
+      (feature) => Number(feature?.properties?.lead_from_as_of_minutes) === 15
+    );
+
+    const targetRows = [];
+    for (const lead of [15, 30]) {
+      const feature = (doc.features || []).find(
+        (row) => Number(row?.properties?.lead_from_as_of_minutes) === lead
+      );
+      if (feature?.properties?.target_valid_time_utc) {
+        targetRows.push(`${lead}分先 ${formatJst(feature.properties.target_valid_time_utc)}`);
+      }
+    }
+    setText("f4-live-window", targetRows.length ? targetRows.join(" / ") : "—");
+
+    const areas = lead15
+      .map((feature) => Number(feature?.properties?.observed_approx_area_km2))
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    if (areas.length) {
+      const min = Math.min(...areas);
+      const max = Math.max(...areas);
+      setText(
+        "f4-live-range",
+        Math.abs(max - min) < 0.05
+          ? `${min.toFixed(1)} km²`
+          : `${min.toFixed(1)}–${max.toFixed(1)} km²`
+      );
+    } else {
+      setText("f4-live-range", "—");
+    }
+
+    const buckets = new Map();
+    for (const feature of lead15) {
+      const props = feature?.properties || {};
+      const centroid = props.projected_centroid_lon_lat;
+      const lon = Number(Array.isArray(centroid) ? centroid[0] : NaN);
+      const lat = Number(Array.isArray(centroid) ? centroid[1] : NaN);
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+
+      const nearest = nearestReferenceCity(lon, lat);
+      const city = nearest?.city;
+      const key = city
+        ? `${city.prefecture_ja || ""}|${city.name_ja || ""}`
+        : "NO_REFERENCE_CITY";
+      if (!buckets.has(key)) {
+        buckets.set(key, {
+          label: city
+            ? `${city.prefecture_ja || ""} ${city.name_ja || ""}`.trim()
+            : "位置参照なし",
+          rows: [],
+          latSum: 0,
+          lonSum: 0,
+        });
+      }
+      const bucket = buckets.get(key);
+      bucket.rows.push({
+        feature,
+        lon,
+        lat,
+        distanceKm: nearest?.distanceKm ?? null,
+      });
+      bucket.latSum += lat;
+      bucket.lonSum += lon;
+    }
+
+    const groups = Array.from(buckets.values()).map((bucket) => {
+      const count = bucket.rows.length;
+      const avgLat = bucket.latSum / Math.max(1, count);
+      const avgLon = bucket.lonSum / Math.max(1, count);
+      let representative = bucket.rows[0] || null;
+      let bestDistance = Infinity;
+      for (const row of bucket.rows) {
+        const d = Math.hypot(row.lat - avgLat, row.lon - avgLon);
+        if (d < bestDistance) {
+          bestDistance = d;
+          representative = row;
+        }
+      }
+      const distances = bucket.rows
+        .map((row) => row.distanceKm)
+        .filter((value) => Number.isFinite(value));
+      return {
+        ...bucket,
+        count,
+        avgLat,
+        avgLon,
+        representative,
+        minDistanceKm: distances.length ? Math.min(...distances) : null,
+        maxDistanceKm: distances.length ? Math.max(...distances) : null,
+      };
+    }).sort((a, b) => b.avgLat - a.avgLat);
+
+    const root = document.getElementById("f4-live-groups");
+    if (root) {
+      root.replaceChildren();
+      for (const group of groups) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "f4-live-group-button";
+
+        const label = document.createElement("strong");
+        label.textContent = group.label;
+
+        const meta = document.createElement("span");
+        let distanceText = "";
+        if (Number.isFinite(group.minDistanceKm) && Number.isFinite(group.maxDistanceKm)) {
+          const low = Math.round(group.minDistanceKm);
+          const high = Math.round(group.maxDistanceKm);
+          distanceText = low === high
+            ? ` · 都市から約${low}km`
+            : ` · 都市から約${low}–${high}km`;
+        }
+        meta.textContent = `${group.count}対象${distanceText}`;
+
+        button.append(label, meta);
+        button.addEventListener("click", () => {
+          const toggle = document.getElementById("f4-live-layer-toggle");
+          if (toggle) toggle.checked = true;
+          window.LPZMap.setResearchVisible(true);
+          window.LPZMap.focusLonLat(group.avgLon, group.avgLat, 4.6);
+          const feature = group.representative?.feature;
+          if (feature) {
+            const props = feature.properties || {};
+            window.LPZMap.selectResearchObject(
+              props.research_object_id,
+              props.lead_from_as_of_minutes
+            );
+            renderF4LiveSelection(feature);
+          }
+          updateMapLegend();
+        });
+
+        root.appendChild(button);
+      }
+    }
+
+    const styleKey = document.getElementById("f4-live-style-key");
+    if (styleKey) styleKey.hidden = groups.length === 0;
+  }
+
   function renderF4LiveSelection(feature) {
     const props = feature?.properties || {};
     const centroid = props.projected_centroid_lon_lat;
@@ -265,6 +415,7 @@
       }
       applyStatusValue("f4-live-status", status, "wait");
       setText("f4-live-summary", summary);
+      clearF4LiveOverview();
       resetF4LiveSelection();
       updateMapLegend();
     };
@@ -308,6 +459,7 @@
       "f4-live-summary",
       `${doc.projected_object_count}対象 · ${doc.feature_count}候補域 · as-of ${formatJst(doc.source_as_of_utc)} · 固定モザイク範囲のみ`
     );
+    renderF4LiveOverview(doc);
     resetF4LiveSelection();
     updateMapLegend();
   }
