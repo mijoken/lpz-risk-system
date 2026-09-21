@@ -38,6 +38,107 @@ def _frames(bundle: dict) -> list:
         raise ValueError("future observation or empty frames")
     return frames
 
+def _initial_motion_reference(source_bundle: dict, origin_component: dict) -> dict | None:
+    """Return the component immediately preceding the source origin when unique."""
+    radar = source_bundle["components"]["radar_tracking"]["tracking"]["30"]
+    frames = radar["frames"]
+    transitions = radar.get("transitions", [])
+    if len(frames) < 2 or not transitions:
+        return None
+    previous_frame = frames[-2]
+    current_frame = frames[-1]
+    candidates = [
+        transition for transition in transitions
+        if transition.get("from_valid_time") == previous_frame.get("valid_time")
+        and transition.get("to_valid_time") == current_frame.get("valid_time")
+    ]
+    if len(candidates) != 1:
+        return None
+    matches = [
+        match for match in candidates[0].get("primary_matches", [])
+        if match.get("current_id") == origin_component.get("local_id")
+    ]
+    if len(matches) != 1:
+        return None
+    previous = [
+        component for component in previous_frame.get("components", [])
+        if component.get("local_id") == matches[0].get("previous_id")
+    ]
+    if len(previous) != 1:
+        return None
+    return {
+        "valid_time": previous_frame["valid_time"],
+        "component": previous[0],
+    }
+
+
+def _motion_candidate_diagnostic(
+    motion_reference: dict | None,
+    current_component: dict,
+    next_components: list[dict],
+) -> dict | None:
+    """Rank next-frame components around one-step constant-velocity prediction."""
+    if motion_reference is None or not next_components:
+        return None
+    prior = motion_reference["component"]
+    p0 = prior["centroid_pixel"]
+    p1 = current_component["centroid_pixel"]
+    row0, col0 = float(p0["row"]), float(p0["col"])
+    row1, col1 = float(p1["row"]), float(p1["col"])
+    predicted_row = row1 + (row1 - row0)
+    predicted_col = col1 + (col1 - col0)
+
+    ranked = []
+    for candidate in next_components:
+        centroid = candidate["centroid_pixel"]
+        row = float(centroid["row"])
+        col = float(centroid["col"])
+        error = ((row - predicted_row) ** 2 + (col - predicted_col) ** 2) ** 0.5
+        from_current = ((row - row1) ** 2 + (col - col1) ** 2) ** 0.5
+        ranked.append((error, int(candidate["local_id"]), from_current, candidate))
+    ranked.sort(key=lambda item: (item[0], item[1]))
+
+    best = ranked[0]
+    second_distance = ranked[1][0] if len(ranked) > 1 else None
+    margin = second_distance - best[0] if second_distance is not None else None
+    current_pixels = float(current_component["pixel_count"])
+    best_pixels = float(best[3]["pixel_count"])
+    thresholds = (3, 5, 8, 10, 15, 20)
+    return {
+        "motion_reference_valid_time_utc": motion_reference["valid_time"],
+        "prior_centroid_pixel": {
+            "row": row0,
+            "col": col0,
+        },
+        "current_centroid_pixel": {
+            "row": row1,
+            "col": col1,
+        },
+        "predicted_next_centroid_pixel": {
+            "row": predicted_row,
+            "col": predicted_col,
+        },
+        "nearest_candidate": {
+            "local_id": best[1],
+            "motion_error_pixels": best[0],
+            "centroid_displacement_from_current_pixels": best[2],
+            "pixel_count": best[3]["pixel_count"],
+            "pixel_count_ratio_to_current": (
+                best_pixels / current_pixels if current_pixels > 0 else None
+            ),
+            "boundary_truncated": best[3]["boundary_truncated"],
+        },
+        "second_nearest_motion_error_pixels": second_distance,
+        "nearest_to_second_margin_pixels": margin,
+        "candidate_count": len(ranked),
+        "within_motion_error_threshold_counts": {
+            str(threshold): sum(item[0] <= threshold for item in ranked)
+            for threshold in thresholds
+        },
+        "research_candidate_only": True,
+    }
+
+
 
 def trace_identity(source_bundle: dict, origin_lineage_id: str,
                    target_valid_time_utc: str, bundles: list[dict]) -> dict:
@@ -90,6 +191,7 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
                 edges[a, b] = []
             edges[a, b].append((fs, tr))
     current = _signature(origin[0])
+    motion_reference = _initial_motion_reference(source_bundle, origin[0])
     time = start
     traversed = 0
     while time < end:
@@ -157,6 +259,11 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
             else:
                 next_component = None
                 bbox_intersects = None
+            motion_candidate = _motion_candidate_diagnostic(
+                motion_reference,
+                previous_component,
+                list(frames[b].values()),
+            )
             # A single overlap candidate cannot lose the greedy one-to-one
             # match unless its destination has a competing previous component
             # (recorded as a merge candidate). These categories describe
@@ -192,13 +299,19 @@ def trace_identity(source_bundle: dict, origin_lineage_id: str,
                             "boundary_truncated": next_component["boundary_truncated"],
                             "bbox_intersects": bbox_intersects,
                         } if nearest is not None else None),
+                        "motion_candidate_diagnostic": motion_candidate,
                         "geometry_diagnostic_only": True,
                     }}
         if len(matches) > 1:
             return {"status": "CONFLICTING_PRIMARY_MATCHES",
                     "target_component": None, "identity_verified": False,
                     "verified_transition_count": traversed}
+        previous_for_motion = frames[a][current]
         current = next(iter(matches))
+        motion_reference = {
+            "valid_time": a,
+            "component": previous_for_motion,
+        }
         if current not in frames[b]:
             raise ValueError("matched target differs from archived observation")
         time = next_time
