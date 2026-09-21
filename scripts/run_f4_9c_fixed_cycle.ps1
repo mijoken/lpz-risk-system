@@ -18,7 +18,7 @@ if (-not (Test-Path -LiteralPath $ResearchPython)) {
     throw "F4-9C research Python missing: $ResearchPython"
 }
 
-$Head = (git -C $RunnerWt rev-parse HEAD).Trim()
+$Head = (git -c safe.directory=$RunnerWt -C $RunnerWt rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0) {
     throw "F4-9C fixed runner HEAD check failed"
 }
@@ -26,7 +26,7 @@ if ($Head -ne $FixedSha) {
     throw "F4-9C fixed runner moved: expected $FixedSha got $Head"
 }
 
-$Dirty = git -C $RunnerWt status --porcelain
+$Dirty = git -c safe.directory=$RunnerWt -C $RunnerWt status --porcelain
 if ($LASTEXITCODE -ne 0) {
     throw "F4-9C fixed runner status check failed"
 }
