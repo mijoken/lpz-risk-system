@@ -85,6 +85,25 @@ def test_no_primary_match_is_unknown():
     assert result["break_diagnostic"]["available_transition_records"] == 1
     assert result["break_diagnostic"]["previous_id_primary_match_records"] == 0
     assert result["break_diagnostic"]["next_frame_component_count"] == 1
+    assert result["break_diagnostic"]["association_category"] == "NO_RECORDED_OVERLAP_CANDIDATE"
+
+
+@pytest.mark.parametrize(
+    ("structure", "entry", "expected"),
+    [
+        ("split_candidates", {"previous_id": 16, "current_ids": [21, 22]}, "SPLIT_CANDIDATE"),
+        ("merge_candidates", {"current_id": 21, "previous_ids": [16, 17]}, "MERGE_CANDIDATE"),
+    ],
+)
+def test_first_break_preserves_archived_split_merge_evidence(structure, entry, expected):
+    a, b = _bundle(0, "L-A"), _bundle(15, "L-B")
+    transition = b["components"]["radar_tracking"]["tracking"]["30"]["transitions"][0]
+    transition["primary_matches"] = []
+    transition[structure] = [entry]
+    result = trace_identity(a, "L-A", _stamp(30), [b])
+    assert result["status"] == "NO_CONTINUOUS_PRIMARY_MATCH"
+    assert result["identity_verified"] is False
+    assert result["break_diagnostic"]["association_category"] == expected
 
 
 def test_overlapping_frame_conflict_rejected():
