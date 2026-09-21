@@ -202,6 +202,18 @@ def test_rejects_projected_feature_with_probability(tmp_path):
         )
 
 
+def test_missing_artifact_becomes_not_published(tmp_path):
+    result = build_public(
+        tmp_path,
+        now_utc=datetime(2026, 9, 21, 8, 20, tzinfo=timezone.utc),
+    )
+
+    assert result["status"] == "NOT_PUBLISHED"
+    assert result["feature_count"] == 0
+    assert result["features"] == []
+    assert result["risk_engine_allowed"] is False
+
+
 def test_rejects_multiple_artifact_manifests(tmp_path):
     _make_artifact(tmp_path / "a")
     _make_artifact(tmp_path / "b")
