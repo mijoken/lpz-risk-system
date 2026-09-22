@@ -294,7 +294,7 @@
   }
 
   function resetF4LiveSelection() {
-    setText("f4-live-area", "候補域を地図で選択");
+    setText("f4-live-area", "現在、選択可能な候補域はありません");
     setText("f4-live-center", "—");
     setText("f4-live-scale", "—");
     setText("f4-live-target", "—");
@@ -506,7 +506,7 @@
     };
 
     if (!doc) {
-      disable("NOT PUBLISHED", "最新のF4-4研究候補域は公開されていません。");
+      disable("NOT PUBLISHED", "この時刻に表示可能な最新F4-4候補域はありません。保存済みの研究は下の固定アーカイブから閲覧できます。");
       return;
     }
 
@@ -518,11 +518,11 @@
       return;
     }
 
-    if (doc.status !== "AVAILABLE" || !doc.features.length) {
+    if (!["AVAILABLE", "ARCHIVED"].includes(doc.status) || !doc.features.length) {
       const label = doc.status === "STALE_SUPPRESSED" ? "STALE SUPPRESSED" : doc.status || "UNAVAILABLE";
       const summary = doc.status === "STALE_SUPPRESSED"
-        ? "候補域が古いため自動的に非表示にしました。"
-        : "現在の最新研究slotには表示可能な短時間候補域がありません。";
+        ? "最新候補域は対象時刻から90分以上経過したため実況地図には重ねていません。下の固定F4アーカイブで保存済み研究を閲覧できます。"
+        : "現在の最新研究slotには表示可能な短時間候補域がありません。下の固定F4アーカイブでは保存済みの研究を閲覧できます。";
       disable(label, summary);
       return;
     }
@@ -568,6 +568,7 @@
       setText("field-motion-asof", "—");
       setText("field-motion-count", "—");
       resetFieldMotionSelection();
+      setText("field-motion-selected", "現在、選択可能な紫色領域はありません");
       updateMapLegend();
     };
 
@@ -590,8 +591,8 @@
         ? "STALE SUPPRESSED"
         : doc.status || "UNAVAILABLE";
       const summary = doc.status === "STALE_SUPPRESSED"
-        ? "研究予測が古いため地図形状を自動的に非表示にしています。"
-        : "Field-motion研究予測の表示artifactはまだありません。";
+        ? "研究予測は古いため実況では表示していません。"
+        : "Field-motion研究予測の表示artifactはまだありません。実データ公開まで選択できません。";
       disable(label, summary, decision);
       return;
     }
@@ -615,8 +616,12 @@
       : decision === "NO_GO"
         ? "NO-GO · RESEARCH"
         : "VALIDATION PENDING";
-
-    applyStatusValue("field-motion-status", decisionLabel, decision === "GO" ? "ok" : "wait");
+    const archived = doc.status === "ARCHIVED";
+    applyStatusValue(
+      "field-motion-status",
+      archived ? "ARCHIVED · RESEARCH" : decisionLabel,
+      "wait"
+    );
     setText("field-motion-decision", decision);
     setText("field-motion-asof", formatJst(doc.source_as_of_utc));
     setText(
@@ -625,7 +630,7 @@
     );
     setText(
       "field-motion-summary",
-      `Lucas–Kanade + semi-Lagrangian · ${decisionLabel} · 固定モザイク範囲のみ`
+      `Lucas–Kanade + semi-Lagrangian · ${decisionLabel} · ${archived ? "保存済みの過去予測（現在の予報ではありません）" : "最新研究予測"} · 固定モザイク範囲のみ`
     );
     resetFieldMotionSelection();
     updateMapLegend();
@@ -822,7 +827,9 @@
     const layers = [];
     if (rainOn) layers.push("実況降水（表示用加工）");
     if (researchOn) layers.push("F4短時間研究候補域（未検証）");
-    if (fieldMotionOn) layers.push("Lucas–Kanade研究予測");
+    if (fieldMotionOn) layers.push(f4FieldMotionResearch.status === "ARCHIVED"
+      ? "保存済みLucas–Kanade研究予測（過去の予測）"
+      : "Lucas–Kanade研究予測");
     layers.push(`JMA一次細分区域${lod}`);
     setText("map-legend-text", `${layers.join(" + ")} · LPZ Risk locked`);
   }
