@@ -93,6 +93,8 @@ This step uses **only** the pre-existing 2026-09-21 `prospective-batch-355646679
 | 13:45 | (57,24) | (228,96) | 16 |
 | 14:00 | (57,24) | (228,96) | 16 |
 
+**Prospective-timing caveat:** the original batch manifest classifies all seven slot bundles as `PROSPECTIVE_RECOVERED`; source run `35564667965` published the archived artifact around **2026-09-21 14:31 JST** (05:31 UTC). Thus 12:30–13:00 are exact past radar observation slots recovered later, **not proof that this F4 archive was available as a 12:58 operational real-time alert**. Do not score these F4 point extrapolations as truly prospective at 12:58. This recovery-time distinction is separate from the later 22:15 F4-9C frozen prospective case.
+
 The fixed-mosaic `tile_count=16` is a 4×4 block of z8, each 256×256 pixels. Using the standard Web-Mercator tile-to-coordinate transform, the **source-coverage envelopes** are:
 
 - **12:30–13:00 JST:** longitude **135.000–140.625 E**, latitude **31.952–36.598 N** (southern Kanto / Izu / Tokai side; this footprint contains eastern Kanagawa).
