@@ -148,7 +148,7 @@ def inventory(cohort_root: Path, reference_case: Path) -> dict[str, Any]:
         "downloaded_files": 0,
         "scientific_note": (
             "Even full 5-minute public categorical radar coverage would be a "
-            "15-minute-cadence continuity / intensity-class proxy; it cannot "
+            "5-minute-cadence continuity / intensity-class proxy; it cannot "
             "reproduce exact JMA 5-km 3-hour analyzed-rainfall occurrence criteria. "
             "Unknown pixels must not be zero-filled. Grid/mosaic switches must not "
             "be stitched as a single unchanged analysis footprint."
