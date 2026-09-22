@@ -193,4 +193,21 @@ A dedicated follow-up `scripts/audit_f4_20260921_imerg_late_colocation.py` now m
 
 This gate is necessary because the largest IMERG >=50-mm component centroid is far northeast of the F4 swept-union centroid. Similar principal-axis orientation alone cannot establish that the two products describe the same structure.
 
-**State: spatial co-location code frozen; authenticated local run pending.**
+**Spatial co-location result (completed 2026-09-22):** all 358 IMERG native cells touched by the F4 45-minute swept >=30-mm/h source corridor had valid three-hour IMERG accumulation. Of those, **48 cells / approx 4,609 km² are >=50 mm/3h**, one cell / ~93.7 km² is >=80 mm/3h, and none are >=100 or >=150 mm/3h. The touched-corridor accumulation distribution is median **18.23 mm**, p90 **56.59 mm**, max **81.56 mm**.
+
+The entire IMERG event box contains 2,508 valid cells and 75 >=50-mm/3h cells. Therefore the F4 swept corridor covers only **358/2508 = 14.27%** of the valid IMERG domain but contains **48/75 = 64.0%** of all >=50-mm/3h cells. The >=50 prevalence inside the F4 corridor is **13.41%** versus **2.99%** for the whole event box, an observed concentration ratio of approximately **4.48x**. This is a descriptive spatial-enrichment ratio, not a formal p-value; spatial autocorrelation makes a naive independent-cell significance test inappropriate.
+
+Both IMERG >=50-mm/3h connected components directly intersect the F4 swept corridor:
+
+- northern elongated component: 31/57 native cells overlap, ~**2,925.5 / 5,370.1 km²** (~54.5% by area);
+- southern component: 17/18 cells overlap, ~**1,683.5 / 1,782.7 km²** (~94.4% by area).
+
+Together the overlap is **~4,609 / 7,152.8 km² = 64.4%** of the total >=50-mm/3h connected-component area. Thus the earlier centroid-distance concern is resolved: the F4 swept corridor is broad enough to intersect both independent three-hour heavy-rain components materially, and the overlap is not limited to one remote centroid.
+
+At the final 22:00 F4 source frame alone, 156 native IMERG cells are touched and only 8 are >=50 mm/3h (~787.7 km², 5.13% of touched cells; 10.7% of all event-box >=50 cells). This contrast is meteorologically coherent with a moving/fragmenting rain field: the **45-minute swept corridor**, not a single end-time mask, better corresponds to the three-hour accumulation footprint.
+
+**Interpretation upgrade:** `INDEPENDENT_3H_HEAVY_RAIN_SPATIAL_COLOCATION_SUPPORTED`. The frozen F4 source corridor is strongly co-located with independent IMERG Late >=50-mm/3h accumulation and captures most of that thresholded event-box area. This materially strengthens the real-event milestone. It still does **not** establish official JMA LPZ occurrence, >=100/150-mm criteria, source-object identity, genesis prediction, or F4 forecast skill.
+
+**Timing caveat:** the F4 source corridor is observed during 21:15–22:00 JST and the purple motion product is as-of 22:15. IMERG accumulation spans 19:00–22:00 JST. Therefore this evidence supports **recognition/short-time projection of an already ongoing organized heavy-rain corridor**, not advance prediction of the corridor's original formation. The next scientific question is operational novelty/lead-time, not whether the same heavy-rain area existed.
+
+**State: F4↔IMERG spatial co-location SUPPORTED; >=100/150 IMERG screen remains NEGATIVE; operational/alert-timing comparison is the next audit if the goal is to determine whether the System added warning value beyond contemporaneous official information.**
