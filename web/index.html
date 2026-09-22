@@ -90,6 +90,22 @@
         </div>
       </section>
 
+    <section class="panel research-panel" id="f4-research-panel" aria-labelledby="f4-research-title">
+      <div class="research-heading">
+        <div>
+          <p class="brand-kicker">ARCHIVED RESEARCH · NOT LIVE</p>
+          <h2 id="f4-research-title">F4 観測降雨域の短時間移動研究</h2>
+          <p class="panel-note">固定済みの履歴研究（run 35564667965等）です。自動更新される実況ではなく、現在の線状降水帯の発生状況・予報・警報ではありません。</p>
+        </div>
+        <span class="badge" id="f4-research-state">LOADING</span>
+      </div>
+      <p class="panel-note"><a href="./f4-archive.html" style="color:#54c8ff;font-weight:800;">保存済みF4研究（2026/09/21収録）の観測位置・15分／30分移動線を見る →</a></p>
+      <div class="research-stat-grid" id="f4-research-stats" aria-live="polite"></div>
+      <div class="research-horizon-grid" id="f4-research-horizons"></div>
+      <div class="research-breakdown" id="f4-research-breakdown"></div>
+      <p class="research-footnote" id="f4-research-footnote">研究成果の検証済み公開データを読み込み中です。</p>
+    </section>
+
       <aside class="side" aria-label="System status">
         <section class="panel status-panel">
           <h2>System Status</h2>
@@ -204,7 +220,7 @@
               <strong id="f4-live-object">—</strong>
             </div>
           </div>
-          <p class="f4-live-note">黄色の候補域を選択すると詳細を表示します。固定モザイク研究範囲のみを対象とした未検証の短時間移動外挿で、線状降水帯の発生確率・危険度・警報ではありません。</p>
+          <p class="f4-live-note">候補域データが公開中のときに、黄色の領域を選択すると詳細を表示します。固定モザイク研究範囲のみを対象とした未検証の短時間移動外挿で、線状降水帯の発生確率・危険度・警報ではありません。</p>
         </section>
 
         <section class="panel field-motion-panel" aria-labelledby="field-motion-title">
@@ -258,7 +274,7 @@
 
           <p class="f4-live-note">
             紫色はLucas–Kanadeで推定したfield-level motionをsemi-Lagrangian移流した研究予測です。
-            GO / NO-GOにかかわらず研究成果として表示します。線状降水帯の発生確率・危険度・警報ではありません。
+            GO / NO-GOにかかわらず研究成果として表示します。過去の研究予測は予測時刻を確認してください。線状降水帯の発生確率・危険度・警報ではありません。
           </p>
         </section>
 
@@ -274,22 +290,6 @@
           <p>「東部」「西部」などのJMA正式名称には親となる府県予報区名を併記し、主要都市ラベルと検索機能を位置把握の補助として使います。</p>
         </section>
       </aside>
-    </section>
-
-    <section class="panel research-panel" id="f4-research-panel" aria-labelledby="f4-research-title">
-      <div class="research-heading">
-        <div>
-          <p class="brand-kicker">ARCHIVED RESEARCH · NOT LIVE</p>
-          <h2 id="f4-research-title">F4 観測降雨域の短時間移動研究</h2>
-          <p class="panel-note">保存済みレーダーArtifact 2件の遡及評価。現在の線状降水帯の発生状況・予報・警報ではありません。</p>
-        </div>
-        <span class="badge" id="f4-research-state">LOADING</span>
-      </div>
-      <p class="panel-note"><a href="./f4-archive.html" style="color:#54c8ff;font-weight:800;">観測された場所・緯度経度・15分／30分先の研究用移動線を地図で見る →</a></p>
-      <div class="research-stat-grid" id="f4-research-stats" aria-live="polite"></div>
-      <div class="research-horizon-grid" id="f4-research-horizons"></div>
-      <div class="research-breakdown" id="f4-research-breakdown"></div>
-      <p class="research-footnote" id="f4-research-footnote">研究成果の検証済み公開データを読み込み中です。</p>
     </section>
 
     <div class="notice">
