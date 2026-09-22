@@ -269,11 +269,9 @@
     svg.addEventListener("pointerdown", (event) => {
       const point = clientToView(event.clientX, event.clientY);
       state.pointers.set(event.pointerId, point);
-      try {
-        svg.setPointerCapture(event.pointerId);
-      } catch (_) {
-        // Pointer capture is optional on older browsers.
-      }
+      // Do not capture the SVG on pointerdown. Capturing the root retargets
+      // click to the SVG and makes research envelope/region click unavailable.
+      // The normal pointermove/up handlers still provide drag/pinch within the map.
       if (state.pointers.size === 1) {
         state.dragLast = point;
         state.pinchStart = null;
