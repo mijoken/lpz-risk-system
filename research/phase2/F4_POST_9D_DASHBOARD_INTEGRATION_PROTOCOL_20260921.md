@@ -61,10 +61,17 @@ component transported by the frozen F4-9B field-motion model.
 Display geometry is a geographic convex hull of the transported component's
 pixel cells. It is an envelope, not an exact future precipitation contour.
 
-## Staleness
+## Staleness and history
 
-Current-map geometry is suppressed when the source as-of exceeds the configured
-maximum display age. Research metadata and decision state may still be shown.
+F4-4 live candidate envelopes remain freshness-gated; stale F4-4 live geometry
+is suppressed and the fixed F4 archive remains available.
+
+F4-9C field-motion envelopes are immutable historical research predictions.
+When the source as-of exceeds the freshness limit, mark the F4-9C public
+product ARCHIVED, retain its geometry for interactive research, and display its
+source as-of prominently. Never imply that an archived projection is a current
+forecast. This allows the finished F4 experiment to remain inspectable after
+prospective collection stops.
 
 ## F4-9D independence
 
@@ -92,5 +99,9 @@ The dashboard integration is complete when:
 5. a real frozen F4-9C artifact can be published into the same contract without
    UI code changes.
 
-After F4-9D, the only remaining display action is to supply the real artifact
-and terminal decision to this already-frozen publication path.
+The frozen prospective source forecast may be published before F4-9D with
+decision=PENDING, strictly without reading verification metrics. Following
+F4-9D the same display path may update the label to GO or NO-GO; neither
+outcome removes the archived geometry. A dedicated isolated local publication
+worktree may push display-only GeoJSON to GitHub Pages, without changing the
+dirty research main worktree or Scheduled Task.
