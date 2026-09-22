@@ -63,8 +63,8 @@ if ($Unexpected.Count -gt 0) {
 # A previously generated dry-run GeoJSON may be present. No other dirty files
 # are accepted; the only allowed path is regenerated from the frozen case.
 
-$CurrentBranch = [string](Invoke-PublicationGit branch --show-current)
-$CurrentBranch = $CurrentBranch.Trim()
+# Detached HEAD returns no output; join converts an empty pipeline into "".
+$CurrentBranch = (@(Invoke-PublicationGit branch --show-current) -join "").Trim()
 if ($CurrentBranch -eq "") {
     Invoke-PublicationGit checkout -B f4-field-motion-publication | Out-Null
 }
