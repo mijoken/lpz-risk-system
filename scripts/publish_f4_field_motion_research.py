@@ -14,6 +14,7 @@ severity, warning, or production risk output.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from dataclasses import dataclass
@@ -206,6 +207,16 @@ def build_public(
         raise FileNotFoundError(
             f"component forecast artifact missing for case {case_id}: {component_path}"
         )
+
+    expected_sha = case.get("component_forecast_sha256")
+    if not isinstance(expected_sha, str) or len(expected_sha) != 64:
+        raise ValueError(f"frozen component forecast SHA-256 missing: {case_id}")
+    digest = hashlib.sha256()
+    with component_path.open("rb") as fp:
+        for chunk in iter(lambda: fp.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != expected_sha:
+        raise ValueError(f"frozen component forecast SHA-256 mismatch: {case_id}")
 
     with np.load(component_path) as payload:
         forecast_labels = np.asarray(payload["forecast_component_labels"])
