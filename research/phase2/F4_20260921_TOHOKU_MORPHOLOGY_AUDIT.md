@@ -231,3 +231,26 @@ Sources checked:
 **Operational interpretation:** by 22:15 JST the F4 purple product was not predicting the *genesis* of the Tohoku offshore rain corridor from clear conditions. It was projecting an already-observed, 45-minute linearly organized intense-rain field. However, the location was outside the explicit Kanto-Koshin/Tokai LPZ-specific callout areas found in contemporaneous public JMA information. Therefore the defensible milestone is **independent organized-heavy-rain recognition and short-time motion nowcast in a region not found in the checked JMA LPZ-specific alerts**, not “LPZ predicted before JMA”.
 
 This distinction should remain permanent in any public dashboard annotation or research log.
+
+
+## Case-audit handoff to frozen terminal study — 2026-09-22
+
+Case-specific non-peeking investigation closes with:
+
+- source-only 45-minute linear organization `SUPPORTED`;
+- exact three-hour JMA radar source-history coverage `UNAVAILABLE (10/37)`;
+- independent IMERG Late three-hour >=50-mm heavy-rain spatial co-location
+  with the F4 45-minute swept corridor `SUPPORTED`;
+- IMERG Late >=100/150-mm three-hour threshold in the selected event box
+  `NOT OBSERVED`;
+- official JMA LPZ occurrence and F4 short-time forecast accuracy
+  `NOT ESTABLISHED`.
+
+Keep both the positive and nonconfirmatory observations in the record.
+The archived purple F4 product is a projection of already-observed >=30-mm/h
+precipitation classes, not evidence that onset was predicted.
+
+**Do not rerun this case's independent investigation to rescue frozen F4-9C
+metrics or select a new threshold.** Subsequent actions follow
+`research/phase2/F4_9D_STATIC_PREFLIGHT_20260922.md` and the pre-existing
+F4-9C/9D protocols, not case-specific model changes.
