@@ -518,9 +518,15 @@
       return;
     }
 
-    if (!["AVAILABLE", "ARCHIVED"].includes(doc.status) || !doc.features.length) {
-      const label = doc.status === "STALE_SUPPRESSED" ? "STALE SUPPRESSED" : doc.status || "UNAVAILABLE";
-      const summary = doc.status === "STALE_SUPPRESSED"
+    const sourceAge = ageMinutes(doc.source_as_of_utc);
+    const staleByClock = doc.status === "AVAILABLE"
+      && sourceAge !== null
+      && Number.isFinite(Number(doc.max_age_minutes))
+      && sourceAge > Number(doc.max_age_minutes);
+    const stale = doc.status === "STALE_SUPPRESSED" || staleByClock;
+    if (doc.status !== "AVAILABLE" || !doc.features.length || stale) {
+      const label = stale ? "STALE SUPPRESSED" : doc.status || "UNAVAILABLE";
+      const summary = stale
         ? "最新候補域は対象時刻から90分以上経過したため実況地図には重ねていません。下の固定F4アーカイブで保存済み研究を閲覧できます。"
         : "現在の最新研究slotには表示可能な短時間候補域がありません。下の固定F4アーカイブでは保存済みの研究を閲覧できます。";
       disable(label, summary);
@@ -586,7 +592,11 @@
     }
 
     const decision = String(doc.terminal_decision || "PENDING");
-    if (doc.status !== "AVAILABLE" || !doc.features.length) {
+    const sourceAge = ageMinutes(doc.source_as_of_utc);
+    const archivedByClock = sourceAge !== null
+      && Number.isFinite(Number(doc.max_age_minutes))
+      && sourceAge > Number(doc.max_age_minutes);
+    if (!["AVAILABLE", "ARCHIVED"].includes(doc.status) || !doc.features.length) {
       const label = doc.status === "STALE_SUPPRESSED"
         ? "STALE SUPPRESSED"
         : doc.status || "UNAVAILABLE";
@@ -616,7 +626,7 @@
       : decision === "NO_GO"
         ? "NO-GO · RESEARCH"
         : "VALIDATION PENDING";
-    const archived = doc.status === "ARCHIVED";
+    const archived = doc.status === "ARCHIVED" || archivedByClock;
     applyStatusValue(
       "field-motion-status",
       archived ? "ARCHIVED · RESEARCH" : decisionLabel,
@@ -827,7 +837,14 @@
     const layers = [];
     if (rainOn) layers.push("実況降水（表示用加工）");
     if (researchOn) layers.push("F4短時間研究候補域（未検証）");
-    if (fieldMotionOn) layers.push(f4FieldMotionResearch.status === "ARCHIVED"
+    const fieldAge = fieldMotionOn ? ageMinutes(f4FieldMotionResearch.source_as_of_utc) : null;
+    const fieldArchived = fieldMotionOn && (
+      f4FieldMotionResearch.status === "ARCHIVED" ||
+      (fieldAge !== null
+        && Number.isFinite(Number(f4FieldMotionResearch.max_age_minutes))
+        && fieldAge > Number(f4FieldMotionResearch.max_age_minutes))
+    );
+    if (fieldMotionOn) layers.push(fieldArchived
       ? "保存済みLucas–Kanade研究予測（過去の予測）"
       : "Lucas–Kanade研究予測");
     layers.push(`JMA一次細分区域${lod}`);
