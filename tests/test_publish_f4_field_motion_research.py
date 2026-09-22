@@ -178,3 +178,19 @@ def test_corrupted_frozen_forecast_is_rejected(tmp_path: Path):
         assert "SHA-256 mismatch" in str(exc)
     else:
         raise AssertionError("modified frozen F4-9C forecast bytes were accepted")
+
+
+def test_dashboard_publisher_does_not_read_interim_skill_or_verifications(tmp_path: Path):
+    root = _cohort(tmp_path)
+    # Invalid JSON sentinels: any accidental aggregate/outcome read must fail.
+    (root / "cohort_status.json").write_text("{not-json", encoding="utf-8")
+    (root / "verifications").mkdir()
+    (root / "verifications" / "20260921T124500Z.json").write_text(
+        "{not-json", encoding="utf-8"
+    )
+    result = build_public(
+        root, now_utc=datetime(2026, 9, 21, 13, 5, tzinfo=timezone.utc)
+    )
+    assert result["status"] == "AVAILABLE"
+    assert result["terminal_decision"] == "PENDING"
+    assert result["feature_count"] == 2
