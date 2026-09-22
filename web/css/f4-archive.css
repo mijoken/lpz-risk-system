@@ -10,7 +10,7 @@
 .archive-detail {padding:18px;line-height:1.6;}
 .archive-detail h2 {font-size:1.08rem;}
 .archive-detail p {color:var(--muted);}
-#f4-selected {white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--line);border-radius:10px;padding:13px;line-height:1.8;}
+#f4-selected {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;overflow-wrap:anywhere;line-height:1.55;}
 .archive-legend {color:var(--muted);line-height:1.6;font-size:.85rem;}
 .archive-origin {color:#55c8ff;font-size:1.15rem;}
 .archive-arrow {color:#f6c85f;font-size:1.2rem;}
@@ -26,10 +26,16 @@
 .archive-object-list button {width:100%;text-align:left;border:1px solid var(--line);background:rgba(7,17,31,.58);color:var(--text);padding:10px;border-radius:8px;cursor:pointer;line-height:1.55;}
 .archive-object-list button:hover,.archive-object-list button[aria-pressed="true"] {border-color:#55c8ff;background:rgba(33,89,120,.35);}
 .f4-city circle {fill:#d6e3f0;stroke:#081625;stroke-width:1;}
-.f4-city text {fill:#e4f0fb;stroke:#081625;stroke-width:3;paint-order:stroke;stroke-linejoin:round;font-size:12px;font-weight:700;pointer-events:none;}
+.f4-city text {fill:#e4f0fb;stroke:#081625;stroke-width:3;paint-order:stroke;stroke-linejoin:round;font-weight:700;pointer-events:none;}
 .f4-origin-number {font-size:10px;font-weight:800;fill:#051321;text-anchor:middle;dominant-baseline:central;pointer-events:none;}
 .f4-arrow {stroke-width:2.4;stroke-linecap:round;}
 .f4-arrow-head {fill:#f6c85f;pointer-events:none;}
 .f4-origin {stroke-width:1.8;}
 .f4-origin[aria-pressed="true"] {stroke:#fff;stroke-width:3;}
 .archive-detail #f4-selected {color:var(--text);}
+
+.archive-detail-card {min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:rgba(7,17,31,.58);}
+.archive-detail-card span {display:block;color:var(--muted);font-size:.75rem;line-height:1.4;}
+.archive-detail-card strong {display:block;margin-top:5px;font-size:.92rem;overflow-wrap:anywhere;}
+.archive-detail-note {grid-column:1/-1;font-size:.79rem;line-height:1.6;border-left:3px solid var(--wait);padding:9px 11px;}
+@media(max-width:680px){#f4-selected{grid-template-columns:1fr;}}
