@@ -58,7 +58,8 @@ if ($Dirty) {
     throw "Publication worktree is dirty; refusing to overwrite anything: $PublishWt"
 }
 
-$CurrentBranch = (Invoke-PublicationGit branch --show-current).Trim()
+$CurrentBranch = [string](Invoke-PublicationGit branch --show-current)
+$CurrentBranch = $CurrentBranch.Trim()
 if ($CurrentBranch -eq "") {
     Invoke-PublicationGit checkout -B f4-field-motion-publication | Out-Null
 }
