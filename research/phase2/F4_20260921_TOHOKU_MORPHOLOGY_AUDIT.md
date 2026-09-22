@@ -1,6 +1,6 @@
 # 2026-09-21 Fukushima/Miyagi F4 field-motion case: independent meteorological-structure audit
 
-Opened 2026-09-22. Stage: **source-only confirmation pending**, not a forecast-verification result.
+Opened 2026-09-22. Stage: **source-only audit completed from user's local frozen-case output**; NOT a forecast-verification result or LPZ confirmation.
 
 ## Question and precommitted interpretation rule
 
@@ -31,7 +31,7 @@ Exact source: `web/data/research/f4_field_motion_research.geojson` at commit `13
 
 - Frozen case `20260921T130000Z`, source radar slot **2026-09-21 22:00 JST**, prospective as-of **22:15 JST**; targets **22:30/22:45 JST**.
 - The frozen F4-9B source observation leads are +30/+45 minutes because the source is already 15 minutes behind the as-of. Do **not** describe 22:30 as “15 minutes after the last observed source.”
-- 77 eligible source components, 77 15-minute and 77 30-minute display polygons.
+- **79 eligible observed source components** at 22:00 JST (non-boundary, >=2-pixel >=30-mm/h class); **77 rendered components per horizon** in the public +15/+30 GeoJSON (154 display polygons total). The two-component difference is not resolved from this metadata-only audit; do not assume a specific cause without inspecting immutable source IDs and exporter conditions.
 - Published 15-minute polygon-centroid range: 36.82285–40.86205 N, 140.73830–145.19821 E.
 - Published 15-minute polygon component **pixel-area** statistics (approx km²; not total convex hull area): median **4.13**, upper quartile **7.38**, maximum **101.08**; **45/77** smaller than 5 km² and **0/77** individual components >=500 km².
 - Published 30-minute pixel-area statistics: median **3.90**, maximum **121.17**; **44/77** smaller than 5 km² and **0/77** individual components >=500 km².
@@ -39,6 +39,40 @@ Exact source: `web/data/research/f4_field_motion_research.geojson` at commit `13
 - Between the +15 and +30 display predictions, median displacement of corresponding projected centroids is approx **9.37 km per 15 min**. This is displacement **between two model-generated positions**, **not measured physical motion or verification skill**.
 
 This pattern supports: a large **collection of scattered, mostly small >=30-mm/h component extrapolations** along/offshore of Fukushima/Miyagi, with some locally elongated display polygons. The screenshot does not by itself establish **one coherent, persistent mesoscale linear rainband**, nor convective regeneration/training or official LPZ-like 3-hour accumulation. Conversely, it is compatible with pre-existing heavy-rain conditions in the area and is an independently documentable event to examine further.
+
+## Actual immutable local source-only result, supplied 2026-09-22
+
+PowerShell command `audit_f4_20260921_source_structure.py --case-json D:/program/lpz-risk-system_f4_9c_cohort/cases/20260921T130000Z.json` completed and printed `SOURCE-ONLY AUDIT COMPLETE`. The frozen source NPZ SHA-256 matched both case and manifest:
+
+`f851aa1e3ab90503f73ecf8d318af8328233d411efed304ae54bbcdc7cc4d7a1`
+
+Source: **four existing observations at 21:45, 21:50, 21:55, and 22:00 JST**. Source area is fixed z8 mosaic origin (228,96), 16 tiles, east **140.625–146.25°E**, north **36.597889–40.979898°N**; parent z6 (57,24). This region extends from the Fukushima/Miyagi coast into the Pacific. The five largest retained observed source components have centroids ~**142.65–143.22°E, 37.55–37.88°N**, thus offshore rather than necessarily over the cities of Fukushima or Sendai.
+
+| Observation JST | Public radar class pixels >=30 mm/h | >=50 mm/h | >=80 mm/h | unclassified pixels |
+|---|---:|---:|---:|---:|
+| 21:45 | 16,375 | 5,435 | 556 | 589,537 |
+| 21:50 | 18,597 | 5,847 | 462 | 589,469 |
+| 21:55 | 18,087 | 5,368 | 449 | 591,996 |
+| 22:00 | 17,475 | 4,589 | 431 | 601,273 |
+
+`>=N` counts are conservative discrete JMA public radar-class **instantaneous mm/h thresholds** (not measurements of accumulated rain). Unclassified pixels are **not** zero rain. The total fixed mosaic contains 1,048,576 pixels per frame.
+
+Across all four observations, **7,125 pixel locations** were >=30 mm/h at all four times; **32,939** were >=30 at least once. `7125/32939=0.21631` is a **fixed-coordinate four-frame overlap fraction** over the 15-minute span. It does NOT mean “21.6% of storms persisted” or show 3-hour training of the same geographic region. Moving storms may reduce fixed-pixel overlap even when the rain system persists.
+
+At 22:00, **79 non-boundary >=30-mm/h observed components of at least 2 pixels**:
+
+- area median **4.608 km²**; largest **128.301 km²**; **0 components >=500 km²**;
+- source-pixel morphology aspect-ratio median **1.512**, maximum **5.168**, **7/79 >=2.5**;
+- largest five area/shape (km² / ratio): **128.301 / 1.942**, **108.538 / 3.397**, **62.097 / 1.735**, **47.053 / 5.168**, **43.018 / 1.998**;
+- source-component coordinates represent selected *offshore* intense precipitation classes, not official LPZ danger locations.
+
+### Audit interpretation, before any F4-9D outcome
+
+**Confirmed:** an active, geographically plausible field of many >=30-mm/h precipitation-class objects in the Pacific off Fukushima/Miyagi, with >=50 and >=80 classes present, some elongated source objects, and >7,000 same-location >=30-class pixels across the 15-minute source interval.
+
+**Not confirmed:** a single contiguous >=500-km² 3-hour high-accumulation rainband; LPZ formal criteria; continuous convective regeneration; which source component caused a particular observed on-land disaster; or accuracy of +15/+30 predictions. Also do not interpret absence of a >=500-km² *instantaneous* source object as definitive evidence against a 500-km² *three-hour accumulated rainfall* criterion: they are different phenomena and different calculations.
+
+**Milestone class:** `REAL_EVENT_OFFSHORE_INTENSE_RAIN_OBJECT_CAPTURE_AND_PRECOMMITTED_MOTION_DISPLAY`. This is a genuine research observation/operational-output milestone, **not** `LPZ_DETECTED` or `LPZ_PREDICTED`. F4-9C / 9D remain frozen; no performance results were opened.
 
 ## Official definition caveat
 
@@ -52,4 +86,4 @@ Input **only** `D:/program/lpz-risk-system_f4_9c_cohort/cases/20260921T130000Z.j
 
 The script verifies frozen source SHA-256 and case/source mosaic identity; reads exactly **four observed source radar frames at 5-minute spacing** (only 15 minutes total) and reports >=30/50/80-mm/h categorized pixel counts, same-*fixed-pixel* four-frame overlap, eligible observed component areas/shapes and coverage. It cannot determine 3-hour training, later rain, LPZ formal classification, or F4-9C forecasting skill.
 
-**Until the local source-only result is returned, do not upgrade the status from `CANDIDATE_MORPHOLOGY_TO_INVESTIGATE` to an independently confirmed LPZ-like rainband.** Preserve the frozen F4-9C / F4-9D protocol regardless of outcome.
+**After source-only results:** multiple intense source objects and some elongated morphologies are confirmed; a coherent LPZ-like mesoscale system and the skill of its motion forecast remain unconfirmed. Preserve the frozen F4-9C / F4-9D protocol regardless of outcome.
