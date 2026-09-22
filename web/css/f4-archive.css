@@ -27,7 +27,7 @@
 .archive-object-list button:hover,.archive-object-list button[aria-pressed="true"] {border-color:#55c8ff;background:rgba(33,89,120,.35);}
 .f4-city circle {fill:#d6e3f0;stroke:#081625;stroke-width:1;}
 .f4-city text {fill:#e4f0fb;stroke:#081625;stroke-width:3;paint-order:stroke;stroke-linejoin:round;font-weight:700;pointer-events:none;}
-.f4-origin-number {font-size:10px;font-weight:800;fill:#051321;text-anchor:middle;dominant-baseline:central;pointer-events:none;}
+.f4-origin-number {font-weight:800;fill:#051321;text-anchor:middle;dominant-baseline:central;pointer-events:none;}
 .f4-arrow {stroke-width:2.4;stroke-linecap:round;}
 .f4-arrow-head {fill:#f6c85f;pointer-events:none;}
 .f4-origin {stroke-width:1.8;}
