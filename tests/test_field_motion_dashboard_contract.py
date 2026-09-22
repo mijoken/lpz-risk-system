@@ -80,6 +80,9 @@ def test_archive_is_not_misrepresented_as_live_and_map_clicks_are_preserved():
     css = (ROOT / "web" / "css" / "app.css").read_text(encoding="utf-8")
     assert 'doc.status === "ARCHIVED"' in app
     assert 'doc.status === "STALE_SUPPRESSED"' in app
+    assert "enableResearchRefresh();" in app
+    assert "liveRevision !== liveResearchRevision" in app
+    assert "motionRevision !== fieldMotionRevision" in app
     assert "svg.setPointerCapture(event.pointerId)" not in map_js
     assert 'grid-template-areas: "map side" "research side"' in css
     assert html.index('id="f4-research-panel"') < html.index('class="side"')
