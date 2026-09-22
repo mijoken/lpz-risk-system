@@ -154,3 +154,23 @@ Observed source component summaries fluctuate strongly: some frames contain very
 **Audit classification after 45-minute source analysis:** `PERSISTENT_LINEARLY_ORGANIZED_INTENSE_RAIN_FIELD_45MIN_SUPPORTED`. This means the pre-existing observed field had a stable linear organization axis and intense >=30/50/80 classes before the published motion extrapolation. It does **not** mean `JMA_LPZ_OCCURRED`, `LPZ_GENESIS_PREDICTED`, or that F4-9B forecast skill has been established. Because the purple product advects an already-observed >=30 field, the defensible milestone is **detection plus precommitted short-time projection of a real organized intense-rain field**, not prediction of its original genesis.
 
 **State: local exact 3-hour radar source coverage FAIL (10/37); 45-minute organization SUPPORTED; independent source-native 3-hour accumulation confirmation is the next audit.**
+
+
+## Independent 3-hour accumulation follow-up: NASA IMERG Late V07
+
+Because the same-mosaic frozen F4 source store covers only 10/37 required five-minute timestamps, the next audit uses an **independent source-native three-hour accumulation** rather than inventing missing radar history.
+
+Selected near-real-time source: NASA `GPM_3IMERGHHL_07` (IMERG Late Run), six 30-minute granules covering 2026-09-21 10:00–13:00 UTC (19:00–22:00 JST) over the F4 fixed-mosaic envelope 140.625–146.25 E, 36.597889–40.979898 N.
+
+Rationale and caveats:
+
+- NASA documents IMERG Late nominal latency around 14 hours, often closer to 12 hours in recent operations; the event is old enough for availability at this audit time.
+- V07 Late provides 30-minute, 0.1-degree precipitation rate; six exact half-hour fields can be accumulated source-natively over three hours.
+- NASA's 2026 transition notice states Late/Early remain in the **hybrid V07** posture until the NRT switch to V08, expected no sooner than winter 2026. This processing context must remain attached to the result.
+- NASA advises Final Run for research when available; Final is normally ~3.5 months latent, so it cannot yet be used for this event. Any Late result is an independent near-real-time confirmation, not the final research-grade precipitation truth.
+- JAXA GSMaP NRT is not chosen as the immediate independent source because its public site currently carries a system-trouble notice and stale update timestamp; it may be revisited if the exact 2026-09-21 archive is independently confirmed.
+
+Audit implementation: `scripts/audit_f4_20260921_imerg_late_3h.py`.
+It downloads six exact Late granules ephemerally, deletes raw payloads on exit, computes only source-native 3-hour accumulation, and reports descriptive 50/80/100/150-mm connected-area screens. These screens are **not** JMA 5-km LPZ criteria and never read F4-9C verification outcomes.
+
+**State: IMERG Late independent 3-hour audit code frozen on audit branch; local authenticated run pending.**
