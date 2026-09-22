@@ -21,6 +21,8 @@ on:
       - "tests/test_publish_latest_f4_geographic_research.py"
       - "tests/test_publish_f4_field_motion_research.py"
       - "tests/test_field_motion_dashboard_contract.py"
+      - "tests/test_f4_archive_ui_regression.py"
+      - "scripts/publish_f4_field_motion_from_local.ps1"
       - "scripts/acquisition_probe.py"
       - "src/**"
       - "tests/test_public_web.py"
@@ -68,6 +70,7 @@ jobs:
             tests/test_publish_latest_f4_geographic_research.py \
             tests/test_publish_f4_field_motion_research.py \
             tests/test_field_motion_dashboard_contract.py \
+            tests/test_f4_archive_ui_regression.py \
             -q
 
       - name: Check browser JavaScript syntax
