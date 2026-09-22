@@ -105,5 +105,23 @@ metrics before gate maturity. Do not stop or change the user's existing
 - merging the diverged audit-only branch into main without separate scope
   review.
 
+## Local synthetic preflight result — 2026-09-22
+
+User executed the isolated audit worktree at commit
+`5560bdcda21ac03add6fb8a439d69541950eb4a7`.
+
+Observed preflight evidence:
+
+- audit branch HEAD matched the expected commit;
+- `scripts/finalize_f4_9d.py` Git blob matched
+  `843c2d332e13b914fa3503c972df2c064aff146a`;
+- `tests/test_f4_9d_terminal_decision.py`: **5 passed**;
+- no real cohort status, verification rows, aggregate skill, or terminal
+  decision were read.
+
+This completes the no-peek executable preflight. A PASS here validates only
+the frozen terminal decision machinery on synthetic data. It does not imply
+that the real cohort is ready and says nothing about GO/NO-GO outcome.
+
 **Status:** static protocol/code preflight PASS; local synthetic terminal tests
-PENDING; actual F4-9C readiness UNINSPECTED, actual F4-9D decision UNRUN.
+PASS; actual F4-9C readiness UNINSPECTED, actual F4-9D decision UNRUN.
