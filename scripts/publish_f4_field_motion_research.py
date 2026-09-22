@@ -136,6 +136,7 @@ def _empty(
         "severity_generated": False,
         "age_minutes_at_publish": age_minutes,
         "max_age_minutes": max_age_minutes,
+        "historical_research": False,
         "feature_count": 0,
         "projected_component_count": 0,
         "horizons_from_as_of_minutes": [],
@@ -195,17 +196,10 @@ def build_public(
         (now.astimezone(timezone.utc) - _parse_utc(source_as_of)).total_seconds()
         / 60.0,
     )
-    if age_minutes > max_age_minutes:
-        return _empty(
-            status="STALE_SUPPRESSED",
-            terminal_decision=terminal_decision,
-            f4_closed=f4_closed,
-            source_case_id=case_id,
-            source_slot_utc=source_slot,
-            source_as_of_utc=source_as_of,
-            age_minutes=round(age_minutes, 3),
-            max_age_minutes=max_age_minutes,
-        )
+    # Historical research must remain explorable after collection stops.
+    # Distinguish historical geometry from a fresh prospective projection
+    # instead of silently deleting the only published research artifact.
+    is_archived = age_minutes > max_age_minutes
 
     component_path = cohort_root / "component_forecasts" / f"{case_id}.npz"
     if not component_path.is_file():
@@ -316,7 +310,7 @@ def build_public(
         "type": "FeatureCollection",
         "schema_version": "1.0.0",
         "product": PRODUCT,
-        "status": "AVAILABLE" if features else "NO_PROJECTED_ENVELOPES",
+        "status": ("ARCHIVED" if is_archived else "AVAILABLE") if features else "NO_PROJECTED_ENVELOPES",
         "model_id": MODEL_ID,
         "terminal_decision": terminal_decision,
         "f4_closed": f4_closed,
@@ -335,6 +329,7 @@ def build_public(
         "severity_generated": False,
         "age_minutes_at_publish": round(age_minutes, 3),
         "max_age_minutes": max_age_minutes,
+        "historical_research": is_archived,
         "feature_count": len(features),
         "projected_component_count": len(projected_ids),
         "horizons_from_as_of_minutes": leads,
