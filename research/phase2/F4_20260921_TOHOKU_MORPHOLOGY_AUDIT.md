@@ -87,3 +87,56 @@ Input **only** `D:/program/lpz-risk-system_f4_9c_cohort/cases/20260921T130000Z.j
 The script verifies frozen source SHA-256 and case/source mosaic identity; reads exactly **four observed source radar frames at 5-minute spacing** (only 15 minutes total) and reports >=30/50/80-mm/h categorized pixel counts, same-*fixed-pixel* four-frame overlap, eligible observed component areas/shapes and coverage. It cannot determine 3-hour training, later rain, LPZ formal classification, or F4-9C forecasting skill.
 
 **After source-only results:** multiple intense source objects and some elongated morphologies are confirmed; a coherent LPZ-like mesoscale system and the skill of its motion forecast remain unconfirmed. Preserve the frozen F4-9C / F4-9D protocol regardless of outcome.
+
+
+## Next validation: 3-hour source-data availability gate (in progress)
+
+The preceding source-only morphology proof covers **21:45–22:00 JST**.
+Do not infer 3-hour organization from its four five-minute snapshots.
+
+Available-repository checks on 2026-09-22:
+
+- `research/prospective/2026/09/` contained canonical derived-feature
+  archives only through **2026-09-20 UTC** at audit time; no 2026-09-21
+  canonical daily archive was yet in the inspected main tree. The O8.1-D
+  archive policy states `raw_radar_archived=false` and
+  `raw_grib_archived=false`. A later completed daily archive would
+  not retrospectively become a raw 5-minute radar movie.
+- The measured public JMA radar metadata retention window on
+  2026-09-21 04:48 UTC was **180 minutes**; the audited safe catch-up
+  policy was **120 minutes**. This is not a perpetual historical radar
+  API and should not be assumed to supply 2026-09-21 19–22 JST
+  on the following day.
+- Historical 3-hour polygon-pilot code uses source-native **2023**
+  development GSMaP/IMERG samples, not this 2026 event.
+- NASA IMERG **Late Run** typically takes ~14 h from observation, whereas
+  **Final Run** normally takes ~3.5 months. Do not substitute Final
+  until actual 2026-09-21 granules are verified, nor silently substitute
+  Late for Final. Official source:
+  https://gpm.nasa.gov/resources/faq/what-determines-latency-imerg
+- JAXA hourly Gauge Standard v8 was previously proven accessible for
+  2023, but 2026-09-21 specific Standard payload availability has
+  **not** been checked. A potential NRT product is a different source,
+  to be labeled and decoded separately if used.
+
+The next immediate task is **metadata-only inventory of already-captured
+local F4-9A source archives**, without opening F4-9C future
+observations/verifications or downloading anything:
+
+`scripts/audit_f4_20260921_3h_source_availability.py`
+
+Required event-window metadata coverage is **19:00–22:00 JST**
+(`2026-09-21T10:00:00Z` through `13:00:00Z`) at **37 inclusive
+five-minute timestamps** on the same fixed z8 mosaic
+`(zoom=8, origin_tile_x=228, origin_tile_y=96, tile_count=16)`.
+Different source mosaics must remain separate.
+
+Even if 37 timestamps and their source files exist, the public
+HRPN categorical rate fields cannot be claimed to reconstruct exact
+JMA 5-km three-hour analyzed rainfall or official LPZ issuance. They
+can support an explicitly labeled **same-grid 3-hour categorical
+strong-rain persistence/organization descriptor**, conditional on
+source bytes/unknown-pixel handling; independent 3-hour accumulation
+requires suitable source-native actual rainfall granules.
+
+**State: awaiting local metadata census; no 3-hour persistence claim yet.**
