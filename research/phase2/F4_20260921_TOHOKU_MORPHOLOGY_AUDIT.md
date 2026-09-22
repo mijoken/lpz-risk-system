@@ -173,4 +173,15 @@ Rationale and caveats:
 Audit implementation: `scripts/audit_f4_20260921_imerg_late_3h.py`.
 It downloads six exact Late granules ephemerally, deletes raw payloads on exit, computes only source-native 3-hour accumulation, and reports descriptive 50/80/100/150-mm connected-area screens. These screens are **not** JMA 5-km LPZ criteria and never read F4-9C verification outcomes.
 
-**State: IMERG Late independent 3-hour audit code frozen on audit branch; local authenticated run pending.**
+**IMERG Late independent 3-hour result (completed 2026-09-22):** six exact half-hour V07C Late granules spanning 19:00–22:00 JST were downloaded and decoded successfully. Raw payloads were not persisted. The event-box 3-hour accumulation has **max 81.56 mm**, p90 **26.07 mm**, p95 **41.67 mm**, p99 **64.58 mm**. There are **0 source-native cells >=100 mm/3h** and **0 >=150 mm/3h**.
+
+At >=50 mm/3h, IMERG has 75 cells in two connected components. The largest has **57 cells, approx 5,370.1 km², aspect ratio 3.393, orientation 27.05°**, centroid **144.3588E, 40.3640N**. There is one >=80-mm cell (81.56 mm) at **144.75E, 40.75N**. The 45-minute F4 swept-union descriptor had orientation 34.09°, so the largest IMERG >=50-mm object's principal axis is directionally similar (~7° difference), but its centroid is roughly **345 km** from the F4 swept-union centroid (142.4346E, 37.6436N). Therefore **directional similarity alone is insufficient to claim spatial confirmation of the same rain structure**.
+
+Interpretation after this step:
+
+- independent three-hour precipitation confirms a substantial elongated >=50-mm/3h area somewhere inside the broad F4 mosaic domain;
+- it does **not** support a >=100-mm/3h or >=150-mm/3h source-native threshold anywhere in this IMERG Late event box;
+- the current descriptor is insufficient to establish whether the >=50-mm/3h component overlaps the F4 45-minute strong-rain corridor, because only the largest component centroid (not its full overlap with the F4 swept mask) was emitted;
+- absence of >=100 mm in coarse IMERG Late is **not** a formal rejection of JMA LPZ criteria, because IMERG Late 0.1° is not JMA analyzed rainfall and can smooth convective extremes.
+
+**State: IMERG Late 3-hour accumulation COMPLETE; >=100/150 screen NEGATIVE; elongated >=50-mm/3h area PRESENT; F4↔IMERG spatial co-location is the next required gate before treating the independent source as confirmation of the same structure.**
