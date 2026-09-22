@@ -79,11 +79,34 @@ Count of OBSERVED_ORIGIN features at each frozen source slot (UTC converted to J
 
 This archive DOES retain Kanto-area observed object centers near the **12:58** eastern Kanagawa imminence forecast (12:30/12:45/13:00 slots). The default archive page selects the **latest saved 14:00 slot**, at which its stored objects are clustered farther northeast. That selection does not mean Kanto rain was absent at 12:58.
 
+## Source-window switch verified from the original GitHub Actions archive
+
+This step uses **only** the pre-existing 2026-09-21 `prospective-batch-35564667965` collection artifact (GitHub Actions artifact ID `10623606236`, ZIP digest `sha256:ab2bea9cc78d2266530cff9dcfc4f9ecb87350939951dce952fb3522a4d33463`, source run `35564667965`). No F4-9C verification rows, future radar frames or aggregate forecast skills were read. The seven `slots/*.json` files give `components.radar_morphology.discovery_parent` and `components.radar_tracking.fixed_mosaic`:
+
+| 2026-09-21 JST slot | discovery parent z6 (x,y) | fixed z8 mosaic origin tile (x,y) | tile count |
+| --- | --- | --- | ---: |
+| 12:30 | (56,25) | (224,100) | 16 |
+| 12:45 | (56,25) | (224,100) | 16 |
+| 13:00 | (56,25) | (224,100) | 16 |
+| **13:15** | **(57,24)** | **(228,96)** | **16** |
+| 13:30 | (57,24) | (228,96) | 16 |
+| 13:45 | (57,24) | (228,96) | 16 |
+| 14:00 | (57,24) | (228,96) | 16 |
+
+The fixed-mosaic `tile_count=16` is a 4×4 block of z8, each 256×256 pixels. Using the standard Web-Mercator tile-to-coordinate transform, the **source-coverage envelopes** are:
+
+- **12:30–13:00 JST:** longitude **135.000–140.625 E**, latitude **31.952–36.598 N** (southern Kanto / Izu / Tokai side; this footprint contains eastern Kanagawa).
+- **13:15–14:00 JST:** longitude **140.625–146.250 E**, latitude **36.598–40.980 N** (northern Ibaraki/Fukushima/Miyagi and Pacific offshore side; eastern Kanagawa outside this footprint).
+
+The source coverage changes *diagonally* at 13:15. The two 4×4 z8 mosaic footprints share an edge corner at (140.625 E, 36.598 N) but **have no geographic area overlap**. This accounts for the sudden south-to-northeast change in archived F4 point locations: **the research selection window switched**; it is NOT evidence that a rainband propagated hundreds of kilometres in 15 minutes. National discovery reports 49/49 low-zoom tiles OK in these source records; nevertheless, downstream morphology/tracking extracts the single selected fixed mosaic, not simultaneously all 49 tiles. A successful national discovery scan is not nationwide F4-9B/F4-9C coverage.
+
+The later purple 22:15 case has published centroids wholly consistent with the northeast-side footprint, but the **exact 22:15 F4-9C source case `fixed_mosaic` metadata remains to be checked separately** before calling it identical.
+
 ## Findings and limitations
 
 1. **Confirmed display/time mismatch**: the purple image visualizes an evening 22:15 as-of, while eastern Kanagawa imminence alert was issued 12:58 and observed heavy rain at Yokohama 14:25. An earlier source/target pair and the same geographic coverage are needed for model verification.
 2. **Confirmed misreading risk**: a purple polygon is a transported >=30 mm/h *rain object*, not a JMA LPZ occurrence. JMA LPZ issuance requires different space-time accumulated rainfall, morphology and risk inputs.
-3. **Confirmed source selection effect**: the separate frozen archive shows 12:30–13:00 centers in the south; its later 13:15–14:00 slots are farther north. Its 14:00 default gives a misleading impression if displayed as an explanation of the whole day.
+3. **Confirmed source selection effect, down to the source metadata**: at exactly 13:15 the archive's selected fixed z8 mosaic jumped from origin (224,100) to (228,96), reflecting a switch from z6 discovery parent (56,25) to (57,24). The two domains have no area overlap. Its 14:00 default gives a misleading impression if displayed as an explanation of the whole day. The ability to detect active Kanto rainbands while also retaining nationally or multi-regionally selected research domains is a distinct future design issue, NOT a F4-9C model-performance result.
 4. **Not established**: exact z8 mosaic bounding coordinates for purple case; inspect only the frozen case manifest metadata locally. Not established: whether an official JMA Kanto occurrence alert was issued (as distinct from imminence forecast). Not established: Lucas–Kanade model skill in Kanto at 12:58/14:25; the displayed 22:15 sample cannot answer it.
 5. **Do not change** the F4-9C source selection, prospective cohort, scores, GO/NO-GO rule, or JMA LPZ thresholds on the basis of this audit.
 
@@ -93,4 +116,4 @@ This archive DOES retain Kanto-area observed object centers near the **12:58** e
 - Obtain the JMA occurrence-only original notice/official case entry for 2026-09-21 Kanto, or record **not verified**, without substituting imminence alerts.
 - If archival data are available for exact contemporaneous Kanto slots, examine source acquisition and geographic coverage separately. Never retrospectively count an extrapolation as a real-time prospective forecast or mix F4 archival point extrapolation with F4-9C optical flow.
 
-Outcome class at present: **TIME-AND-DISPLAY-CONTRACT MISMATCH CONFIRMED; KANTO LPZ OCCURRENCE AND F4-9B KANTO PERFORMANCE UNDETERMINED.**
+Outcome class at present: **TIME-AND-DISPLAY-CONTRACT MISMATCH CONFIRMED; HISTORICAL SOURCE-REGION SWITCH AT 13:15 CONFIRMED; KANTO LPZ OCCURRENCE AND F4-9B KANTO PERFORMANCE UNDETERMINED.**
