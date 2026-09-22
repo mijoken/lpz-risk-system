@@ -81,6 +81,7 @@ def test_field_motion_public_product_is_research_only(tmp_path: Path):
 
     assert result["product"] == "LPZ_F4_FIELD_MOTION_RESEARCH"
     assert result["status"] == "AVAILABLE"
+    assert result["historical_research"] is False
     assert result["terminal_decision"] == "PENDING"
     assert result["f4_closed"] is False
     assert result["research_only"] is True
@@ -139,7 +140,7 @@ def test_terminal_decision_changes_label_not_geometry(tmp_path: Path):
     )
 
 
-def test_stale_geometry_is_suppressed(tmp_path: Path):
+def test_stale_geometry_is_retained_as_explicit_archive(tmp_path: Path):
     root = _cohort(tmp_path)
     result = build_public(
         root,
@@ -147,9 +148,10 @@ def test_stale_geometry_is_suppressed(tmp_path: Path):
         max_age_minutes=90,
     )
 
-    assert result["status"] == "STALE_SUPPRESSED"
-    assert result["feature_count"] == 0
-    assert result["features"] == []
+    assert result["status"] == "ARCHIVED"
+    assert result["historical_research"] is True
+    assert result["feature_count"] == 2
+    assert {f["properties"]["lead_from_as_of_minutes"] for f in result["features"]} == {15, 30}
 
 
 def test_no_cases_returns_not_published(tmp_path: Path):
