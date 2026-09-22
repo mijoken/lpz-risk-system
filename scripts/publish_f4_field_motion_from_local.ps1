@@ -46,7 +46,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $PublishWt ".git"))) {
 
 function Invoke-PublicationGit {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$GitArgs)
-    $result = & git -c "safe.directory=$PublishWt" -C $PublishWt @GitArgs
+    $result = & git -c "safe.directory=$PublishWt" -c maintenance.auto=false -c gc.auto=0 -C $PublishWt @GitArgs
     if ($LASTEXITCODE -ne 0) {
         throw "Publication Git command FAILED: $($GitArgs -join ' ')"
     }
