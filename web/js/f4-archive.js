@@ -39,7 +39,27 @@
     for (const circle of viewport.querySelectorAll(".f4-end")) circle.setAttribute("r",String(4/scale));
     for (const label of viewport.querySelectorAll(".f4-origin-number")) label.setAttribute("font-size",String(10/scale));
     for (const circle of viewport.querySelectorAll(".f4-city circle")) circle.setAttribute("r",String(2.3/scale));
-    for (const label of viewport.querySelectorAll(".f4-city text")) label.setAttribute("font-size",String(12/scale));
+
+    // Screen-space collision control: retain reference-city dots, but show only
+    // readable labels in the visible viewport. SVG CSS must not override this.
+    const placed = [];
+    for (const g of viewport.querySelectorAll(".f4-city")) {
+      const label = g.querySelector("text");
+      const [x, y] = [Number(g.dataset.x) * scale + tx, Number(g.dataset.y) * scale + ty];
+      const minScale = Number(g.dataset.minScale || 1);
+      if (!label) continue;
+      label.setAttribute("font-size", String(12/scale));
+      const width = Math.max(28, String(label.textContent || "").length * 12 + 10);
+      const visible = scale >= minScale && x >= 0 && x <= W-width
+        && y >= 18 && y <= H-8;
+      const overlaps = placed.some(box =>
+        x < box.x + box.w + 8 && x + width > box.x - 8
+        && y - 16 < box.y + 7 && y + 7 > box.y - 16
+      );
+      const show = visible && !overlaps;
+      label.style.display = show ? "" : "none";
+      if (show) placed.push({x, y, w: width});
+    }
   };
   const zoomTo = (lon, lat, desired = 5) => {
     const [x,y] = point([lon,lat]); scale = desired;
@@ -83,17 +103,39 @@
     const observation=feature.properties.observation_valid_time_utc;
     const elapsed=target ? Math.round((new Date(target)-new Date(observation))/60000) : null;
     const area=feature.properties.observed_approx_area_km2;
-    document.getElementById("f4-selected").textContent =
-      "観測地点の目安："+regionName(o)+"\n"
-      + "観測時刻："+jst(observation)+"\n"
-      + "観測中心：北緯"+o[1].toFixed(4)+"°／東経"+o[0].toFixed(4)+"°\n"
-      + "30 mm/h以上の観測域の概算面積："+formatArea(area)+"\n"
-      + (feature.properties.observed_boundary_truncated ? "解析範囲の端で切れています。面積は全域を表さない可能性があります。\n" : "")
-      + (p ? "研究用外挿先："+jst(target)+"\n"
-        + "北緯"+p[1].toFixed(4)+"°／東経"+p[0].toFixed(4)+"°\n"
-        + "観測から"+elapsed+"分後（選択した15/30分は基準時刻からの時間）\n"
-        + "中心からの直線距離：約"+km(o,p).toFixed(1)+" km\n" : "")
-      + "降雨域の実際の輪郭・長さ・幅・予測雨量・発生確率は未算出。";
+    const detail = document.getElementById("f4-selected");
+    detail.replaceChildren();
+    const rows = [
+      ["観測地点の目安", regionName(o)],
+      ["観測時刻", jst(observation)],
+      ["観測中心", "北緯"+o[1].toFixed(4)+"°／東経"+o[0].toFixed(4)+"°"],
+      ["30 mm/h以上の観測域の概算面積", formatArea(area)],
+    ];
+    if (feature.properties.observed_boundary_truncated) {
+      rows.push(["観測範囲", "解析範囲の端で切れています。面積は全域を表さない可能性があります。"]);
+    }
+    if (p) {
+      rows.push(
+        ["研究用外挿先", jst(target)],
+        ["外挿中心", "北緯"+p[1].toFixed(4)+"°／東経"+p[0].toFixed(4)+"°"],
+        ["観測からの経過", elapsed+"分（15/30分は研究用基準時刻から）"],
+        ["中心からの直線距離", "約"+km(o,p).toFixed(1)+" km"],
+      );
+    }
+    for (const [label, value] of rows) {
+      const card = document.createElement("div");
+      card.className = "archive-detail-card";
+      const caption = document.createElement("span");
+      caption.textContent = label;
+      const content = document.createElement("strong");
+      content.textContent = value;
+      card.append(caption, content);
+      detail.append(card);
+    }
+    const note = document.createElement("p");
+    note.className = "archive-detail-note";
+    note.textContent = "降雨域の実際の輪郭・長さ・幅・予測雨量・発生確率は未算出。";
+    detail.append(note);
   }
   function render() {
     const slot=slotSelect.value, lead=Number(leadSelect.value);
@@ -148,7 +190,7 @@
     zoomTransform();
     document.getElementById("f4-context").textContent=
       "観測："+jst(slot)+" ／ 研究用基準時刻から"+lead+"分先 ／ 対象"+selectedRows.length+"件";
-    status.textContent="保存済み研究表示 · "+selectedRows.length+"件 · 予報ではありません";
+    status.textContent="固定アーカイブ run "+data.source_run_id+" · "+selectedRows.length+"件 · ライブ更新ではありません";
     const selected=selectedRows.find(x=>x.origin.properties.research_object_id===selectedId);
     if(selected)select(selected.origin,selected.future);
     else if(selectedRows.length)select(selectedRows[0].origin,selectedRows[0].future);
@@ -171,8 +213,8 @@
       const ratio=next/scale;tx=x-(x-tx)*ratio;ty=y-(y-ty)*ratio;scale=next;zoomTransform();
     },{passive:false});
     svg.addEventListener("pointerdown",e=>{
+      // Do not capture the root SVG: the click must reach the selected circle.
       pan={x:e.clientX,y:e.clientY};
-      try{svg.setPointerCapture(e.pointerId);}catch(_){}
     });
     svg.addEventListener("pointermove",e=>{
       if(!pan)return;
@@ -222,6 +264,9 @@
       for(const city of cities){
         const [x,y]=point([city.lon,city.lat]);
         const g=el("g",{"class":"f4-city"});
+        g.dataset.x = String(x);
+        g.dataset.y = String(y);
+        g.dataset.minScale = String(Number(city.min_scale) || 1);
         g.append(el("circle",{cx:x,cy:y,r:2.3}));
         const label=el("text",{x:x+5,y:y-5});label.textContent=city.name_ja;
         g.append(label);cityLayer.append(g);
