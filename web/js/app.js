@@ -555,6 +555,7 @@
     );
     renderF4LiveOverview(doc);
     resetF4LiveSelection();
+    setText("f4-live-area", "黄色の候補域を地図で選択");
     updateMapLegend();
   }
 
