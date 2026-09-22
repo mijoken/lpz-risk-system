@@ -53,10 +53,15 @@ function Invoke-PublicationGit {
     return $result
 }
 
-$Dirty = Invoke-PublicationGit status --porcelain
-if ($Dirty) {
-    throw "Publication worktree is dirty; refusing to overwrite anything: $PublishWt"
+$Dirty = @(Invoke-PublicationGit status --porcelain)
+$Unexpected = @($Dirty | Where-Object {
+    $_ -and $_.Length -ge 4 -and $_.Substring(3) -ne $TargetRel
+})
+if ($Unexpected.Count -gt 0) {
+    throw "Publication worktree contains unrelated changes; refusing overwrite: $($Unexpected -join '; ')"
 }
+# A previously generated dry-run GeoJSON may be present. No other dirty files
+# are accepted; the only allowed path is regenerated from the frozen case.
 
 $CurrentBranch = [string](Invoke-PublicationGit branch --show-current)
 $CurrentBranch = $CurrentBranch.Trim()
