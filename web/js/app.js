@@ -18,6 +18,9 @@
   let latestProduct = null;
   let f4LiveResearch = null;
   let f4FieldMotionResearch = null;
+  let liveResearchRevision = null;
+  let fieldMotionRevision = null;
+  let researchRefreshTimer = null;
   let activeLodId = null;
   let lodRequestToken = 0;
   const lodCache = new Map();
@@ -1096,6 +1099,56 @@
     }
   }
 
+  function researchRevision(doc, fieldMotion = false) {
+    if (!doc) return "NOT_PUBLISHED";
+    const sourceAge = ageMinutes(doc.source_as_of_utc);
+    const expired = doc.status === "AVAILABLE"
+      && sourceAge !== null
+      && Number.isFinite(Number(doc.max_age_minutes))
+      && sourceAge > Number(doc.max_age_minutes);
+    return JSON.stringify([
+      doc.product,
+      doc.source_run_id || "",
+      doc.source_case_id || "",
+      doc.source_slot_utc || "",
+      doc.status || "",
+      fieldMotion ? doc.terminal_decision : "",
+      expired,
+    ]);
+  }
+
+  async function refreshResearchLayers() {
+    if (document.visibilityState === "hidden") return;
+    try {
+      const [liveDoc, motionDoc] = await Promise.all([
+        fetchOptionalJson(F4_LIVE_RESEARCH_URL),
+        fetchOptionalJson(F4_FIELD_MOTION_URL),
+      ]);
+      const liveRevision = researchRevision(liveDoc);
+      if (liveRevision !== liveResearchRevision) {
+        setupF4LiveResearch(liveDoc);
+        liveResearchRevision = liveRevision;
+      }
+      const motionRevision = researchRevision(motionDoc, true);
+      if (motionRevision !== fieldMotionRevision) {
+        setupFieldMotionResearch(motionDoc);
+        fieldMotionRevision = motionRevision;
+      }
+    } catch (error) {
+      console.warn("F4 research refresh failed; keeping current map state", error);
+    }
+  }
+
+  function enableResearchRefresh() {
+    if (researchRefreshTimer !== null) return;
+    researchRefreshTimer = window.setInterval(refreshResearchLayers, 10 * 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        refreshResearchLayers();
+      }
+    });
+  }
+
   async function start() {
     setupF4ArchivedResearch();
     const svg = document.getElementById("japan-map");
@@ -1149,7 +1202,10 @@
       bindMapControls();
       setupReferenceCities(citiesDoc);
       setupF4LiveResearch(f4LiveDoc);
+      liveResearchRevision = researchRevision(f4LiveDoc);
       setupFieldMotionResearch(fieldMotionDoc);
+      fieldMotionRevision = researchRevision(fieldMotionDoc, true);
+      enableResearchRefresh();
       setupSearch();
       renderStatus(systemStatus, sourceHealth);
       setupRain(rainManifest);
