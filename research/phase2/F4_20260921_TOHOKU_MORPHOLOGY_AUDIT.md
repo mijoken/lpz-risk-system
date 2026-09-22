@@ -139,4 +139,8 @@ strong-rain persistence/organization descriptor**, conditional on
 source bytes/unknown-pixel handling; independent 3-hour accumulation
 requires suitable source-native actual rainfall granules.
 
-**State: awaiting local metadata census; no 3-hour persistence claim yet.**
+**Local metadata census result (2026-09-22):** same-mosaic F4-9A archives exist at source slots 21:30, 21:45 and 22:00 JST. After deduplicating overlapping four-frame archives, there are **10 unique five-minute timestamps** covering **21:15–22:00 JST**. The full 19:00–22:00 JST requirement is **10/37**, with 27 earlier timestamps missing; all three referenced source NPZ files exist. The two duplicate frame timestamps are expected archive overlap, not corruption. Therefore exact local same-mosaic 3-hour radar reconstruction is unavailable from the frozen F4 source store.
+
+**Next source-only gate:** analyze only the contiguous 45-minute 10-frame window with `scripts/audit_f4_20260921_45min_source_organization.py`. It verifies SHA-256, duplicate-frame equality, and reports source-only >=30/50/80 class intensity, component morphology, whole-field PCA geometry, and fixed-coordinate persistence restricted to pixels classified at all 10 frames. This remains **45-minute categorical radar organization**, not 3-hour accumulation, LPZ occurrence classification, or forecast verification.
+
+**State: local 3-hour source coverage FAIL (10/37); contiguous 45-minute source organization audit pending.**
