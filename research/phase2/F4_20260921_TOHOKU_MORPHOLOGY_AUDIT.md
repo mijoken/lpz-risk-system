@@ -211,3 +211,23 @@ At the final 22:00 F4 source frame alone, 156 native IMERG cells are touched and
 **Timing caveat:** the F4 source corridor is observed during 21:15–22:00 JST and the purple motion product is as-of 22:15. IMERG accumulation spans 19:00–22:00 JST. Therefore this evidence supports **recognition/short-time projection of an already ongoing organized heavy-rain corridor**, not advance prediction of the corridor's original formation. The next scientific question is operational novelty/lead-time, not whether the same heavy-rain area existed.
 
 **State: F4↔IMERG spatial co-location SUPPORTED; >=100/150 IMERG screen remains NEGATIVE; operational/alert-timing comparison is the next audit if the goal is to determine whether the System added warning value beyond contemporaneous official information.**
+
+
+## Operational-information timing audit (public JMA information, 2026-09-21)
+
+Public contemporaneous information was checked separately from the F4 scientific verification.
+
+- JMA general information at **05:11** and **11:13 JST** warned that the Pacific side from eastern Japan through Tohoku should be on strict alert for heavy-rain hazards, so Fukushima/Miyagi were not meteorologically "unmonitored".
+- In those same general-information messages, the explicit **linear-rainband possibility** callout was for **Kanto-Koshin and Tokai**, not Tohoku.
+- At **12:19 JST**, a JMA linear-rainband imminence forecast was issued for the northern Izu Islands.
+- At **12:58 JST**, a JMA linear-rainband imminence forecast was issued for eastern Kanagawa.
+- The accessible JMA-XML historical database searches performed on 2026-09-22 did **not surface an equivalent linear-rainband imminence/occurrence item for Fukushima or Miyagi on 2026-09-21**. This is evidence of non-discovery in the checked public records, not a mathematically exhaustive proof of absence; the official annual 2026 performance table was only current through 2026-09-09 at audit time.
+
+Sources checked:
+- JMA general incident/verification page: https://www.jma.go.jp/jma/kishou/know/jirei/index.html
+- JMA XML historical database: https://agora.ex.nii.ac.jp/cps/weather/report/index.html.ja
+- JMA product catalogue for VPBS50 linear-rainband imminence forecast: https://www.data.jma.go.jp/suishin/cgi-bin/catalogue/make_product_page.cgi?id=KishoJoh
+
+**Operational interpretation:** by 22:15 JST the F4 purple product was not predicting the *genesis* of the Tohoku offshore rain corridor from clear conditions. It was projecting an already-observed, 45-minute linearly organized intense-rain field. However, the location was outside the explicit Kanto-Koshin/Tokai LPZ-specific callout areas found in contemporaneous public JMA information. Therefore the defensible milestone is **independent organized-heavy-rain recognition and short-time motion nowcast in a region not found in the checked JMA LPZ-specific alerts**, not “LPZ predicted before JMA”.
+
+This distinction should remain permanent in any public dashboard annotation or research log.
