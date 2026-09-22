@@ -185,3 +185,12 @@ Interpretation after this step:
 - absence of >=100 mm in coarse IMERG Late is **not** a formal rejection of JMA LPZ criteria, because IMERG Late 0.1° is not JMA analyzed rainfall and can smooth convective extremes.
 
 **State: IMERG Late 3-hour accumulation COMPLETE; >=100/150 screen NEGATIVE; elongated >=50-mm/3h area PRESENT; F4↔IMERG spatial co-location is the next required gate before treating the independent source as confirmation of the same structure.**
+
+
+### Spatial co-location gate
+
+A dedicated follow-up `scripts/audit_f4_20260921_imerg_late_colocation.py` now maps the frozen 45-minute F4 swept >=30-mm/h source mask and the 22:00 source mask onto native 0.1-degree IMERG cells, then reports how many touched cells actually carry >=50/80/100/150 mm in the independent three-hour accumulation. It also reports each >=50-mm/3h IMERG connected component's direct overlap with the F4 swept mask.
+
+This gate is necessary because the largest IMERG >=50-mm component centroid is far northeast of the F4 swept-union centroid. Similar principal-axis orientation alone cannot establish that the two products describe the same structure.
+
+**State: spatial co-location code frozen; authenticated local run pending.**
