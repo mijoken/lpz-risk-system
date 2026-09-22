@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -69,6 +70,8 @@ def _cohort(tmp_path: Path) -> Path:
         lead_minutes=np.asarray([15, 30], dtype=np.int16),
         target_valid_time_unix_s=target_unix,
     )
+    case["component_forecast_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    _write_json(root / "cases" / f"{case_id}.json", case)
     return root
 
 
@@ -163,3 +166,15 @@ def test_no_cases_returns_not_published(tmp_path: Path):
     assert result["status"] == "NOT_PUBLISHED"
     assert result["terminal_decision"] == "PENDING"
     assert result["feature_count"] == 0
+
+
+def test_corrupted_frozen_forecast_is_rejected(tmp_path: Path):
+    root = _cohort(tmp_path)
+    path = root / "component_forecasts" / "20260921T124500Z.npz"
+    path.write_bytes(path.read_bytes() + b"not-the-frozen-forecast")
+    try:
+        build_public(root, now_utc=datetime(2026, 9, 21, 13, 5, tzinfo=timezone.utc))
+    except ValueError as exc:
+        assert "SHA-256 mismatch" in str(exc)
+    else:
+        raise AssertionError("modified frozen F4-9C forecast bytes were accepted")
