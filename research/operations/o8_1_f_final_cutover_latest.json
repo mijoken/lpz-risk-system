@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-24T08:23:49Z",
+  "generated_at_utc": "2026-09-24T13:40:53Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -106,11 +106,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-09-24T06:15:08Z",
-        "latest_success_run_id": 35963602378,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-24T11:57:04Z",
+        "latest_success_run_id": 35996031437,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 128.68916891666666,
+        "latest_success_age_minutes": 103.82325498333333,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -122,19 +122,19 @@
         "latest_success_created_at_utc": "2026-09-21T15:11:07Z",
         "latest_success_run_id": 35617206337,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 3912.7058355833333,
+        "latest_success_age_minutes": 4229.773254983334,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "failure",
         "latest_failure_after_success": true,
-        "runs_examined": 24
+        "runs_examined": 25
       },
       "public": {
         "name": "public_pages_production",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-24T05:15:14Z",
-        "latest_success_run_id": 35959125121,
+        "latest_success_created_at_utc": "2026-09-24T10:05:36Z",
+        "latest_success_run_id": 35985207747,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 188.58916891666667,
+        "latest_success_age_minutes": 215.28992165,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -156,7 +156,6 @@
   },
   "blockers": [
     "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON",
     "DAILY_CONSOLIDATION_RUNTIME_FRESHNESS"
   ],
   "risk_engine_allowed": false,
