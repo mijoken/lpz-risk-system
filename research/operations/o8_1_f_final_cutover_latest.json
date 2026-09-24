@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-23T14:12:57Z",
+  "generated_at_utc": "2026-09-24T07:42:29Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -83,19 +83,19 @@
         "risk_engine_locked": true
       },
       "current_streak": 0,
-      "latest_expected_finalized_date_utc": "2026-09-22",
+      "latest_expected_finalized_date_utc": "2026-09-23",
       "required_days": [
         {
-          "date_utc": "2026-09-22",
-          "path": "research/prospective/2026/09/2026-09-22.manifest.json",
+          "date_utc": "2026-09-23",
+          "path": "research/prospective/2026/09/2026-09-23.manifest.json",
           "state": "WAIT_MISSING",
           "complete_96_of_96": false,
           "reason": "DAILY_MANIFEST_MISSING",
           "checks": {}
         },
         {
-          "date_utc": "2026-09-21",
-          "path": "research/prospective/2026/09/2026-09-21.manifest.json",
+          "date_utc": "2026-09-22",
+          "path": "research/prospective/2026/09/2026-09-22.manifest.json",
           "state": "WAIT_MISSING",
           "complete_96_of_96": false,
           "reason": "DAILY_MANIFEST_MISSING",
@@ -106,11 +106,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-09-23T12:06:00Z",
-        "latest_success_run_id": 35858389175,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-24T06:15:08Z",
+        "latest_success_run_id": 35963602378,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 126.96267921666666,
+        "latest_success_age_minutes": 87.35139026666667,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -122,19 +122,19 @@
         "latest_success_created_at_utc": "2026-09-21T15:11:07Z",
         "latest_success_run_id": 35617206337,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 2821.84601255,
+        "latest_success_age_minutes": 3871.3680569333333,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "failure",
         "latest_failure_after_success": true,
-        "runs_examined": 23
+        "runs_examined": 24
       },
       "public": {
         "name": "public_pages_production",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-09-23T09:59:25Z",
-        "latest_success_run_id": 35846145039,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-24T05:15:14Z",
+        "latest_success_run_id": 35959125121,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 253.54601255,
+        "latest_success_age_minutes": 147.25139026666665,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -156,9 +156,7 @@
   },
   "blockers": [
     "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON",
-    "DAILY_CONSOLIDATION_RUNTIME_FRESHNESS",
-    "PUBLIC_PRODUCTION_RUNTIME_FRESHNESS"
+    "DAILY_CONSOLIDATION_RUNTIME_FRESHNESS"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
