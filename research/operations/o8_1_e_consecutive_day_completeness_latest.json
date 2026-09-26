@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-E-consecutive-day-completeness-observer",
-  "generated_at_utc": "2026-09-25T14:33:10Z",
-  "latest_expected_finalized_date_utc": "2026-09-24",
+  "generated_at_utc": "2026-09-26T07:53:47Z",
+  "latest_expected_finalized_date_utc": "2026-09-25",
   "required_consecutive_complete_days": 2,
   "history_days_examined": 14,
   "current_consecutive_complete_day_streak": 0,
@@ -10,16 +10,16 @@
   "state": "WAIT_REQUIRED_CONSECUTIVE_COMPLETE_DAYS",
   "required_days": [
     {
-      "date_utc": "2026-09-24",
-      "path": "research/prospective/2026/09/2026-09-24.manifest.json",
+      "date_utc": "2026-09-25",
+      "path": "research/prospective/2026/09/2026-09-25.manifest.json",
       "state": "WAIT_MISSING",
       "complete_96_of_96": false,
       "reason": "DAILY_MANIFEST_MISSING",
       "checks": {}
     },
     {
-      "date_utc": "2026-09-23",
-      "path": "research/prospective/2026/09/2026-09-23.manifest.json",
+      "date_utc": "2026-09-24",
+      "path": "research/prospective/2026/09/2026-09-24.manifest.json",
       "state": "WAIT_MISSING",
       "complete_96_of_96": false,
       "reason": "DAILY_MANIFEST_MISSING",
@@ -27,6 +27,14 @@
     }
   ],
   "history": [
+    {
+      "date_utc": "2026-09-25",
+      "path": "research/prospective/2026/09/2026-09-25.manifest.json",
+      "state": "WAIT_MISSING",
+      "complete_96_of_96": false,
+      "reason": "DAILY_MANIFEST_MISSING",
+      "checks": {}
+    },
     {
       "date_utc": "2026-09-24",
       "path": "research/prospective/2026/09/2026-09-24.manifest.json",
@@ -403,14 +411,6 @@
         "raw_grib_not_archived": true,
         "phase_is_o8_1_d": false
       }
-    },
-    {
-      "date_utc": "2026-09-11",
-      "path": "research/prospective/2026/09/2026-09-11.manifest.json",
-      "state": "WAIT_MISSING",
-      "complete_96_of_96": false,
-      "reason": "DAILY_MANIFEST_MISSING",
-      "checks": {}
     }
   ],
   "ready_for_o8_1_f_final_cutover_audit": false,
