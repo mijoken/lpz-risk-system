@@ -1,29 +1,52 @@
 # LPZ Risk System
 
-Explainable scientific monitoring and prediction system for linear precipitation zones in Japan.
+Explainable scientific monitoring / forecasting research system for linear precipitation zones in Japan.
 
 > [!IMPORTANT]
-> **Read `LPZ_SYSTEM_CHARTER.md` before changing architecture, scheduling, deployment, public UI, or scientific release policy.**
+> **Before changing architecture, scheduling, deployment, public UI, scientific release policy, or operational cutover policy, read `LPZ_SYSTEM_CHARTER.md`.**
 >
-> Recovery keyword for a new chat/session: **`LPZ憲章復元`**  
+> Recovery keyword: **`LPZ憲章復元`**  
 > ASCII alias: **`LPZ-CHARTER-RESTORE`**
 >
-> When this keyword is used, reconstruct the project state from the charter, the machine-readable charter, latest `main` commits, Phase 2 freeze artifacts, workflows, and `web/` before modifying code.
+> The recovery keyword means: **do not trust conversational memory; reconstruct the project from GitHub first.**
 
 > **Research / experimental system.** This repository is not an official weather warning service and must not replace information issued by the Japan Meteorological Agency (JMA) or local authorities.
 
-## System identity
+---
 
-The final production system is **GitHub-hosted and externally published**:
+## 1. Constitutional source of truth
+
+Authoritative project policy:
+
+- `LPZ_SYSTEM_CHARTER.md` — highest-level development charter.
+- `config/lpz_system_charter.json` — machine-readable mirror for code/audits.
+- frozen artifacts under `research/phase2/` — scientific and research closure authority.
+- current GitHub `main`, workflows, and operational status artifacts — dynamic implementation/state.
+
+When these disagree with an old chat or assistant memory:
+
+```text
+GitHub charter / frozen artifacts / current main
+        >
+assistant memory / old conversation recollection
+```
+
+---
+
+## 2. System identity
+
+Final production architecture:
 
 ```text
 Weather / observation / forecast sources
         ↓
 GitHub Actions + Python
-  acquisition / decoding / validation
-  scientific feature generation
-  prediction / risk calculation after release gate
-  audit / public JSON generation
+  acquisition
+  decoding
+  validation
+  feature generation
+  prediction / risk calculation only after release gate
+  audit / status / public data generation
         ↓
 JSON / GeoJSON
         ↓
@@ -36,16 +59,115 @@ Public Japan-map dashboard
 
 **Python computes data. JavaScript presents data.**
 
-The public browser must not depend on a local Windows PC or Python runtime.
+Final production is **GitHub-only**. The public browser must not depend on a Windows PC or local Python process.
 
-Authoritative architecture policy:
+---
 
-- `LPZ_SYSTEM_CHARTER.md`
-- `config/lpz_system_charter.json`
+## 3. Current transition rule — 2026-09-27
 
-## Current scientific state — 2026-09-12
+### Through 2026-09-30
 
-The Development discovery and validation protocol are frozen.
+Because GitHub Actions usage is constrained during development/transition, prospective collection may temporarily run on the local Windows notebook/Terminal.
+
+This is only a temporary contingency.
+
+```text
+local collection != final production
+```
+
+If the notebook is powered off and slots are missed before cutover, those gaps are **not automatically software bugs**.
+
+### From 2026-10-01
+
+Production principle:
+
+```text
+GitHub Actions + GitHub repository + GitHub Pages only
+```
+
+If GitHub-only readiness is not complete by then, do not silently redefine Windows as production. Report the blocker and resolve or explicitly defer it.
+
+### Backfill rule
+
+Missing temporary slots may be recovered when scientifically valid, but recovered records must remain distinguishable from native prospective records, using existing semantics such as:
+
+```text
+PROSPECTIVE_RECOVERED
+```
+
+Do not rewrite recovered data as native and do not erase the fact that the original slot was missed.
+
+---
+
+## 4. Local development environment
+
+Current development root:
+
+```text
+D:\program\lpz-risk-system_dev
+```
+
+Preferred workflow:
+
+```text
+Normal ChatGPT
+   ↓
+complete copy-paste PowerShell / Python
+   ↓
+user executes locally
+   ↓
+exact output returned
+   ↓
+diagnose / patch / test
+   ↓
+GitHub branch / PR / main
+```
+
+Use local execution for development, debugging, research, pre-commit tests, large downloads/computation, temporary collection, and controlled backfill.
+
+Do not treat local execution as permanent production architecture.
+
+---
+
+## 5. O8.1 operational chain
+
+The scientific clock is the UTC 15-minute `collection_slot_utc` grid. GitHub schedule timing is only a wake signal.
+
+```text
+O8.1-A  JMA retention census
+   ↓
+O8.1-B  exact historical-slot replay + GFS as-of guard
+   ↓
+O8.1-C  self-healing batch collector
+   ↓
+O8.1-D  canonical 96-slot UTC daily consolidation
+   ↓
+O8.1-E  consecutive-day completeness observer
+   ↓
+O8.1-F  final GitHub-only cutover audit
+```
+
+Current cutover authority:
+
+```text
+research/operations/o8_1_f_final_cutover_latest.json
+```
+
+Always read the current report rather than relying on a date-stamped README value.
+
+The old rule that GitHub cron itself should run approximately 96 times/day is retired.
+
+Canonical daily slot states remain distinct:
+
+- `COMPLETE`
+- `TECHNICAL_INCOMPLETE`
+- `EXPLICIT_GAP`
+
+Do not rewrite one state as another just to make a day appear complete.
+
+---
+
+## 6. Current scientific state
 
 Frozen Primary:
 
@@ -54,27 +176,26 @@ q850_mean_kgkg @ t+0h
 Positive > rainfall-matched Comparison
 ```
 
-Current validation status:
+Validation status:
 
 ```text
 DEFERRED_PENDING_IMERG_FINAL_V08
 ```
-
-IMERG Final V07 ends before the full frozen 2025 comparison universe can be reconstructed. The entire V07-supported target segment was completed, but none of the 23 Positive region-days has a fully observable frozen matching universe under V07.
 
 Therefore:
 
 ```text
 2025 Primary confirmatory test    NOT RUN
 2025 ERA5 Primary outcome         SEALED
-Risk engine                       LOCKED
+Risk Engine                       LOCKED
 Public validated risk score       NOT ALLOWED
-Operational/system development    ALLOWED
 ```
 
 Authoritative freeze:
 
-- `research/phase2/phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.json`
+```text
+research/phase2/phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.json
+```
 
 Gate:
 
@@ -82,148 +203,244 @@ Gate:
 PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE
 ```
 
-## Final V08 re-entry
+Operational success does not unlock the scientific Risk Engine.
 
-When official IMERG Final V08 is available:
+---
 
-1. rebuild Development 2023–2024 consistently with Final V08,
-2. rebuild 2025 Validation consistently with the same Final V08 family,
-3. fit rainfall scaling/PCA on Development V08 only,
-4. transfer that frozen transform to 2025,
-5. apply the frozen same-region / ±60 calendar-day / ±3-day event-buffer / 1:3 no-replacement matching protocol,
-6. freeze the matched 2025 population,
-7. only then open 2025 ERA5 Primary outcomes,
-8. run the frozen `q850_mean_kgkg @ t+0h` confirmatory test once,
-9. do not retune after PASS or FAIL.
+## 7. Final V08 re-entry
 
-Do **not** patch only the missing 2025 tail with a different product/version.
+When official IMERG Final V08 becomes available:
 
-## Production vs local development
+1. verify official V08 availability and coverage,
+2. rebuild Development 2023–2024 consistently with Final V08,
+3. rebuild 2025 Validation with the same Final V08 family,
+4. fit rainfall scaling/PCA on Development V08 only,
+5. transfer the frozen transform to 2025 without refitting,
+6. apply frozen same-region / ±60-day / ±3-day event-buffer / 1:3 no-replacement matching,
+7. freeze the matched 2025 population,
+8. only then open 2025 ERA5 Primary outcomes,
+9. run the frozen `q850_mean_kgkg @ t+0h` confirmatory test once,
+10. do not retune after PASS or FAIL.
 
-### Final production target
+Do not patch only the missing 2025 tail using another rainfall product/version.
 
-- GitHub = canonical source of code/config/workflows/schemas/research/public small data products
-- GitHub Actions = scheduled dynamic processing
-- GitHub Pages = external public web surface
-- JavaScript = JSON/GeoJSON rendering and Japan-map interaction
+---
 
-### Current local development environment
+## 8. F4 field-motion research is closed
 
-```text
-D:\program\lpz-risk-system_dev
-```
-
-Local execution is for development, debugging, research processing, pre-commit verification, and temporary smoke testing only.
-
-The current Windows Task Scheduler collector is **temporary** and must not be confused with the final production scheduler.
-
-During the 2026-09-12 local migration/testing period, two GitHub schedules were temporarily removed:
-
-- `b905fc1` — prospective collector cron removed
-- `a184267` — prospective daily consolidation cron removed
-
-Before production go-live, production scheduling must be restored/replaced on GitHub Actions and proven end-to-end.
-
-## Public web target
-
-The `web/` directory is the source of the public GitHub Pages experience.
-
-Target separation:
+Authoritative terminal artifact:
 
 ```text
-web/
-├─ index.html
-├─ css/
-├─ js/
-├─ assets/
-│  └─ Japan / JMA-region GeoJSON
-└─ data/
-   ├─ latest.json
-   ├─ source_health.json
-   ├─ system_status.json
-   └─ history/
+research/phase2/F4_9D_TERMINAL_DECISION_20260927.json
 ```
 
-The page should make the situation understandable at a glance:
+Frozen state:
 
-- Japan map / region state,
-- data-source freshness and health,
-- system operating state,
-- update time,
-- validation state,
-- whether the Risk Engine is released or locked.
+```text
+F4-9D decision                 GO
+F4 closed                      true
+verified comparisons           542
+verified distinct slots        3
+permanent technical failures   0
+production integration         disabled
+Risk Engine                    locked
+validated forecast             false
+post-hoc retuning              prohibited
+```
 
-Until scientific validation is released, the public site may show operational/research status but must not present an unvalidated LPZ probability or risk value as an operational prediction.
+F4 GO means only that the frozen comparison met the pre-specified F4-9D rule and a **new separately scoped integration phase** may be considered.
 
-## Core scientific guardrails
+It does **not** authorize production integration or a validated LPZ forecast.
 
-The system must not silently:
+Archived purple field-motion geometry is research-only and must not imply a current forecast.
 
-- replace Kato's 500-m FLWV with a pressure-level proxy,
-- use atmosphere to select rainfall-matched Comparison cases,
-- change the frozen ±60-day / ±3-day / 1:3 matching policy to rescue validation,
-- refit rainfall PCA/scaling on 2025 Validation,
+---
+
+## 9. Public web architecture
+
+`web/` is the source of the GitHub Pages product.
+
+Responsibilities:
+
+- **GitHub Actions / Python:** acquire, validate, calculate, audit, and emit JSON/GeoJSON.
+- **GitHub Pages / JavaScript:** fetch and display those products.
+- **UI:** clearly separate current vs archived, research vs operational, system health vs scientific release, and project research vs official JMA information.
+
+The page should expose at least:
+
+- geographic state,
+- source freshness/health,
+- system state,
+- last update,
+- scientific validation state,
+- Risk Engine locked/released state.
+
+---
+
+## 10. Development rules
+
+Before changing code:
+
+1. confirm branch, HEAD, and working tree,
+2. read the relevant canonical artifact,
+3. classify the issue as scientific / operational / UI / tooling,
+4. avoid duplicating completed work,
+5. state expected effect and non-effect,
+6. patch minimally,
+7. add regression proof,
+8. test locally,
+9. inspect diff,
+10. then commit/PR.
+
+Failure analysis should follow:
+
+```text
+symptom
+→ failing stage
+→ root cause
+→ severity / blast radius
+→ minimal correction
+→ regression proof
+```
+
+Do not perform broad re-audits without evidence that the blast radius is broad.
+
+Keep independent problems independent. Examples:
+
+```text
+parser bug                  != local-PC downtime gap
+O8.1 operational cutover   != V08 scientific validation
+F4 GO                      != Risk Engine release
+Git maintenance warning    != scientific corruption
+```
+
+---
+
+## 11. Scientific guardrails
+
+Without an explicit protocol amendment, do not silently:
+
+- substitute Late/Early/alternate rainfall data for missing Final data in Primary validation,
+- shrink the frozen comparison universe to force validation,
+- change ±60-day / ±3-day / 1:3 matching,
+- refit PCA/scaling using 2025 Validation,
 - open 2025 ERA5 Primary outcomes before matching is frozen,
-- change the frozen Primary because the validation path is inconvenient,
-- use 2026 outcomes to tune the frozen 2025 Primary test,
-- publish a validated operational risk score before the release gate.
+- change the frozen Primary to rescue the outcome,
+- tune the frozen test using later prospective outcomes,
+- replace Kato 500-m FLWV with a pressure-level proxy,
+- convert weak proxy evidence into deterministic LPZ labels,
+- publish an operational validated risk score before the release gate.
 
-Scientific evidence and formulas retain their original scope, dataset, units, resolution, and limitations.
+---
 
-Key evidence/requirements:
+## 12. Recovery protocol
 
-- `research/evidence/scientific_evidence_registry.json`
-- `config/scientific_variable_requirements.json`
-- `docs/architecture/SCIENTIFIC_EVIDENCE_ENGINE.md`
+If the user says:
 
-## Source policy
+```text
+LPZ憲章復元
+```
 
-**Live mandatory**
+or:
 
-- JMA High-Resolution Precipitation Nowcast
-- JMA analyzed precipitation / RASRF
-- JMA AMeDAS
-- NOAA/NCEP GFS 0.25°
+```text
+LPZ-CHARTER-RESTORE
+```
 
-**Live supplementary**
+do not continue from conversational memory.
 
-- JMA WINDAS / wind profiler
-- JMA Himawari imagery
+Mandatory reconstruction:
 
-**Benchmark only — never an independent score input**
+```text
+LPZ_SYSTEM_CHARTER.md
+        ↓
+config/lpz_system_charter.json
+        ↓
+latest GitHub main / recent commits
+        ↓
+Phase 2H / K2 scientific freezes
+        ↓
+F4 terminal closure artifact
+        ↓
+research/operations/o8_1_f_final_cutover_latest.json
+        ↓
+.github/workflows/
+        ↓
+web/ + public JSON/GeoJSON contract
+        ↓
+temporary local vs GitHub-only production distinction
+        ↓
+current unresolved issue(s)
+        ↓
+state summary + next legitimate step
+        ↓
+only then modify code
+```
 
-- JMA official linear precipitation-zone detections / event records
-- JMA LPZ short-range prediction products
+The recovery summary must explicitly state:
 
-**Historical core**
+- current main SHA,
+- current production architecture,
+- current operational mode,
+- O8.1-F state,
+- V08/Primary scientific lock,
+- F4 terminal state,
+- Risk Engine state,
+- current blocker/next task,
+- what must not be changed.
 
-- ERA5
-- JMA official LPZ event records
-- historical radar where legally and technically available
+---
 
-## Data freshness and safe failure
+## 13. Current snapshot — 2026-09-27
 
-Mandatory upstream data must expose observation/analysis time and age. If a mandatory source is stale or failed, the system must suspend risk output rather than silently reuse stale values.
+This section is only a snapshot; live artifacts take precedence.
 
-## Repository policy
+At the charter v2 base:
 
-GitHub is the canonical source for code, configuration, research notes, schemas, workflows, and generated small JSON/GeoJSON products. Large raw weather datasets are not committed to Git.
+```text
+main = 12ea90ab1a99a7a2be49dc872264e0354b3783e9
+```
 
-## Recovery protocol
+F4:
 
-If the user says **`LPZ憲章復元`**, do not continue from conversational memory alone.
+```text
+GO / CLOSED
+production integration disabled
+Risk Engine locked
+public archived field-motion decision label GO
+```
 
-Mandatory recovery sequence:
+O8.1-F snapshot:
 
-1. read `LPZ_SYSTEM_CHARTER.md`,
-2. read `config/lpz_system_charter.json`,
-3. inspect latest `main` commits,
-4. read Phase 2 H/K2 freeze artifacts,
-5. inspect `.github/workflows/`,
-6. inspect `web/` and current public data contract,
-7. separate temporary local mechanisms from final GitHub production mechanisms,
-8. summarize recovered state and next legitimate step before changing code.
+```text
+WAIT_KEEP_WINDOWS_TASK
+blockers:
+  TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS
+  DAILY_CONSOLIDATION_RUNTIME_FRESHNESS
+```
 
-## License
+Known O8.1-D defect under repair:
+
+```text
+recursive slots/*.json discovery
+→ downstream F3/F4 research slot files misread as prospective bundles
+→ collection_slot_utc missing
+→ STRUCTURAL_ERROR
+```
+
+This software defect is separate from expected temporary local-PC downtime gaps.
+
+For the observed 2026-09-26 failed consolidation:
+
+```text
+represented complete slots = 77
+explicit gaps              = 19
+```
+
+Under the current temporary-local premise, those 19 gaps are not to be deep-investigated by default. They may be backfilled if useful and scientifically valid.
+
+---
+
+## 14. License
 
 No project license has been selected yet. Third-party/public datasets remain subject to their own terms and attribution requirements.
