@@ -3,48 +3,59 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>F4 観測降雨域の地理表示 · LPZ研究</title>
+  <title>F4 保存済み研究アーカイブ · LPZ研究</title>
   <link rel="stylesheet" href="./css/app.css">
-  <link rel="stylesheet" href="./css/f4-archive.css">
-  <script src="./js/f4-archive.js" defer></script>
+  <link rel="stylesheet" href="./css/f4-archive.css?v=20260927c">
+  <script src="./js/f4-archive.js?v=20260927c" defer></script>
 </head>
 <body>
 <main class="shell">
   <header class="topbar">
     <div>
-      <p class="brand-kicker">ARCHIVED GEOGRAPHIC RESEARCH · NOT LIVE</p>
-      <h1>F4 観測降雨域と15・30分先の位置外挿</h1>
-      <p class="subtitle">2026年9月21日の固定研究アーカイブ（source run 35564667965）を閲覧する画面です。ライブ更新ではなく、現在の線状降水帯の発生・予測・警報ではありません。</p>
+      <p class="brand-kicker">ARCHIVED F4 RESEARCH · NOT LIVE</p>
+      <h1>F4 保存済み研究アーカイブ</h1>
+      <p class="subtitle">2026年9月21日の保存済み研究を閲覧する画面です。紫はLucas–Kanade短時間研究予測（source case 20260921T130000Z）、水色点＋黄線は固定済み旧F4位置外挿（source run 35564667965）です。ライブ更新ではなく、現在の線状降水帯の発生・予測・警報ではありません。</p>
     </div>
     <a class="badge" href="./index.html">実況降水の画面へ戻る</a>
   </header>
   <section class="panel archive-controls" aria-label="Archived F4 controls">
-    <label for="f4-slot">観測時刻（JST）</label>
-    <select id="f4-slot" disabled><option>研究データを読み込み中…</option></select>
-    <label for="f4-lead">移動外挿</label>
+    <label class="archive-toggle"><input id="f4-field-motion-toggle" type="checkbox" checked disabled> 紫：Lucas–Kanade保存済み予測</label>
+    <label class="archive-toggle"><input id="f4-point-toggle" type="checkbox" disabled> 水色点＋黄線：旧F4位置外挿</label>
+    <label for="f4-lead">表示リード</label>
     <select id="f4-lead" disabled>
       <option value="15">15分先</option><option value="30">30分先</option>
     </select>
-    <button id="f4-focus" type="button" disabled>対象範囲へ移動</button>
+    <button id="f4-field-motion-focus" type="button" disabled>紫予測へ移動</button>
+    <span class="archive-divider" aria-hidden="true"></span>
+    <label for="f4-slot">旧F4観測時刻（JST）</label>
+    <select id="f4-slot" disabled><option>研究データを読み込み中…</option></select>
+    <button id="f4-focus" type="button" disabled>旧F4対象へ移動</button>
     <span id="f4-status" role="status">読み込み中…</span>
   </section>
   <section class="archive-layout">
     <div class="panel archive-map-panel">
       <svg id="f4-map" viewBox="0 0 1200 760" role="img" aria-label="保存済み観測降雨域の中心位置および研究用移動外挿"></svg>
-      <p class="archive-map-note">水色の番号付き点または右側の一覧をクリックすると、観測地点・参考都市・面積・研究用外挿位置を確認できます。黄色は当時の研究用外挿位置です。マウスホイールで拡大、ドラッグで移動できます。</p>
-      <p class="archive-legend"><span class="archive-origin">●</span> 観測された降雨域の中心　
-      <span class="archive-arrow">→</span> 研究用15/30分先への外挿（実際の移動・線状降水帯予測ではない）</p>
+      <p class="archive-map-note">紫色ポリゴンは9月21日22:15 JSTをas-ofとする保存済みLucas–Kanade研究予測です。クリックすると対象時刻・中心・概算面積を確認できます。旧F4の水色点＋黄線は必要なときだけ上のチェックをONにしてください。マウスホイールで拡大、ドラッグで移動できます。</p>
+      <p class="archive-legend">
+        <span class="archive-field-motion">■</span> 保存済みLucas–Kanade研究予測　
+        <span class="archive-origin">●</span> 旧F4観測中心　
+        <span class="archive-arrow">→</span> 旧F4研究用15/30分先外挿
+      </p>
     </div>
     <aside class="panel archive-detail">
-      <h2>位置と時刻</h2>
-      <p id="f4-context">選択した観測時刻の研究対象を表示します。地図上の点を選択すると緯度経度を確認できます。</p>
-      <div id="f4-selected" aria-live="polite">地図上の観測点または一覧から選択してください。</div>
-      <h2>この時刻の観測対象一覧</h2>
-      <p>参考都市は距離の目安です。降雨域の所在地や影響地域を確定するものではありません。</p>
-      <div id="f4-object-list" class="archive-object-list"></div>
+      <h2>保存済み研究の位置と時刻</h2>
+      <div id="f4-field-motion-meta" class="archive-meta-card" aria-live="polite">紫色Lucas–Kanade研究予測を読み込み中です。</div>
+      <p id="f4-context">紫色領域を選択すると保存済み予測の詳細を表示します。旧F4位置外挿をONにすると水色点も選択できます。</p>
+      <div id="f4-selected" aria-live="polite">地図上の紫色領域を選択してください。</div>
+      <section id="f4-legacy-list-section">
+        <h2>旧F4観測対象一覧</h2>
+        <p>水色点＋黄線レイヤーをONにした場合だけ使用します。参考都市は距離の目安で、影響地域を確定するものではありません。</p>
+        <div id="f4-object-list" class="archive-object-list"></div>
+      </section>
       <h2>重要な区別</h2>
-      <p>観測点は30 mm/h以上のレーダー降雨域の中心です。面積は元データの概算値であり、実際の輪郭・長さ・幅・雨量を表しません。線は二時刻の位置から求めた研究用の等速外挿であり、線状降水帯の発生確率を表しません。</p>
-      <p>記録は選択された固定レーダーモザイクの一部であり、全国を均一に検査した結果ではありません。</p>
+      <p><strong>紫色ポリゴン</strong>は、凍結済みF4-9BのLucas–Kanade field-level motionをsemi-Lagrangian移流して得た15分／30分先の保存済み研究予測域です。各ポリゴンは移流後のcomponent pixel cellsの凸包であり、実際の将来降雨輪郭・予測雨量・発生確率・危険度・警報を表しません。</p>
+      <p><strong>水色点＋黄線</strong>は旧F4研究です。水色点は30 mm/h以上の観測降雨域の中心、黄線は二時刻の中心位置から求めた研究用の等速外挿です。紫色Lucas–Kanade予測とは別の研究手法です。</p>
+      <p>どちらも選択された固定レーダーモザイクの研究表示であり、全国を均一に検査した結果でも、気象庁の線状降水帯発生情報を再現したものでもありません。</p>
     </aside>
   </section>
   <p class="notice">出典データ：保存済みO8.1レーダー観測Artifact。研究用表示であり、防災行動の判断には気象庁などの公式情報をご確認ください。</p>

@@ -86,3 +86,13 @@ def test_archive_is_not_misrepresented_as_live_and_map_clicks_are_preserved():
     assert "svg.setPointerCapture(event.pointerId)" not in map_js
     assert 'grid-template-areas: "map side" "research side"' in css
     assert html.index('id="f4-research-panel"') < html.index('class="side"')
+
+
+def test_archived_field_motion_is_not_drawn_on_live_map():
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    app = (ROOT / "web" / "js" / "app.js").read_text(encoding="utf-8")
+    assert 'const archived = doc.status === "ARCHIVED" || archivedByClock;' in app
+    assert 'if (archived && doc.features.length)' in app
+    assert 'window.LPZMap.setFieldMotionEnvelopes(null);' in app
+    assert "実況降水との時刻混同を防ぐため" in app
+    assert './f4-archive.html#field-motion' in html

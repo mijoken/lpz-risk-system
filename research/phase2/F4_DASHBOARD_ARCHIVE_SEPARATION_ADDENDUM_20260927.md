@@ -1,0 +1,143 @@
+# F4 Dashboard Archive Separation Addendum — 2026-09-27
+
+## Purpose
+
+This addendum changes **display placement only** after user review of the public
+dashboard. It does not alter F4-9B model mechanics, F4-9C collection,
+verification rows, F4-9D criteria, thresholds, Risk Engine locks, or any
+prospective scientific endpoint.
+
+The previous dashboard integration protocol allowed stale F4-9C field-motion
+geometry to remain on the main map if it was visibly marked ARCHIVED. In
+practice, an archived 2026-09-21 purple field-motion layer remained drawn over
+current precipitation several days later. Even with an ARCHIVED label in the
+side panel, the map itself could be read as if the purple geometry described
+current conditions.
+
+## Superseding presentation rule
+
+For the **main live precipitation map**:
+
+- field-motion geometry is shown only while its public research product is
+  fresh and status is AVAILABLE;
+- if status is ARCHIVED, or browser-clock age exceeds max_age_minutes, the
+  purple geometry is removed from the live map;
+- the research side panel may retain the archived as-of, object/feature counts,
+  and F4-9D PENDING/GO/NO_GO label;
+- the layer toggle is disabled for archived geometry;
+- users are directed to the dedicated F4 archive page.
+
+For **web/f4-archive.html**:
+
+- the saved Lucas–Kanade field-motion polygons remain directly visible as a
+  purple archived layer;
+- +15/+30 minute leads can be switched;
+- a saved polygon can be selected to inspect target time, centroid, approximate
+  projected area and research-object id;
+- the older observed-origin / constant-motion point archive remains available
+  as a separate optional layer rather than being mixed into the default view.
+
+## Readability correction
+
+The legacy archive screenshot showed enlarged dark marker strokes and oversized
+yellow arrowheads after zoom. Root cause: marker radii/font sizes were
+screen-compensated by 1/scale, but SVG strokes and filled arrowhead geometry
+still scaled with the viewport.
+
+The archive implementation therefore:
+
+- uses non-scaling strokes for origin/end/city markers;
+- computes arrowhead geometry inversely with zoom;
+- keeps city-label font, offset and outline approximately constant in screen
+  space;
+- uses collision suppression for reference-city labels;
+- defaults the cluttered legacy point layer to OFF.
+
+## Scientific invariants
+
+This addendum MUST NOT be interpreted as:
+
+- removing an unfavorable historical F4 prediction;
+- changing which prospective cases enter F4-9C;
+- changing the F4-9D GO/NO_GO rule;
+- changing prediction geometry or lead times;
+- claiming the archived purple polygons are LPZ forecasts.
+
+The same immutable public field-motion GeoJSON is retained. Only its placement
+moves from the live map to the archive after staleness.
+
+## Local static validation — 2026-09-27
+
+User executed the dedicated validation worktree at commit
+`d091a5745ae1d76554d46d38fad0e7c09fbd5c94`.
+
+Evidence:
+
+- worktree import proof resolved `lpz_risk` and
+  `radar_geographic_envelope.py` from the isolated UI-fix worktree;
+- regression suite: **29 passed**;
+- `node --check` passed for `web/js/map.js`, `web/js/app.js`, and
+  `web/js/f4-archive.js`.
+
+**Status:** implementation and static validation PASS on isolated branch
+`fix/f4-live-stale-archive-20260927`; browser acceptance remains pending
+before main merge.
+
+
+## First browser review refinement — 2026-09-27
+
+The first local browser screenshot confirmed that the archive is readable and
+the previous giant dark markers / arrowheads are no longer dominating the
+view. Two presentation refinements were requested before merge:
+
+1. center the archive more tightly on the purple field-motion cluster instead
+   of a near-national overview; the focus now uses the median archived forecast
+   centroid and a tighter scale;
+2. rewrite the "important distinction" text so it separately defines the
+   purple Lucas–Kanade + semi-Lagrangian polygon layer and the optional legacy
+   cyan-origin / yellow-line constant-motion layer.
+
+These remain display-only changes and do not touch any frozen scientific
+endpoint or prospective artifact.
+
+
+## Second browser review refinement — 2026-09-27
+
+The second local screenshot showed that the archive content and two-layer
+explanation were correct, but the initial purple field-motion view still opened
+too close to a national overview.
+
+The archive focus now fits the **actual Polygon vertex bounds** for the selected
++15/+30-minute field-motion layer into the SVG viewport with explicit horizontal
+and vertical padding. This replaces the fixed zoom/median-centroid heuristic.
+
+Archive-specific JS/CSS URLs also carry a version query during this validation
+cycle so browser cache cannot silently retain an older focus implementation.
+
+This is a display-only refinement. No archived geometry, lead time, case
+membership, model output, verification result, or F4-9D criterion is changed.
+
+
+## Final local browser acceptance — 2026-09-27
+
+User confirmed that opening `f4-archive.html#field-motion` now lands directly
+on the tighter purple field-motion view without requiring manual zoom.
+
+Browser acceptance evidence from screenshots:
+
+- archived purple Lucas–Kanade polygons are clearly visible and selectable;
+- default archive view is centered on the Fukushima/Miyagi offshore research
+  cluster rather than a near-national overview;
+- the legacy cyan-origin / yellow-line layer remains OFF by default;
+- previous giant dark markers, giant yellow arrowheads, and text collisions are
+  no longer present in the reviewed view;
+- the right-side explanation clearly separates purple field-motion polygons
+  from the legacy point/constant-motion method;
+- archive status remains explicitly NOT LIVE / research-only.
+
+Together with the previously recorded 29/29 regression tests and JavaScript
+syntax checks, browser acceptance is PASS.
+
+**Status:** implementation PASS; static validation PASS; browser acceptance
+PASS. Ready for review/merge to main. Scientific F4-9C/9D state remains
+unchanged.

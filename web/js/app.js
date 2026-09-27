@@ -600,12 +600,43 @@
     const archivedByClock = sourceAge !== null
       && Number.isFinite(Number(doc.max_age_minutes))
       && sourceAge > Number(doc.max_age_minutes);
-    if (!["AVAILABLE", "ARCHIVED"].includes(doc.status) || !doc.features.length) {
+    const archived = doc.status === "ARCHIVED" || archivedByClock;
+
+    // The live precipitation map must never visually mix an archived field-motion
+    // forecast with current rainfall. Preserve metadata in the side panel, but
+    // move stale geometry to the dedicated F4 archive page.
+    if (archived && doc.features.length) {
+      f4FieldMotionResearch = null;
+      window.LPZMap.setFieldMotionEnvelopes(null);
+      window.LPZMap.setFieldMotionVisible(false);
+      if (toggle) {
+        toggle.checked = false;
+        toggle.disabled = true;
+      }
+      if (key) key.hidden = true;
+      applyStatusValue("field-motion-status", "ARCHIVED · RESEARCH", "wait");
+      setText("field-motion-decision", decision);
+      setText("field-motion-asof", formatJst(doc.source_as_of_utc));
+      setText(
+        "field-motion-count",
+        `${doc.projected_component_count}対象 · ${doc.feature_count}保存済み予測域`
+      );
+      setText(
+        "field-motion-summary",
+        "保存済みの過去予測です。実況降水との時刻混同を防ぐため、紫色領域は現在進行形マップから外し、F4研究アーカイブでのみ表示します。"
+      );
+      resetFieldMotionSelection();
+      setText("field-motion-selected", "保存済みの紫色領域はF4研究アーカイブで閲覧");
+      updateMapLegend();
+      return;
+    }
+
+    if (doc.status !== "AVAILABLE" || !doc.features.length) {
       const label = doc.status === "STALE_SUPPRESSED"
         ? "STALE SUPPRESSED"
         : doc.status || "UNAVAILABLE";
       const summary = doc.status === "STALE_SUPPRESSED"
-        ? "研究予測は古いため実況では表示していません。"
+        ? "研究予測は古いため実況地図には重ねていません。保存済み研究はF4研究アーカイブで閲覧できます。"
         : "Field-motion研究予測の表示artifactはまだありません。実データ公開まで選択できません。";
       disable(label, summary, decision);
       return;
@@ -630,10 +661,9 @@
       : decision === "NO_GO"
         ? "NO-GO · RESEARCH"
         : "VALIDATION PENDING";
-    const archived = doc.status === "ARCHIVED" || archivedByClock;
     applyStatusValue(
       "field-motion-status",
-      archived ? "ARCHIVED · RESEARCH" : decisionLabel,
+      decisionLabel,
       "wait"
     );
     setText("field-motion-decision", decision);
@@ -644,7 +674,7 @@
     );
     setText(
       "field-motion-summary",
-      `Lucas–Kanade + semi-Lagrangian · ${decisionLabel} · ${archived ? "保存済みの過去予測（現在の予報ではありません）" : "最新研究予測"} · 固定モザイク範囲のみ`
+      `Lucas–Kanade + semi-Lagrangian · ${decisionLabel} · 最新研究予測 · 固定モザイク範囲のみ`
     );
     resetFieldMotionSelection();
     updateMapLegend();
