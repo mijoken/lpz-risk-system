@@ -7,7 +7,7 @@ from pathlib import Path
 from scripts import o8_1_final_cutover_audit as mod
 
 UTC = timezone.utc
-NOW = datetime(2026, 9, 13, 12, 0, tzinfo=UTC)
+NOW = datetime(2026, 10, 3, 12, 0, tzinfo=UTC)
 
 
 def write_json(root: Path, rel: Path, payload: dict) -> None:
@@ -67,16 +67,25 @@ def seed_evidence(root: Path) -> None:
     }
     write_json(root, mod.PATHS["e"], {
         "phase": "2L-O8.1-E-consecutive-day-completeness-observer",
-        "latest_expected_finalized_date_utc": "2026-09-12",
+        "latest_expected_finalized_date_utc": "2026-10-02",
         "required_consecutive_complete_days": 2,
         "current_consecutive_complete_day_streak": 2,
         "gate_passed": True,
-        "required_days": [complete_day("2026-09-12"), complete_day("2026-09-11")],
+        "required_days": [complete_day("2026-10-02"), complete_day("2026-10-01")],
         "safety_invariant_failure_count": 0,
         "structural_error_count": 0,
         "risk_engine_allowed": False,
     })
     write_json(root, mod.PATHS["charter"], {
+        "system_identity": {
+            "final_production_mode": "GITHUB_ONLY",
+        },
+        "cutover_policy_2026_09_27": {
+            "temporary_local_collection_allowed_through": "2026-09-30",
+            "github_only_production_start_date": "2026-10-01",
+            "local_collection_is_production": False,
+            "post_cutover_continuous_local_fallback_requires_explicit_user_approval": True,
+        },
         "current_scientific_lock": {
             "validation_status": "DEFERRED_PENDING_IMERG_FINAL_V08",
             "validation_2025_era5_outcome_opened": False,
@@ -99,9 +108,9 @@ def runs(at: str, *, conclusion: str = "success", event: str = "schedule") -> li
 
 def healthy_runtime():
     return (
-        runs("2026-09-13T11:30:00Z", event="workflow_run"),
-        runs("2026-09-13T03:00:00Z"),
-        runs("2026-09-13T11:20:00Z"),
+        runs("2026-10-03T11:30:00Z", event="workflow_run"),
+        runs("2026-10-03T03:00:00Z"),
+        runs("2026-10-03T11:20:00Z"),
     )
 
 
@@ -109,7 +118,7 @@ def test_all_gates_pass_and_single_recent_run_is_enough(tmp_path: Path):
     seed_evidence(tmp_path)
     collector, daily, public = healthy_runtime()
     report = mod.audit(tmp_path, now=NOW, collector_runs=collector, daily_runs=daily, public_runs=public)
-    assert report["state"] == "PASS_READY_TO_DISABLE_WINDOWS_TASK"
+    assert report["state"] == "PASS_GITHUB_ONLY_CUTOVER_PROVEN"
     assert report["cutover_ready"] is True
     assert report["windows_task_may_be_disabled"] is True
     assert report["windows_task_recommendation"] == "DISABLE_MANUALLY"
@@ -128,23 +137,23 @@ def test_evidence_gate_waits_until_two_latest_days_are_complete(tmp_path: Path):
     write_json(tmp_path, mod.PATHS["e"], e)
     collector, daily, public = healthy_runtime()
     report = mod.audit(tmp_path, now=NOW, collector_runs=collector, daily_runs=daily, public_runs=public)
-    assert report["state"] == "WAIT_KEEP_WINDOWS_TASK"
+    assert report["state"] == "WAIT_GITHUB_ONLY_EVIDENCE"
     assert report["cutover_ready"] is False
-    assert "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS" in report["blockers"]
+    assert "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS" in report["blockers"]
 
 
 def test_collector_must_be_fresh_within_recovery_horizon(tmp_path: Path):
     seed_evidence(tmp_path)
-    collector = runs("2026-09-13T09:30:00Z")
+    collector = runs("2026-10-03T09:30:00Z")
     _, daily, public = healthy_runtime()
     report = mod.audit(tmp_path, now=NOW, collector_runs=collector, daily_runs=daily, public_runs=public)
-    assert report["state"] == "WAIT_KEEP_WINDOWS_TASK"
+    assert report["state"] == "WAIT_GITHUB_ONLY_EVIDENCE"
     assert "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON" in report["blockers"]
 
 
 def test_newer_collector_failure_blocks_cutover(tmp_path: Path):
     seed_evidence(tmp_path)
-    collector = runs("2026-09-13T11:20:00Z") + runs("2026-09-13T11:40:00Z", conclusion="failure")
+    collector = runs("2026-10-03T11:20:00Z") + runs("2026-10-03T11:40:00Z", conclusion="failure")
     _, daily, public = healthy_runtime()
     report = mod.audit(tmp_path, now=NOW, collector_runs=collector, daily_runs=daily, public_runs=public)
     assert report["cutover_ready"] is False
@@ -158,7 +167,7 @@ def test_scientific_lock_violation_is_hard_fail(tmp_path: Path):
     write_json(tmp_path, mod.PATHS["charter"], charter)
     collector, daily, public = healthy_runtime()
     report = mod.audit(tmp_path, now=NOW, collector_runs=collector, daily_runs=daily, public_runs=public)
-    assert report["state"] == "FAIL_KEEP_WINDOWS_TASK"
+    assert report["state"] == "FAIL_GITHUB_ONLY_CUTOVER_NOT_PROVEN"
     assert report["risk_engine_allowed"] is False
     assert "SCIENTIFIC_LOCK_INVARIANT" in report["blockers"]
 
@@ -166,12 +175,79 @@ def test_scientific_lock_violation_is_hard_fail(tmp_path: Path):
 def test_stale_e_report_cannot_authorize_cutover(tmp_path: Path):
     seed_evidence(tmp_path)
     e = json.loads((tmp_path / mod.PATHS["e"]).read_text())
-    e["latest_expected_finalized_date_utc"] = "2026-09-11"
+    e["latest_expected_finalized_date_utc"] = "2026-10-01"
     write_json(tmp_path, mod.PATHS["e"], e)
     collector, daily, public = healthy_runtime()
     report = mod.audit(tmp_path, now=NOW, collector_runs=collector, daily_runs=daily, public_runs=public)
-    assert report["state"] == "WAIT_KEEP_WINDOWS_TASK"
+    assert report["state"] == "WAIT_GITHUB_ONLY_EVIDENCE"
     assert report["checks"]["o8_1_e_consecutive_days"]["checks"]["latest_expected_matches_today"] is False
+
+
+
+def test_pre_cutover_window_keeps_temporary_windows_collection(tmp_path: Path):
+    seed_evidence(tmp_path)
+    now = datetime(2026, 9, 30, 12, 0, tzinfo=UTC)
+    collector = runs("2026-09-30T11:30:00Z")
+    daily = runs("2026-09-30T03:00:00Z")
+    public = runs("2026-09-30T11:20:00Z")
+
+    report = mod.audit(
+        tmp_path,
+        now=now,
+        collector_runs=collector,
+        daily_runs=daily,
+        public_runs=public,
+    )
+
+    assert report["state"] == "WAIT_KEEP_WINDOWS_TASK"
+    assert report["github_only_observation_window_active"] is False
+    assert report["windows_task_recommendation"] == "KEEP_ENABLED"
+
+
+def test_mixed_pre_and_post_cutover_days_cannot_prove_github_only(tmp_path: Path):
+    seed_evidence(tmp_path)
+
+    e = json.loads((tmp_path / mod.PATHS["e"]).read_text())
+    e["latest_expected_finalized_date_utc"] = "2026-10-01"
+    e["required_days"] = [
+        {
+            "date_utc": "2026-10-01",
+            "complete_96_of_96": True,
+            "complete_slot_count": 96,
+            "technical_incomplete_slot_count": 0,
+            "explicit_gap_count": 0,
+        },
+        {
+            "date_utc": "2026-09-30",
+            "complete_96_of_96": True,
+            "complete_slot_count": 96,
+            "technical_incomplete_slot_count": 0,
+            "explicit_gap_count": 0,
+        },
+    ]
+    write_json(tmp_path, mod.PATHS["e"], e)
+
+    now = datetime(2026, 10, 2, 12, 0, tzinfo=UTC)
+    collector = runs("2026-10-02T11:30:00Z")
+    daily = runs("2026-10-02T03:00:00Z")
+    public = runs("2026-10-02T11:20:00Z")
+
+    report = mod.audit(
+        tmp_path,
+        now=now,
+        collector_runs=collector,
+        daily_runs=daily,
+        public_runs=public,
+    )
+
+    assert report["state"] == "WAIT_GITHUB_ONLY_EVIDENCE"
+    assert report["cutover_ready"] is False
+    assert report["github_only_observation_window_active"] is True
+    assert report["windows_task_recommendation"] == "DISABLE_MANUALLY"
+    assert (
+        "GITHUB_ONLY_TWO_DAY_EVIDENCE_WINDOW_NOT_COMPLETE"
+        in report["blockers"]
+    )
 
 
 def test_missing_required_evidence_is_fail_closed(tmp_path: Path):
