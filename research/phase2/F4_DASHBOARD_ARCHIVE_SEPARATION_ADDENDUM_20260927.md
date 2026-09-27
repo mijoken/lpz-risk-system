@@ -82,3 +82,20 @@ Evidence:
 **Status:** implementation and static validation PASS on isolated branch
 `fix/f4-live-stale-archive-20260927`; browser acceptance remains pending
 before main merge.
+
+
+## First browser review refinement — 2026-09-27
+
+The first local browser screenshot confirmed that the archive is readable and
+the previous giant dark markers / arrowheads are no longer dominating the
+view. Two presentation refinements were requested before merge:
+
+1. center the archive more tightly on the purple field-motion cluster instead
+   of a near-national overview; the focus now uses the median archived forecast
+   centroid and a tighter scale;
+2. rewrite the "important distinction" text so it separately defines the
+   purple Lucas–Kanade + semi-Lagrangian polygon layer and the optional legacy
+   cyan-origin / yellow-line constant-motion layer.
+
+These remain display-only changes and do not touch any frozen scientific
+endpoint or prospective artifact.
