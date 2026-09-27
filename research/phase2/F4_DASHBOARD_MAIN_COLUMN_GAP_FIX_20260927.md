@@ -45,6 +45,24 @@ the previous grid structure during verification.
 Layout-only change. No map data, F4 geometry, model output, F4-9C/F4-9D
 criteria, risk lock, or research state is modified.
 
-**Status:** implemented on branch
-`fix/dashboard-main-column-gap-20260927`; local regression/browser validation
+## Local static validation — 2026-09-27
+
+User executed the isolated worktree at commit
+`f4bd10893b6e8c4d9efc7e5fb459c569ff4fff11`.
+
+Evidence:
+
+- worktree HEAD matched the expected remote branch HEAD;
+- Python import resolved `lpz_risk` from
+  `D:\\program\\lpz-risk-system_ui_gap_test\\src\\lpz_risk`;
+- dashboard regression suite: **31 passed**;
+- `node --check` passed for `web/js/map.js`, `web/js/app.js`, and
+  `web/js/f4-archive.js`.
+
+The first validation attempt exposed only a test-selector defect:
+the HTML correctly uses `class="panel map-panel"`, while the test searched for
+the exact nonexistent substring `class="map-panel"`. The test was corrected
+without changing production HTML/CSS behavior.
+
+**Status:** implementation PASS; static validation PASS; browser acceptance
 pending before merge.
