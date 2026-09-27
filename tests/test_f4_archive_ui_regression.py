@@ -57,3 +57,13 @@ def test_f4_archive_zoom_keeps_markers_and_arrowheads_readable():
     assert 'String(12 / scale)' in app
     assert ".f4-origin,.f4-end,.f4-city circle {vector-effect:non-scaling-stroke;}" in css
     assert ".f4-arrow-head {fill:none;" in css
+
+
+def test_f4_archive_default_focus_and_layer_explanation_match_current_layout():
+    html = (ROOT / "web/f4-archive.html").read_text(encoding="utf-8")
+    app = (ROOT / "web/js/f4-archive.js").read_text(encoding="utf-8")
+    assert "Lucas–Kanade field-level motion" in html
+    assert "水色点＋黄線" in html
+    assert "紫色Lucas–Kanade予測とは別の研究手法です" in html
+    assert "const median = values =>" in app
+    assert "zoomTo(median(lons), median(lats), 6.2);" in app
