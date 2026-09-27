@@ -64,5 +64,21 @@ the HTML correctly uses `class="panel map-panel"`, while the test searched for
 the exact nonexistent substring `class="map-panel"`. The test was corrected
 without changing production HTML/CSS behavior.
 
-**Status:** implementation PASS; static validation PASS; browser acceptance
-pending before merge.
+## Browser acceptance — 2026-09-27
+
+User opened the corrected layout from an isolated local HTTP server serving the
+UI-gap worktree and supplied browser screenshots.
+
+Acceptance evidence:
+
+- the live-precipitation panel is followed immediately by the archived
+  `F4 観測降雨域の短時間移動研究` panel with only the normal panel spacing;
+- the previous several-hundred-pixel blank region is no longer present;
+- the right-side status/research stack no longer controls the vertical placement
+  of the left-side research panel;
+- the separate local `./data/system_status.json` HTTP 404 is a missing local
+  generated-data artifact and is unrelated to this layout acceptance.
+
+**Status:** implementation PASS; static validation PASS; browser acceptance PASS.
+Ready for review/merge to `main`. Scientific F4-9C/F4-9D state and Risk Engine
+locks remain unchanged.
