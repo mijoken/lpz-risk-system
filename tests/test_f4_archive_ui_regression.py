@@ -65,5 +65,9 @@ def test_f4_archive_default_focus_and_layer_explanation_match_current_layout():
     assert "Lucas–Kanade field-level motion" in html
     assert "水色点＋黄線" in html
     assert "紫色Lucas–Kanade予測とは別の研究手法です" in html
-    assert "const median = values =>" in app
-    assert "zoomTo(median(lons), median(lats), 6.2);" in app
+    assert "function fieldMotionBounds(features)" in app
+    assert "const fitX = (W - paddingX * 2) / width;" in app
+    assert "const fitY = (H - paddingY * 2) / height;" in app
+    assert "const desired = Math.min(12, Math.max(2.5, Math.min(fitX, fitY)));" in app
+    assert './js/f4-archive.js?v=20260927c' in html
+    assert './css/f4-archive.css?v=20260927c' in html
