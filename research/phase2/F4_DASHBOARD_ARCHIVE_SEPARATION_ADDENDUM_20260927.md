@@ -66,6 +66,19 @@ This addendum MUST NOT be interpreted as:
 The same immutable public field-motion GeoJSON is retained. Only its placement
 moves from the live map to the archive after staleness.
 
-**Status:** implementation on isolated branch
-`fix/f4-live-stale-archive-20260927`; local regression/browser acceptance
-pending before main merge.
+## Local static validation — 2026-09-27
+
+User executed the dedicated validation worktree at commit
+`d091a5745ae1d76554d46d38fad0e7c09fbd5c94`.
+
+Evidence:
+
+- worktree import proof resolved `lpz_risk` and
+  `radar_geographic_envelope.py` from the isolated UI-fix worktree;
+- regression suite: **29 passed**;
+- `node --check` passed for `web/js/map.js`, `web/js/app.js`, and
+  `web/js/f4-archive.js`.
+
+**Status:** implementation and static validation PASS on isolated branch
+`fix/f4-live-stale-archive-20260927`; browser acceptance remains pending
+before main merge.
