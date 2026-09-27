@@ -106,6 +106,7 @@ def test_dashboard_main_stack_does_not_inherit_side_column_height():
     css = (ROOT / "web" / "css" / "app.css").read_text(encoding="utf-8")
 
     assert '<div class="dashboard-main">' in html
+    assert './css/app.css?v=20260927d' in html
     assert "grid-template-columns: minmax(0, 2fr) minmax(310px, .62fr);" in css
     assert ".dashboard-main {" in css
     assert "align-content: start;" in css
