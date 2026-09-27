@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-26T13:43:52Z",
+  "generated_at_utc": "2026-09-27T08:24:38Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "windows_task_name": "LPZ-Prospective-Collector-15min",
@@ -83,19 +83,19 @@
         "risk_engine_locked": true
       },
       "current_streak": 0,
-      "latest_expected_finalized_date_utc": "2026-09-25",
+      "latest_expected_finalized_date_utc": "2026-09-26",
       "required_days": [
         {
-          "date_utc": "2026-09-25",
-          "path": "research/prospective/2026/09/2026-09-25.manifest.json",
+          "date_utc": "2026-09-26",
+          "path": "research/prospective/2026/09/2026-09-26.manifest.json",
           "state": "WAIT_MISSING",
           "complete_96_of_96": false,
           "reason": "DAILY_MANIFEST_MISSING",
           "checks": {}
         },
         {
-          "date_utc": "2026-09-24",
-          "path": "research/prospective/2026/09/2026-09-24.manifest.json",
+          "date_utc": "2026-09-25",
+          "path": "research/prospective/2026/09/2026-09-25.manifest.json",
           "state": "WAIT_MISSING",
           "complete_96_of_96": false,
           "reason": "DAILY_MANIFEST_MISSING",
@@ -107,10 +107,10 @@
       "collector": {
         "name": "prospective_self_healing_collector",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-26T12:24:30Z",
-        "latest_success_run_id": 36241816987,
-        "latest_success_event": "schedule",
-        "latest_success_age_minutes": 79.36687946666666,
+        "latest_success_created_at_utc": "2026-09-27T07:39:39Z",
+        "latest_success_run_id": 36303781869,
+        "latest_success_event": "workflow_run",
+        "latest_success_age_minutes": 44.98770546666666,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -122,19 +122,19 @@
         "latest_success_created_at_utc": "2026-09-21T15:11:07Z",
         "latest_success_run_id": 35617206337,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 7112.750212800001,
+        "latest_success_age_minutes": 8233.5210388,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "failure",
         "latest_failure_after_success": true,
-        "runs_examined": 29
+        "runs_examined": 30
       },
       "public": {
         "name": "public_pages_production",
         "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-26T10:53:06Z",
-        "latest_success_run_id": 36237130048,
+        "latest_success_created_at_utc": "2026-09-27T07:38:26Z",
+        "latest_success_run_id": 36303720564,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 170.76687946666667,
+        "latest_success_age_minutes": 46.20437213333333,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
