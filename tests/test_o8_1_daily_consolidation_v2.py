@@ -90,6 +90,129 @@ def test_gap_and_technical_incomplete_are_distinct(tmp_path: Path) -> None:
     assert manifest["closure_eligible_96_of_96"] is False
 
 
+
+
+def test_downstream_research_slot_directories_are_ignored(
+    tmp_path: Path,
+) -> None:
+    slot = "2026-09-13T00:00:00Z"
+
+    write_slot(
+        tmp_path,
+        "1",
+        slot_payload(
+            slot,
+            role="PROSPECTIVE_NATIVE",
+            run_id="1",
+        ),
+    )
+
+    downstream = (
+        "f3_research",
+        "f4_observed_origins",
+        "f4_research_motion",
+        "f4_geographic_envelopes",
+    )
+
+    for name in downstream:
+        p = (
+            tmp_path
+            / "1"
+            / name
+            / "slots"
+            / "20260913T000000Z.json"
+        )
+
+        p.parent.mkdir(parents=True, exist_ok=True)
+
+        p.write_text(
+            json.dumps(
+                {
+                    "product": name,
+                    "research_only": True,
+                    "risk_engine_allowed": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    records, manifest = m.build_daily_records(
+        [tmp_path],
+        "2026-09-13",
+    )
+
+    assert manifest["parse_error_count"] == 0
+    assert manifest["represented_slot_count"] == 1
+    assert manifest["complete_slot_count"] == 1
+    assert records[0]["slot_state"] == "COMPLETE"
+
+
+
+def test_single_run_root_ignores_downstream_research_slots(
+    tmp_path: Path,
+) -> None:
+    slot = "2026-09-13T00:00:00Z"
+
+    write_slot(
+        tmp_path,
+        "1",
+        slot_payload(
+            slot,
+            role="PROSPECTIVE_NATIVE",
+            run_id="1",
+        ),
+    )
+
+    run_root = tmp_path / "1"
+
+    downstream = (
+        run_root
+        / "f3_research"
+        / "slots"
+        / "20260913T000000Z.json"
+    )
+
+    downstream.parent.mkdir(parents=True, exist_ok=True)
+
+    downstream.write_text(
+        json.dumps(
+            {
+                "product": "F3_RESEARCH",
+                "research_only": True,
+                "risk_engine_allowed": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    records, manifest = m.build_daily_records(
+        [run_root],
+        "2026-09-13",
+    )
+
+    assert manifest["parse_error_count"] == 0
+    assert manifest["represented_slot_count"] == 1
+    assert manifest["complete_slot_count"] == 1
+    assert records[0]["slot_state"] == "COMPLETE"
+
+
+def test_malformed_primary_slot_remains_structural_error(
+    tmp_path: Path,
+) -> None:
+    p = tmp_path / "1" / "slots" / "bad.json"
+
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{}", encoding="utf-8")
+
+    _, manifest = m.build_daily_records(
+        [tmp_path],
+        "2026-09-13",
+    )
+
+    assert manifest["parse_error_count"] == 1
+    assert manifest["canonical_day_quality"] == "STRUCTURAL_ERROR"
+
+
 def test_deterministic_gzip(tmp_path: Path) -> None:
     records, _ = m.build_daily_records([tmp_path], "2026-09-13")
     a = tmp_path / "a.gz"

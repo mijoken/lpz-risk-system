@@ -104,6 +104,40 @@ def _validate_candidate(path: Path, payload: dict[str, Any]) -> tuple[datetime, 
     return slot, candidate
 
 
+def _primary_slot_paths(root: Path) -> list[Path]:
+    """Return only O8.1-C prospective bundle slot files.
+
+    Expected downloaded layout:
+        <input-root>/<run-id>/slots/*.json
+
+    A single run root may also be supplied directly:
+        <run-root>/slots/*.json
+
+    Downstream F3/F4 research products also contain ``slots`` directories,
+    but they are not O8.1-C prospective feature bundles and must not be
+    interpreted as canonical prospective candidates.
+    """
+    paths: list[Path] = []
+
+    direct = root / "slots"
+    if direct.is_dir():
+        # When a single run root is supplied directly, its own slots directory
+        # is authoritative. Do not descend into sibling F3/F4 research products.
+        return sorted(direct.glob("*.json"))
+
+    if root.is_dir():
+        for child in sorted(root.iterdir()):
+            if not child.is_dir():
+                continue
+
+            slots = child / "slots"
+
+            if slots.is_dir():
+                paths.extend(slots.glob("*.json"))
+
+    return sorted(set(paths))
+
+
 def load_candidates(input_roots: Iterable[Path], target_day: date) -> tuple[dict[datetime, list[dict[str, Any]]], list[str]]:
     grouped: dict[datetime, list[dict[str, Any]]] = {}
     errors: list[str] = []
@@ -112,7 +146,7 @@ def load_candidates(input_roots: Iterable[Path], target_day: date) -> tuple[dict
     for root in input_roots:
         if not root.exists():
             continue
-        for path in sorted(root.rglob("slots/*.json")):
+        for path in _primary_slot_paths(root):
             key = str(path.resolve())
             if key in seen_paths:
                 continue
