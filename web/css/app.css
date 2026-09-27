@@ -92,10 +92,15 @@ h1 {
 .dashboard {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(310px, .62fr);
-  grid-template-areas: "map side" "research side";
-  grid-template-rows: max-content max-content;
   align-items: start;
   gap: 18px;
+}
+
+.dashboard-main {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-width: 0;
 }
 
 .panel {
@@ -105,9 +110,9 @@ h1 {
   box-shadow: 0 18px 50px rgba(0, 0, 0, .22);
 }
 
-.map-panel { grid-area: map; overflow: hidden; min-width: 0; }
-.side { grid-area: side; min-width: 0; }
-.dashboard > .research-panel { grid-area: research; min-width: 0; margin-top: 0; }
+.map-panel { overflow: hidden; min-width: 0; }
+.side { min-width: 0; }
+.dashboard-main > .research-panel { min-width: 0; margin-top: 0; }
 
 .panel-head {
   display: flex;
@@ -804,9 +809,8 @@ h1 {
 @media (max-width: 1100px) {
   .dashboard {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "map" "research" "side";
-    grid-template-rows: auto;
   }
+  .dashboard-main { gap: 18px; }
   .side { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .status-panel { grid-row: span 2; }
 }

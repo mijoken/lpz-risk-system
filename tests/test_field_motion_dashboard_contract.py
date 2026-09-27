@@ -84,8 +84,11 @@ def test_archive_is_not_misrepresented_as_live_and_map_clicks_are_preserved():
     assert "liveRevision !== liveResearchRevision" in app
     assert "motionRevision !== fieldMotionRevision" in app
     assert "svg.setPointerCapture(event.pointerId)" not in map_js
-    assert 'grid-template-areas: "map side" "research side"' in css
-    assert html.index('id="f4-research-panel"') < html.index('class="side"')
+    assert 'class="dashboard-main"' in html
+    assert ".dashboard-main {" in css
+    assert ".dashboard-main > .research-panel" in css
+    assert 'grid-template-areas: "map side" "research side"' not in css
+    assert html.index('class="panel map-panel"') < html.index('id="f4-research-panel"') < html.index('class="side"')
 
 
 def test_archived_field_motion_is_not_drawn_on_live_map():
@@ -96,3 +99,17 @@ def test_archived_field_motion_is_not_drawn_on_live_map():
     assert 'window.LPZMap.setFieldMotionEnvelopes(null);' in app
     assert "実況降水との時刻混同を防ぐため" in app
     assert './f4-archive.html#field-motion' in html
+
+
+def test_dashboard_main_stack_does_not_inherit_side_column_height():
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    css = (ROOT / "web" / "css" / "app.css").read_text(encoding="utf-8")
+
+    assert '<div class="dashboard-main">' in html
+    assert './css/app.css?v=20260927d' in html
+    assert "grid-template-columns: minmax(0, 2fr) minmax(310px, .62fr);" in css
+    assert ".dashboard-main {" in css
+    assert "align-content: start;" in css
+    assert "gap: 18px;" in css
+    assert ".dashboard-main > .research-panel { min-width: 0; margin-top: 0; }" in css
+    assert 'grid-template-areas: "map side" "research side"' not in css
