@@ -426,28 +426,59 @@
     zoomTo(lon, lat, 5);
   }
 
+  function fieldMotionBounds(features) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    for (const feature of features) {
+      const geometry = feature?.geometry;
+      if (!geometry || geometry.type !== "Polygon") continue;
+
+      for (const ring of geometry.coordinates || []) {
+        for (const coord of ring || []) {
+          if (!valid(coord)) continue;
+          const [x, y] = point(coord);
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+    }
+
+    if (![minX, minY, maxX, maxY].every(Number.isFinite)) return null;
+    return {minX, minY, maxX, maxY};
+  }
+
   function focusFieldMotion() {
     if (!fieldMotionData) return;
+
     const lead = Number(leadSelect.value);
     const features = (fieldMotionData.features || []).filter(feature =>
       feature?.properties?.kind === "FIELD_MOTION_RESEARCH_ENVELOPE"
       && Number(feature.properties.lead_from_as_of_minutes) === lead
-      && valid(feature.properties.projected_centroid_lon_lat)
     );
     if (!features.length) return;
 
-    // This archive is intentionally centered more tightly than the live map.
-    // Use the robust median of archived forecast centroids so a few remote
-    // fragments do not force a near-national view.
-    const lons = features.map(f => Number(f.properties.projected_centroid_lon_lat[0])).sort((a, b) => a - b);
-    const lats = features.map(f => Number(f.properties.projected_centroid_lon_lat[1])).sort((a, b) => a - b);
-    const median = values => {
-      const mid = Math.floor(values.length / 2);
-      return values.length % 2
-        ? values[mid]
-        : (values[mid - 1] + values[mid]) / 2;
-    };
-    zoomTo(median(lons), median(lats), 6.2);
+    const bounds = fieldMotionBounds(features);
+    if (!bounds) return;
+
+    // Fit the actual archived purple polygon extent into the archive map.
+    // This is deliberately tighter than the live-map national overview.
+    const paddingX = 105;
+    const paddingY = 82;
+    const width = Math.max(1, bounds.maxX - bounds.minX);
+    const height = Math.max(1, bounds.maxY - bounds.minY);
+    const fitX = (W - paddingX * 2) / width;
+    const fitY = (H - paddingY * 2) / height;
+    const desired = Math.min(12, Math.max(2.5, Math.min(fitX, fitY)));
+
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerY = (bounds.minY + bounds.maxY) / 2;
+
+    scale = desired;
+    tx = W / 2 - centerX * scale;
+    ty = H / 2 - centerY * scale;
+    zoomTransform();
   }
 
   function bindZoomPan() {
