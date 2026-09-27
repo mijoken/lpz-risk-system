@@ -88,7 +88,7 @@ def test_archive_is_not_misrepresented_as_live_and_map_clicks_are_preserved():
     assert ".dashboard-main {" in css
     assert ".dashboard-main > .research-panel" in css
     assert 'grid-template-areas: "map side" "research side"' not in css
-    assert html.index('class="map-panel"') < html.index('id="f4-research-panel"') < html.index('class="side"')
+    assert html.index('class="panel map-panel"') < html.index('id="f4-research-panel"') < html.index('class="side"')
 
 
 def test_archived_field_motion_is_not_drawn_on_live_map():
