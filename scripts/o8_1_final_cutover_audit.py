@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,14 @@ def parse_utc(value: str) -> datetime:
 
 def iso_utc(value: datetime) -> str:
     return value.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def github_only_start_date(charter: dict[str, Any]) -> date:
+    policy = charter.get("cutover_policy_2026_09_27") or {}
+    raw = policy.get("github_only_production_start_date")
+    if not raw:
+        raise ValueError("charter github_only_production_start_date missing")
+    return date.fromisoformat(str(raw))
 
 
 def latest_success_health(
@@ -176,9 +184,15 @@ def check_d(p: dict[str, Any]) -> dict[str, Any]:
     return {"state": "PASS" if all(checks.values()) else "FAIL", "checks": checks}
 
 
-def check_e(p: dict[str, Any], now: datetime) -> dict[str, Any]:
+def check_e(
+    p: dict[str, Any],
+    now: datetime,
+    *,
+    github_only_start: date,
+) -> dict[str, Any]:
     latest_expected = (now.date() - timedelta(days=1)).isoformat()
     required_rows = p.get("required_days") or []
+
     row_checks = [
         row.get("complete_96_of_96") is True
         and int(row.get("complete_slot_count") or 0) == 96
@@ -186,10 +200,27 @@ def check_e(p: dict[str, Any], now: datetime) -> dict[str, Any]:
         and int(row.get("explicit_gap_count") or 0) == 0
         for row in required_rows[:EXPECTED_CONSECUTIVE_DAYS]
     ]
+
+    row_dates = []
+    for row in required_rows[:EXPECTED_CONSECUTIVE_DAYS]:
+        try:
+            row_dates.append(date.fromisoformat(str(row.get("date_utc"))))
+        except Exception:
+            row_dates.append(None)
+
+    rows_in_github_only_window = (
+        len(row_dates) == EXPECTED_CONSECUTIVE_DAYS
+        and all(
+            d is not None and d >= github_only_start
+            for d in row_dates
+        )
+    )
+
     checks = {
         "phase": p.get("phase") == "2L-O8.1-E-consecutive-day-completeness-observer",
         "latest_expected_matches_today": p.get("latest_expected_finalized_date_utc") == latest_expected,
         "required_days_is_2": int(p.get("required_consecutive_complete_days") or 0) == EXPECTED_CONSECUTIVE_DAYS,
+        "github_only_evidence_rows_on_or_after_start": rows_in_github_only_window,
         "gate_passed": p.get("gate_passed") is True,
         "streak_at_least_2": int(p.get("current_consecutive_complete_day_streak") or 0) >= EXPECTED_CONSECUTIVE_DAYS,
         "required_rows_complete": len(row_checks) == EXPECTED_CONSECUTIVE_DAYS and all(row_checks),
@@ -237,12 +268,20 @@ def audit(
             "risk_engine_allowed": False,
         }
 
+    charter = load_json(root / PATHS["charter"])
+    github_only_start = github_only_start_date(charter)
+    github_only_window_active = now.date() >= github_only_start
+
     a = check_a(load_json(root / PATHS["a"]))
     b = check_b(load_json(root / PATHS["b"]))
     c = check_c(load_json(root / PATHS["c"]))
     d = check_d(load_json(root / PATHS["d"]))
-    e = check_e(load_json(root / PATHS["e"]), now)
-    lock = check_scientific_lock(load_json(root / PATHS["charter"]))
+    e = check_e(
+        load_json(root / PATHS["e"]),
+        now,
+        github_only_start=github_only_start,
+    )
+    lock = check_scientific_lock(charter)
 
     runtime = {
         "collector": latest_success_health(
@@ -275,7 +314,14 @@ def audit(
     if not implementation_pass:
         blockers.append("O8_1_IMPLEMENTATION_EVIDENCE")
     if not evidence_pass:
-        blockers.append("TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS")
+        if not e["checks"]["github_only_evidence_rows_on_or_after_start"]:
+            blockers.append(
+                "GITHUB_ONLY_TWO_DAY_EVIDENCE_WINDOW_NOT_COMPLETE"
+            )
+        else:
+            blockers.append(
+                "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS"
+            )
     if runtime["collector"]["state"] != "PASS":
         blockers.append("COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON")
     if runtime["daily"]["state"] != "PASS":
@@ -287,11 +333,19 @@ def audit(
 
     hard_fail = any(x["state"] == "FAIL" for x in (b, c, d, lock))
     if cutover_ready:
-        state = "PASS_READY_TO_DISABLE_WINDOWS_TASK"
+        state = "PASS_GITHUB_ONLY_CUTOVER_PROVEN"
     elif hard_fail:
-        state = "FAIL_KEEP_WINDOWS_TASK"
+        state = (
+            "FAIL_GITHUB_ONLY_CUTOVER_NOT_PROVEN"
+            if github_only_window_active
+            else "FAIL_KEEP_WINDOWS_TASK"
+        )
     else:
-        state = "WAIT_KEEP_WINDOWS_TASK"
+        state = (
+            "WAIT_GITHUB_ONLY_EVIDENCE"
+            if github_only_window_active
+            else "WAIT_KEEP_WINDOWS_TASK"
+        )
 
     return {
         "schema_version": "1.0.0",
@@ -299,16 +353,28 @@ def audit(
         "generated_at_utc": iso_utc(now),
         "state": state,
         "cutover_ready": cutover_ready,
+        "github_only_production_start_date": github_only_start.isoformat(),
+        "github_only_observation_window_active": github_only_window_active,
         "windows_task_name": "LPZ-Prospective-Collector-15min",
-        "windows_task_may_be_disabled": cutover_ready,
-        "windows_task_recommendation": "DISABLE_MANUALLY" if cutover_ready else "KEEP_ENABLED",
-        "windows_disable_command": "Disable-ScheduledTask -TaskName \"LPZ-Prospective-Collector-15min\"" if cutover_ready else None,
+        "windows_task_may_be_disabled": github_only_window_active,
+        "windows_task_recommendation": (
+            "DISABLE_MANUALLY"
+            if github_only_window_active
+            else "KEEP_ENABLED"
+        ),
+        "windows_disable_command": (
+            "Disable-ScheduledTask -TaskName \"LPZ-Prospective-Collector-15min\""
+            if github_only_window_active
+            else None
+        ),
         "old_o8_run_count_requirement_retired": True,
         "github_schedule_is_scientific_clock": False,
         "criteria": {
             "catchup_horizon_minutes": CATCHUP_HORIZON_MINUTES,
             "collector_freshness_must_be_within_catchup_horizon": True,
             "required_consecutive_complete_utc_days": EXPECTED_CONSECUTIVE_DAYS,
+            "github_only_production_start_date": github_only_start.isoformat(),
+            "evidence_days_must_be_on_or_after_github_only_start": True,
             "required_complete_slots_per_day": 96,
             "explicit_gap_required": 0,
             "technical_incomplete_required": 0,
@@ -327,9 +393,19 @@ def audit(
         "risk_engine_allowed": False,
         "public_risk_release_allowed": False,
         "interpretation": (
-            "GitHub-only operational cutover is proven. Disable the temporary Windows task manually; this does not unlock LPZ risk output."
+            "GitHub-only operational cutover is proven. Keep the temporary Windows task disabled; this does not unlock LPZ risk output."
             if cutover_ready
-            else "Keep the temporary Windows collector enabled until every O8.1-F operational gate passes. Risk Engine remains locked independently."
+            else (
+                "GitHub-only production observation is active. Disable the temporary Windows task manually and do not use local collection to satisfy cutover evidence. Any temporary post-cutover local fallback requires explicit user approval. Risk Engine remains locked independently."
+                if github_only_window_active
+                else (
+                    f"Temporary Windows collection may remain enabled through "
+                    f"{(github_only_start - timedelta(days=1)).isoformat()}. "
+                    f"GitHub-only production observation begins "
+                    f"{github_only_start.isoformat()}. Risk Engine remains "
+                    f"locked independently."
+                )
+            )
         ),
     }
 
