@@ -1,70 +1,134 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "2.0.0",
   "charter_id": "LPZ_SYSTEM_CHARTER",
+  "effective_revision_date": "2026-09-27",
   "recovery_keywords": [
     "LPZ憲章復元",
     "LPZ-CHARTER-RESTORE"
   ],
   "authority": {
+    "principle": "CHARTER_OVER_ASSISTANT_MEMORY",
     "priority_order": [
       "CURRENT_EXPLICIT_USER_POLICY_AMENDMENT",
       "LPZ_SYSTEM_CHARTER_MD",
       "THIS_MACHINE_READABLE_CHARTER",
-      "FROZEN_RESEARCH_PROTOCOL_ARTIFACTS",
+      "FROZEN_RESEARCH_AND_CLOSURE_ARTIFACTS",
       "CURRENT_GITHUB_MAIN_CODE_CONFIG_WORKFLOWS",
+      "CURRENT_OPERATIONAL_STATUS_ARTIFACTS",
       "README_AND_PHASE_NOTES",
-      "CHAT_MEMORY"
+      "CHAT_MEMORY_AND_ASSISTANT_ASSUMPTIONS"
     ],
-    "readme_may_be_stale": true
+    "readme_may_be_stale": true,
+    "dynamic_status_must_be_reloaded_from_live_artifacts": true,
+    "assistant_memory_must_not_override_repository_evidence": true
   },
-  "production_architecture": {
+  "system_identity": {
+    "final_production_mode": "GITHUB_ONLY",
     "dynamic_processing_platform": "GITHUB_ACTIONS",
     "compute_language": "PYTHON",
+    "canonical_repository_branch": "main",
     "public_hosting_platform": "GITHUB_PAGES",
     "public_ui": "HTML_CSS_JAVASCRIPT",
     "public_data_interface": "JSON_GEOJSON",
+    "principle": "PYTHON_COMPUTES_JAVASCRIPT_PRESENTS",
     "browser_python_dependency_allowed": false,
-    "external_publication_intended": true,
-    "map_centered_ui_required": true,
-    "preferred_geography": "JMA_PRIMARY_SUBDIVISION_WHERE_SCIENTIFICALLY_APPROPRIATE"
+    "local_pc_required_for_public_operation": false
+  },
+  "cutover_policy_2026_09_27": {
+    "temporary_local_collection_allowed_through": "2026-09-30",
+    "github_only_production_start_date": "2026-10-01",
+    "temporary_local_reason": "GITHUB_ACTIONS_USAGE_CONSTRAINT_DURING_TRANSITION",
+    "local_collection_is_production": false,
+    "local_uptime_is_final_scientific_requirement": false,
+    "post_cutover_continuous_local_fallback_requires_explicit_user_approval": true,
+    "if_not_ready_by_cutover": [
+      "REPORT_GITHUB_ONLY_CUTOVER_NOT_COMPLETE",
+      "IDENTIFY_GITHUB_SIDE_BLOCKER",
+      "FIX_OR_EXPLICITLY_DEFER_BLOCKER",
+      "DO_NOT_SILENTLY_REDEFINE_WINDOWS_AS_PRODUCTION"
+    ]
   },
   "local_environment": {
     "root": "D:\\program\\lpz-risk-system_dev",
-    "role": "DEVELOPMENT_DEBUG_RESEARCH_PRECOMMIT_SMOKE_TEST_ONLY",
-    "production_role": false,
-    "windows_task_scheduler_is_temporary": true,
-    "temporary_task_name": "LPZ-Prospective-Collector-15min"
-  },
-  "production_responsibility_split": {
-    "github_actions_python": [
-      "acquisition",
-      "decoding",
-      "validation",
-      "feature_generation",
-      "prediction_or_risk_calculation_after_release_gate",
-      "audit_generation",
-      "public_json_generation"
+    "roles": [
+      "DEVELOPMENT",
+      "DEBUGGING",
+      "SCIENTIFIC_RESEARCH_PROCESSING",
+      "PRECOMMIT_VERIFICATION",
+      "SMOKE_TEST",
+      "TEMPORARY_PROSPECTIVE_COLLECTION_DURING_ACTIONS_CONSTRAINT",
+      "LARGE_DOWNLOAD_OR_COMPUTE",
+      "CONTROLLED_BACKFILL"
     ],
-    "github_pages_javascript": [
-      "fetch_json_geojson",
-      "render_japan_map",
-      "render_charts",
-      "render_source_health",
-      "render_system_status",
-      "render_prediction_only_after_release_gate"
-    ]
+    "production_role": false,
+    "preferred_workflow": "CHATGPT_TO_COPYPASTE_POWERSHELL_OR_PYTHON_TO_LOCAL_EXECUTION_TO_RETURNED_OUTPUT",
+    "work_cloud_default_allowed": false,
+    "windows_task_name": "LPZ-Prospective-Collector-15min",
+    "windows_task_is_temporary": true
   },
-  "public_web_target_paths": {
-    "root": "web",
-    "data": "web/data",
-    "assets": "web/assets",
-    "javascript": "web/js",
-    "css": "web/css"
+  "pre_cutover_gap_policy": {
+    "local_gap_is_automatically_bug": false,
+    "first_question": "WAS_LOCAL_COLLECTION_EXPECTED_TO_BE_RUNNING_AT_THAT_SLOT",
+    "expected_temporary_gap_causes": [
+      "NOTEBOOK_POWERED_OFF",
+      "TERMINAL_OR_TASK_NOT_RUNNING",
+      "LOCAL_NETWORK_UNAVAILABLE",
+      "TEMPORARY_LOCAL_COLLECTOR_INTENTIONALLY_INACTIVE"
+    ],
+    "defect_investigation_triggers": [
+      "COLLECTOR_EXPECTED_RUNNING_BUT_NO_RECORD",
+      "UPSTREAM_SLOT_PRESENT_BUT_OMITTED_DOWNSTREAM",
+      "ASOF_GUARD_OR_DEDUPLICATION_MALFUNCTION",
+      "PARSER_SELECTOR_CONSOLIDATION_BUG_EVIDENCED",
+      "EXPLICIT_USER_REQUEST"
+    ],
+    "default_action_for_expected_gap": "DO_NOT_OVERINVESTIGATE"
+  },
+  "backfill_policy": {
+    "allowed_when_scientifically_and_technically_valid": true,
+    "preserve_collection_slot_utc": true,
+    "preserve_asof_rules": true,
+    "recovered_must_remain_distinguishable": true,
+    "preferred_role": "PROSPECTIVE_RECOVERED",
+    "rewrite_recovered_as_native_allowed": false,
+    "erase_original_gap_evidence_allowed": false
+  },
+  "scheduling_history": {
+    "temporary_cron_removal_commits": {
+      "prospective_collector": "b905fc1",
+      "prospective_daily_consolidation": "a184267"
+    },
+    "interpretation": "TEMPORARY_MIGRATION_NOT_WINDOWS_PRODUCTION_POLICY",
+    "scientific_clock": "UTC_15_MIN_COLLECTION_SLOT_UTC",
+    "github_schedule_role": "WAKE_SIGNAL_ONLY_NOT_SCIENTIFIC_CLOCK",
+    "legacy_expected_96_GITHUB_CRON_RUNS_PER_DAY_rule": "RETIRED"
+  },
+  "o8_1": {
+    "chain": [
+      "O8.1-A",
+      "O8.1-B",
+      "O8.1-C",
+      "O8.1-D",
+      "O8.1-E",
+      "O8.1-F"
+    ],
+    "canonical_cutover_report": "research/operations/o8_1_f_final_cutover_latest.json",
+    "canonical_daily_slot_count": 96,
+    "slot_states": [
+      "COMPLETE",
+      "TECHNICAL_INCOMPLETE",
+      "EXPLICIT_GAP"
+    ],
+    "preserve_slot_state_distinctions": true,
+    "github_only_acceptance_window_preference": "ON_OR_AFTER_2026_10_01_UNLESS_USER_DESIGNATES_OTHER_TEST_WINDOW",
+    "pre_cutover_local_gaps_alone_prove_github_instability": false,
+    "operational_cutover_does_not_unlock_risk_engine": true,
+    "old_run_count_gate_retired": true
   },
   "current_scientific_lock": {
     "primary_metric": "q850_mean_kgkg",
     "primary_time_offset": "t+0h",
-    "direction": "POSITIVE_GREATER_THAN_MATCHED_COMPARISON",
+    "direction": "POSITIVE_GREATER_THAN_RAINFALL_MATCHED_COMPARISON",
     "validation_status": "DEFERRED_PENDING_IMERG_FINAL_V08",
     "phase2_k2_gate": "PASS_PHASE2L_K2_V07_BOUNDARY_AND_V08_DEFERRED_VALIDATION_FREEZE",
     "phase2_k2_artifact": "research/phase2/phase2l_k2_v07_boundary_v08_deferred_validation_freeze_20260912.json",
@@ -75,13 +139,12 @@
   },
   "v8_reentry": {
     "partial_v08_tail_patch_allowed": false,
-    "same_final_imerg_version_required_for_development_and_validation": true,
+    "same_final_imerg_family_required_for_development_and_validation": true,
     "rebuild_development_2023_2024": true,
     "rebuild_validation_2025": true,
     "pca_fit_population": "DEVELOPMENT_V8_ONLY",
     "validation_refit_allowed": false,
-    "matching_policy_change_allowed": false,
-    "primary_change_allowed": false,
+    "frozen_matching_policy_change_allowed": false,
     "open_2025_era5_only_after_matching_freeze": true,
     "confirmatory_test_runs": 1,
     "post_result_retuning_allowed": false
@@ -100,55 +163,179 @@
     "FROZEN_MATCH_UNIVERSE_SHRINK_TO_FORCE_COMPLETION",
     "PRIMARY_CHANGE_TO_RESCUE_VALIDATION",
     "EARLY_2025_ERA5_PRIMARY_OUTCOME_OPENING",
-    "2026_OUTCOME_DRIVEN_TUNING_OF_FROZEN_2025_PRIMARY",
+    "LATER_OUTCOME_DRIVEN_TUNING_OF_FROZEN_2025_PRIMARY",
     "KATO_500M_FLWV_SILENT_PRESSURE_PROXY_SUBSTITUTION",
+    "WEAK_PROXY_TO_DETERMINISTIC_LPZ_LABEL",
     "PUBLIC_OPERATIONAL_RISK_BEFORE_RELEASE_GATE"
   ],
-  "temporary_transition_state_2026_09_12": {
-    "local_development_active": true,
-    "github_scheduled_prospective_collector_temporarily_disabled_commit": "b905fc1",
-    "github_scheduled_daily_consolidation_temporarily_disabled_commit": "a184267",
-    "interpretation": "TEMPORARY_LOCAL_MIGRATION_FOR_DEVELOPMENT_NOT_FINAL_PRODUCTION_ARCHITECTURE",
-    "production_go_live_requires_github_scheduling_restored_or_replaced": true
+  "f4_closure": {
+    "terminal_artifact": "research/phase2/F4_9D_TERMINAL_DECISION_20260927.json",
+    "research_stage": "F4-9D",
+    "decision": "GO",
+    "f4_closed": true,
+    "verified_comparison_count": 542,
+    "verified_distinct_slot_count": 3,
+    "permanent_technical_failure_case_count": 0,
+    "posthoc_retuning_allowed": false,
+    "production_integration_enabled": false,
+    "risk_engine_allowed": false,
+    "validated_forecast": false,
+    "meaning_of_go": "ONLY_AUTHORIZES_A_NEW_SEPARATELY_SCOPED_INTEGRATION_PHASE",
+    "archived_field_motion_is_research_only": true,
+    "stale_archive_must_not_appear_as_current_forecast": true
   },
-  "current_operational_transition_2026_09_13": {
-    "github_self_healing_prospective_collection_restored": true,
-    "scientific_slot_clock": "UTC_15_MIN_COLLECTION_SLOT",
-    "github_schedule_role": "WAKE_SIGNAL_ONLY_NOT_SCIENTIFIC_CLOCK",
-    "catchup_horizon_minutes": 120,
-    "o8_1_a_retention_state": "PASS",
-    "o8_1_b_slot_replay_asof_state": "PASS",
-    "o8_1_c_self_healing_collector_state": "PASS",
-    "o8_1_d_canonical_daily_consolidation_state": "PASS",
-    "o8_1_e_observer_implementation_state": "PASS",
-    "o8_1_e_operational_gate_state_at_amendment": "WAIT_REQUIRED_CONSECUTIVE_COMPLETE_DAYS",
-    "o8_1_f_final_cutover_audit_implementation_state": "PASS",
-    "o8_1_f_operational_gate_state_at_amendment": "WAIT_KEEP_WINDOWS_TASK",
-    "canonical_current_cutover_report": "research/operations/o8_1_f_final_cutover_latest.json",
-    "current_state_must_be_read_from_cutover_report": true,
-    "legacy_o8_scheduled_run_count_gate_retired": true,
-    "windows_task_name": "LPZ-Prospective-Collector-15min",
-    "windows_task_should_remain_enabled_at_amendment": true,
-    "windows_task_disable_authority": "O8_1_F_PASS_READY_TO_DISABLE_WINDOWS_TASK_ONLY",
-    "windows_task_disable_action": "MANUAL_ONLY",
-    "cutover_requirement": "LATEST_TWO_FINALIZED_UTC_DAYS_EACH_96_OF_96_CANONICAL_SLOTS_WITH_ZERO_EXPLICIT_GAPS_ZERO_TECHNICAL_INCOMPLETE_PLUS_RUNTIME_FRESHNESS_AND_SCIENTIFIC_LOCK_PASS",
-    "operational_cutover_does_not_unlock_risk_engine": true
+  "public_web": {
+    "root": "web",
+    "public_surface_role": "FIRST_CLASS_PRODUCT",
+    "responsibilities": {
+      "github_actions_python": [
+        "ACQUISITION",
+        "DECODING",
+        "VALIDATION",
+        "FEATURE_GENERATION",
+        "PREDICTION_OR_RISK_ONLY_AFTER_RELEASE_GATE",
+        "AUDIT_STATUS_GENERATION",
+        "PUBLIC_JSON_GEOJSON_GENERATION"
+      ],
+      "github_pages_javascript": [
+        "FETCH_JSON_GEOJSON",
+        "RENDER_JAPAN_MAP",
+        "RENDER_CHARTS",
+        "RENDER_SOURCE_HEALTH",
+        "RENDER_SYSTEM_STATUS",
+        "RENDER_RESEARCH_ONLY_WITH_EXPLICIT_SEMANTICS"
+      ]
+    },
+    "required_semantic_separation": [
+      "RESEARCH_VS_OPERATIONAL",
+      "ARCHIVED_VS_CURRENT",
+      "SYSTEM_HEALTH_VS_SCIENTIFIC_RELEASE",
+      "JMA_OFFICIAL_VS_PROJECT_RESEARCH"
+    ]
+  },
+  "development_discipline": {
+    "github_is_source_of_truth": true,
+    "pre_change_check": [
+      "CONFIRM_BRANCH_AND_HEAD",
+      "CONFIRM_WORKING_TREE_STATE",
+      "READ_RELEVANT_CANONICAL_ARTIFACT",
+      "CLASSIFY_ISSUE_SCIENTIFIC_OPERATIONAL_UI_OR_TOOLING",
+      "AVOID_DUPLICATING_COMPLETED_WORK",
+      "STATE_EXPECTED_EFFECT_AND_NON_EFFECT",
+      "PATCH_MINIMALLY",
+      "ADD_OR_ADJUST_REGRESSION_TESTS",
+      "TEST_LOCALLY",
+      "INSPECT_DIFF_BEFORE_COMMIT_PUSH"
+    ],
+    "root_cause_sequence": [
+      "OBSERVED_SYMPTOM",
+      "FAILING_STAGE",
+      "ROOT_CAUSE",
+      "BLAST_RADIUS_AND_SEVERITY",
+      "MINIMAL_CORRECTION",
+      "REGRESSION_PROOF"
+    ],
+    "severity_must_be_explicit": true,
+    "redundant_audit_prohibited_without_reason": true,
+    "independent_problems_must_not_be_mixed": true,
+    "examples_of_independent_problems": [
+      "PARSER_SCOPE_BUG_VS_LOCAL_PC_DOWNTIME_GAP",
+      "O8_1_OPERATIONAL_CUTOVER_VS_V08_SCIENTIFIC_VALIDATION",
+      "F4_GO_VS_RISK_ENGINE_RELEASE",
+      "GIT_MAINTENANCE_WARNING_VS_SCIENTIFIC_CORRUPTION"
+    ]
+  },
+  "safe_failure_and_provenance": {
+    "stale_mandatory_source_requires_safe_failure": true,
+    "invent_missing_observation_allowed": false,
+    "rewrite_recovered_as_native_allowed": false,
+    "absence_of_error_message_equals_success": false,
+    "missing_evidence_can_be_converted_to_pass": false,
+    "delete_inconvenient_gaps_from_history_allowed": false,
+    "experimental_research_may_impersonate_official_warning": false
   },
   "recovery_protocol": [
     "READ_LPZ_SYSTEM_CHARTER_MD",
-    "READ_THIS_JSON",
-    "INSPECT_LATEST_MAIN_COMMITS",
-    "READ_PHASE2_H_FREEZE",
-    "READ_PHASE2_K2_FREEZE",
-    "INSPECT_GITHUB_WORKFLOWS",
-    "INSPECT_WEB_DIRECTORY_AND_PUBLIC_DATA_CONTRACT",
+    "READ_MACHINE_READABLE_CHARTER",
+    "INSPECT_LATEST_MAIN_COMMIT_AND_RECENT_COMMITS",
+    "RECOVER_LOCAL_BRANCH_AND_WORKTREE_CONTEXT_IF_USER_SUPPLIES_IT",
+    "READ_PHASE2_H_AND_K2_FREEZES",
+    "READ_F4_TERMINAL_CLOSURE_AND_PUBLIC_ARCHIVE_SEMANTICS",
     "READ_O8_1_F_CURRENT_CUTOVER_REPORT",
-    "SEPARATE_TEMPORARY_LOCAL_MECHANISMS_FROM_FINAL_GITHUB_PRODUCTION",
-    "SUMMARIZE_RECOVERED_STATE_BEFORE_MODIFYING_CODE"
+    "INSPECT_GITHUB_WORKFLOWS",
+    "INSPECT_WEB_AND_PUBLIC_DATA_CONTRACTS",
+    "SEPARATE_TEMPORARY_LOCAL_OPERATION_FROM_FINAL_GITHUB_PRODUCTION",
+    "IDENTIFY_CURRENT_UNRESOLVED_ISSUES_WITHOUT_REOPENING_CLOSED_WORK",
+    "SUMMARIZE_CURRENT_STATE_AND_NEXT_LEGITIMATE_STEP",
+    "ONLY_THEN_MODIFY_CODE"
   ],
+  "recovery_output_required_fields": [
+    "CURRENT_MAIN_SHA",
+    "CURRENT_PRODUCTION_ARCHITECTURE",
+    "CURRENT_OPERATION_MODE_TEMP_LOCAL_OR_GITHUB_ONLY",
+    "CURRENT_O8_1_F_STATE",
+    "CURRENT_V08_PRIMARY_LOCK_STATE",
+    "CURRENT_F4_TERMINAL_STATE",
+    "CURRENT_RISK_ENGINE_STATE",
+    "CURRENT_KNOWN_BLOCKER_OR_NEXT_TASK",
+    "WHAT_MUST_NOT_BE_CHANGED"
+  ],
+  "anti_amnesia_checklist": [
+    "FINAL_PRODUCTION_IS_GITHUB_ONLY",
+    "TEMPORARY_WINDOWS_OPERATION_DOES_NOT_REDEFINE_PRODUCTION",
+    "THROUGH_2026_09_30_LOCAL_COLLECTION_CAN_CREATE_ORDINARY_DOWNTIME_GAPS",
+    "PRE_CUTOVER_LOCAL_GAPS_ARE_NOT_AUTOMATICALLY_BUGS",
+    "BACKFILL_MUST_PRESERVE_RECOVERED_PROVENANCE",
+    "GITHUB_CRON_IS_WAKE_SIGNAL_AND_COLLECTION_SLOT_UTC_IS_SCIENTIFIC_CLOCK",
+    "O8_1_OPERATIONAL_READINESS_AND_RISK_ENGINE_RELEASE_ARE_SEPARATE",
+    "PRIMARY_IS_Q850_MEAN_KGKG_T_PLUS_0H",
+    "2025_VALIDATION_DEFERRED_PENDING_FINAL_V08",
+    "2025_ERA5_PRIMARY_OUTCOME_REMAINS_SEALED",
+    "RISK_ENGINE_REMAINS_LOCKED",
+    "F4_CLOSED_GO_BUT_PRODUCTION_INTEGRATION_DISABLED",
+    "NO_POSTHOC_F4_RETUNING",
+    "NO_REDUNDANT_REAUDIT_WITHOUT_REASON",
+    "LOCAL_OPERATIONAL_GAP_IS_NOT_SYSTEMIC_DEFECT_WITHOUT_EVIDENCE",
+    "REAL_SOFTWARE_DEFECT_MUST_NOT_BE_EXCUSED_AS_DOWNTIME",
+    "GITHUB_EVIDENCE_OUTRANKS_ASSISTANT_MEMORY"
+  ],
+  "current_status_snapshot_2026_09_27": {
+    "main_sha_at_revision_base": "12ea90ab1a99a7a2be49dc872264e0354b3783e9",
+    "f4": {
+      "decision": "GO",
+      "closed": true,
+      "production_integration_enabled": false,
+      "risk_engine_allowed": false,
+      "public_archived_field_motion_decision_label": "GO"
+    },
+    "o8_1_f": {
+      "state": "WAIT_KEEP_WINDOWS_TASK",
+      "cutover_ready": false,
+      "blockers_at_snapshot": [
+        "TWO_CONSECUTIVE_CANONICAL_96_OF_96_DAYS",
+        "DAILY_CONSOLIDATION_RUNTIME_FRESHNESS"
+      ],
+      "must_reload_live_report": true
+    },
+    "known_o8_1_d_defect_under_repair": {
+      "cause": "RECURSIVE_SLOT_DISCOVERY_INCLUDED_DOWNSTREAM_F3_F4_RESEARCH_SLOT_FILES",
+      "symptom": "COLLECTION_SLOT_UTC_MISSING_PARSE_ERRORS_AND_STRUCTURAL_ERROR",
+      "software_bug": true,
+      "separate_from_expected_local_downtime_gaps": true
+    },
+    "observed_2026_09_26_failed_consolidation": {
+      "represented_complete_slots": 77,
+      "explicit_gaps": 19,
+      "deep_investigation_default": false,
+      "recovery_may_be_attempted_if_useful": true
+    }
+  },
   "change_control": {
     "explicit_user_approval_required_for_fundamental_policy_change": true,
     "update_markdown_and_json_together": true,
+    "update_readme_when_recovery_guidance_changes": true,
+    "preserve_existing_scientific_freezes_unless_explicitly_amended": true,
+    "distinguish_permanent_policy_from_status_snapshot": true,
     "suggested_commit_prefix": "charter:"
   }
 }
