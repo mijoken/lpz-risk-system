@@ -1,11 +1,12 @@
-param()
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$ExpectedHead
+)
 
 $ErrorActionPreference = "Stop"
 
 $wt = "D:\program\lpz-risk-system_ui_fix_test"
 $python = "D:\program\lpz-risk-system_dev\.venv\Scripts\python.exe"
-$expectedHead = "47d452ef6bddeb42837c4e461b6e6edf1f61590f"
-
 if (-not (Test-Path -LiteralPath $wt)) {
     throw "UI test worktree missing: $wt"
 }
@@ -24,7 +25,7 @@ $head = (@(& git @gitArgs rev-parse HEAD) -join "").Trim()
 if ($LASTEXITCODE -ne 0) {
     throw "HEAD check FAILED"
 }
-if ($head -ne $expectedHead) {
+if ($head -ne $ExpectedHead) {
     throw "Unexpected UI fix HEAD: $head"
 }
 
