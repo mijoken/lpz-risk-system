@@ -116,3 +116,28 @@ cycle so browser cache cannot silently retain an older focus implementation.
 
 This is a display-only refinement. No archived geometry, lead time, case
 membership, model output, verification result, or F4-9D criterion is changed.
+
+
+## Final local browser acceptance — 2026-09-27
+
+User confirmed that opening `f4-archive.html#field-motion` now lands directly
+on the tighter purple field-motion view without requiring manual zoom.
+
+Browser acceptance evidence from screenshots:
+
+- archived purple Lucas–Kanade polygons are clearly visible and selectable;
+- default archive view is centered on the Fukushima/Miyagi offshore research
+  cluster rather than a near-national overview;
+- the legacy cyan-origin / yellow-line layer remains OFF by default;
+- previous giant dark markers, giant yellow arrowheads, and text collisions are
+  no longer present in the reviewed view;
+- the right-side explanation clearly separates purple field-motion polygons
+  from the legacy point/constant-motion method;
+- archive status remains explicitly NOT LIVE / research-only.
+
+Together with the previously recorded 29/29 regression tests and JavaScript
+syntax checks, browser acceptance is PASS.
+
+**Status:** implementation PASS; static validation PASS; browser acceptance
+PASS. Ready for review/merge to main. Scientific F4-9C/9D state remains
+unchanged.
