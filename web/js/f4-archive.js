@@ -435,9 +435,19 @@
       && valid(feature.properties.projected_centroid_lon_lat)
     );
     if (!features.length) return;
-    const lon = features.reduce((sum, f) => sum + f.properties.projected_centroid_lon_lat[0], 0) / features.length;
-    const lat = features.reduce((sum, f) => sum + f.properties.projected_centroid_lon_lat[1], 0) / features.length;
-    zoomTo(lon, lat, 4.8);
+
+    // This archive is intentionally centered more tightly than the live map.
+    // Use the robust median of archived forecast centroids so a few remote
+    // fragments do not force a near-national view.
+    const lons = features.map(f => Number(f.properties.projected_centroid_lon_lat[0])).sort((a, b) => a - b);
+    const lats = features.map(f => Number(f.properties.projected_centroid_lon_lat[1])).sort((a, b) => a - b);
+    const median = values => {
+      const mid = Math.floor(values.length / 2);
+      return values.length % 2
+        ? values[mid]
+        : (values[mid - 1] + values[mid]) / 2;
+    };
+    zoomTo(median(lons), median(lats), 6.2);
   }
 
   function bindZoomPan() {
