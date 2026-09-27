@@ -99,3 +99,20 @@ view. Two presentation refinements were requested before merge:
 
 These remain display-only changes and do not touch any frozen scientific
 endpoint or prospective artifact.
+
+
+## Second browser review refinement — 2026-09-27
+
+The second local screenshot showed that the archive content and two-layer
+explanation were correct, but the initial purple field-motion view still opened
+too close to a national overview.
+
+The archive focus now fits the **actual Polygon vertex bounds** for the selected
++15/+30-minute field-motion layer into the SVG viewport with explicit horizontal
+and vertical padding. This replaces the fixed zoom/median-centroid heuristic.
+
+Archive-specific JS/CSS URLs also carry a version query during this validation
+cycle so browser cache cannot silently retain an older focus implementation.
+
+This is a display-only refinement. No archived geometry, lead time, case
+membership, model output, verification result, or F4-9D criterion is changed.
