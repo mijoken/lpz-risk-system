@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "product": "F4_9D_TERMINAL_DECISION",
+  "research_stage": "F4-9D",
+  "cohort_terminal_state": "READY_FOR_F4_9D_TARGET_MET",
+  "verified_comparison_count": 542,
+  "verified_distinct_slot_count": 3,
+  "case_count": 3,
+  "permanent_technical_failure_case_count": 0,
+  "technical_failure_rate": 0.0,
+  "lead_summaries": {
+    "15": {
+      "comparison_count": 271,
+      "optical_flow_best_iou_mean": 0.005827627950338962,
+      "persistence_best_iou_mean": 0.005411640106583414,
+      "paired_best_iou_delta_mean": 0.0004159878437555492,
+      "paired_best_iou_delta_median": 0.0,
+      "optical_flow_any_overlap_rate": 0.12177121771217712,
+      "persistence_any_overlap_rate": 0.09225092250922509,
+      "optical_flow_nearest_centroid_distance_km_median": 13.824034610291331,
+      "persistence_nearest_centroid_distance_km_median": 14.77128988152151
+    },
+    "30": {
+      "comparison_count": 271,
+      "optical_flow_best_iou_mean": 0.006357870222850397,
+      "persistence_best_iou_mean": 0.004216919381472743,
+      "paired_best_iou_delta_mean": 0.002140950841377654,
+      "paired_best_iou_delta_median": 0.0,
+      "optical_flow_any_overlap_rate": 0.12915129151291513,
+      "persistence_any_overlap_rate": 0.08856088560885608,
+      "optical_flow_nearest_centroid_distance_km_median": 16.697739124196847,
+      "persistence_nearest_centroid_distance_km_median": 17.961102522479415
+    }
+  },
+  "go_checks": {
+    "comparison_rows_available_15m": true,
+    "mean_iou_delta_positive_15m": true,
+    "any_overlap_not_worse_15m": true,
+    "median_centroid_distance_not_worse_15m": true,
+    "comparison_rows_available_30m": true,
+    "mean_iou_delta_positive_30m": true,
+    "any_overlap_not_worse_30m": true,
+    "median_centroid_distance_not_worse_30m": true,
+    "scientific_invariants_ok": true
+  },
+  "decision": "GO",
+  "f4_closed": true,
+  "production_integration_enabled": false,
+  "risk_engine_allowed": false,
+  "lpz_forecast_generated": false,
+  "probability_generated": false,
+  "severity_generated": false,
+  "validated_forecast": false,
+  "posthoc_retuning_allowed": false,
+  "next_step": "NEW_SEPARATELY_SCOPED_INTEGRATION_PHASE",
+  "interpretation": "Terminal pre-specified F4 decision. GO authorizes only a new, separately scoped integration phase; it does not enable production. NO-GO keeps persistence as the short-time spatial baseline. F4 closes regardless of outcome."
+}
