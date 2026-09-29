@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-29T09:42:42Z",
+  "generated_at_utc": "2026-09-29T09:45:40Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -177,11 +177,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "PASS",
-        "latest_success_created_at_utc": "2026-09-29T08:34:25Z",
-        "latest_success_run_id": 36543573029,
+        "state": "WAIT",
+        "latest_success_created_at_utc": "2026-09-27T11:13:18Z",
+        "latest_success_run_id": 36315027270,
         "latest_success_event": "workflow_run",
-        "latest_success_age_minutes": 68.29760495000001,
+        "latest_success_age_minutes": 2792.3678625166667,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-09-29T08:45:02Z",
         "latest_success_run_id": 36544701865,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 57.68093828333333,
+        "latest_success_age_minutes": 60.634529183333335,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -205,7 +205,7 @@
         "latest_success_created_at_utc": "2026-09-29T08:32:56Z",
         "latest_success_run_id": 36543412701,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 69.78093828333334,
+        "latest_success_age_minutes": 72.73452918333334,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -226,7 +226,8 @@
     }
   },
   "blockers": [
-    "GITHUB_ONLY_TWO_DAY_EVIDENCE_WINDOW_NOT_COMPLETE"
+    "GITHUB_ONLY_TWO_DAY_EVIDENCE_WINDOW_NOT_COMPLETE",
+    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
