@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-09-30T09:34:36Z",
+  "generated_at_utc": "2026-09-30T09:36:58Z",
   "state": "WAIT_KEEP_WINDOWS_TASK",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -177,11 +177,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-09-21T20:14:36Z",
-        "latest_success_run_id": 35649836788,
-        "latest_success_event": "workflow_dispatch",
-        "latest_success_age_minutes": 12320.009175050001,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-09-30T08:54:00Z",
+        "latest_success_run_id": 36692609015,
+        "latest_success_event": "workflow_run",
+        "latest_success_age_minutes": 42.981701466666664,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-09-30T08:46:09Z",
         "latest_success_run_id": 36691778353,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 48.45917505,
+        "latest_success_age_minutes": 50.831701466666665,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -205,7 +205,7 @@
         "latest_success_created_at_utc": "2026-09-30T08:52:29Z",
         "latest_success_run_id": 36692447619,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 42.12584171666666,
+        "latest_success_age_minutes": 44.49836813333333,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -226,8 +226,7 @@
     }
   },
   "blockers": [
-    "GITHUB_ONLY_TWO_DAY_EVIDENCE_WINDOW_NOT_COMPLETE",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON"
+    "GITHUB_ONLY_TWO_DAY_EVIDENCE_WINDOW_NOT_COMPLETE"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
