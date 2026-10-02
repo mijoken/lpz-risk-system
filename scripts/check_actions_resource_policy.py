@@ -105,8 +105,8 @@ for name in test_names:
         errors.append(f"automatic collector wakes can still run regression step: {name}")
 
 retention_pairs = {
-    "prospective-batch-\${{ github.run_id }}": 3,
-    "prospective-batch-index-\${{ github.run_id }}": 10,
+    "prospective-batch-${{ github.run_id }}": 3,
+    "prospective-batch-index-${{ github.run_id }}": 10,
 }
 for artifact_name, max_days in retention_pairs.items():
     pat = (
