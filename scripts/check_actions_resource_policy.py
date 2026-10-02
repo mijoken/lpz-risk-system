@@ -93,6 +93,19 @@ test_names = [
     "Run F4-4 geographic envelope tests",
 ]
 required_if = "if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'"
+
+# Automatic collector wakes must install runtime dependencies only.
+if "python -m pip install --upgrade pip" in collector:
+    errors.append("collector must not upgrade pip on every automatic wake")
+if re.search(r"python -m pip install -e \.\s+pytest", collector):
+    errors.append("collector runtime install must not include pytest")
+test_dep = re.search(
+    r"- name: Install regression-test dependency\n(?P<body>(?:\s{8,}.*\n){0,4})",
+    collector,
+)
+if not test_dep or required_if not in test_dep.group("body"):
+    errors.append("pytest dependency must be gated to push/workflow_dispatch")
+
 for name in test_names:
     m = re.search(
         rf"- name: {re.escape(name)}\n(?P<body>(?:\s{{8,}}.*\n){{0,4}})",

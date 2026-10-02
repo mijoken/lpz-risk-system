@@ -71,10 +71,12 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install package
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e . pytest
+      - name: Install runtime package
+        run: python -m pip install -e .
+
+      - name: Install regression-test dependency
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: python -m pip install pytest
 
       - name: Verify ecCodes runtime
         run: python -m eccodes selfcheck
