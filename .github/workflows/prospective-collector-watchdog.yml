@@ -2,12 +2,10 @@ name: LPZ Prospective Collector Watchdog
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["LPZ Public Production Cycle (O6)"]
-    types: [completed]
-    branches: [main]
   schedule:
-    # Independent GitHub-only wake-up path.
+    # Independent fallback only. O6 completion wakes the collector directly;
+    # the watchdog intentionally does not subscribe to O6 workflow_run to avoid
+    # duplicate/competitive collector dispatch paths.
     # Offset from the collector's own cron and the public-production cron.
     - cron: "8,18,28,38,48,58 * * * *"
 

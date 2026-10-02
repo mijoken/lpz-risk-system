@@ -1,0 +1,36 @@
+name: LPZ Actions Resource Guard
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "scripts/check_actions_resource_policy.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - "scripts/check_actions_resource_policy.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lpz-actions-resource-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  resource-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Enforce Actions resource policy
+        run: python scripts/check_actions_resource_policy.py
