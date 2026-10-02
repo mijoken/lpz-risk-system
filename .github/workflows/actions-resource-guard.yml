@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: lpz-actions-resource-guard-\${{ github.ref }}
+  group: lpz-actions-resource-guard-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
