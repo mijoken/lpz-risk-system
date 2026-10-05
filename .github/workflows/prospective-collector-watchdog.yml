@@ -2,30 +2,52 @@ name: LPZ Prospective Collector Watchdog
 
 on:
   workflow_dispatch:
+  workflow_run:
+    # Primary GitHub-only continuity relay.
+    #
+    # Every collector completion arms a delayed liveness check. A newer
+    # collector completion replaces the older timer through the workflow_run
+    # concurrency group below. If no newer collector succeeds before the timer
+    # expires, the watchdog dispatches the collector explicitly.
+    workflows: ["LPZ Prospective Self-Healing Batch Collector"]
+    types: [completed]
+    branches: [main]
   schedule:
-    # Independent fallback only. O6 completion wakes the collector directly;
-    # the watchdog intentionally does not subscribe to O6 workflow_run to avoid
-    # duplicate/competitive collector dispatch paths.
-    # Offset from the collector's own cron and the public-production cron.
-    - cron: "8,18,28,38,48,58 * * * *"
+    # Low-frequency rescue only. GitHub schedule is not the scientific clock
+    # and is not trusted as the primary continuity mechanism.
+    - cron: "41 * * * *"
 
 permissions:
   actions: write
   contents: read
 
 concurrency:
-  group: lpz-prospective-collector-watchdog
+  # Keep only the newest timer for each trigger class. In particular, a newer
+  # collector completion resets the workflow_run continuity timer.
+  group: lpz-prospective-collector-watchdog-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   watchdog:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 70
 
     env:
       GH_TOKEN: ${{ github.token }}
 
     steps:
+      - name: Arm post-collector continuity timer
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Collector completed."
+          echo "Arming 50-minute GitHub-only continuity timer."
+          echo "A newer collector completion will cancel and replace this timer."
+
+          sleep 3000
+
       - name: Inspect collector liveness
         id: decision
         shell: bash
