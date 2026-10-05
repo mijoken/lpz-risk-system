@@ -81,6 +81,29 @@ if 'workflows: ["LPZ Public Production Cycle (O6)"]' not in collector:
 if 'workflows: ["LPZ Public Production Cycle (O6)"]' in watchdog:
     errors.append("watchdog must not subscribe to O6 workflow_run; this duplicates collector wake-up")
 
+if 'workflows: ["LPZ Prospective Self-Healing Batch Collector"]' not in watchdog:
+    errors.append(
+        "watchdog lost collector-completion continuity relay"
+    )
+
+if (
+    "group: lpz-prospective-collector-watchdog-${{ github.event_name }}"
+    not in watchdog
+):
+    errors.append(
+        "watchdog trigger classes must use separate concurrency groups"
+    )
+
+if "sleep 3000" not in watchdog:
+    errors.append(
+        "watchdog lost the bounded 50-minute collector continuity timer"
+    )
+
+if "timeout-minutes: 70" not in watchdog:
+    errors.append(
+        "watchdog timeout must cover the bounded continuity timer"
+    )
+
 test_names = [
     "Run O8.1 collector unit tests",
     "Run F3 research adapter tests",
@@ -146,6 +169,12 @@ for label, path in CORE.items():
             f"{label} theoretical scheduled wakes/day {count} exceeds "
             f"{MAX_SINGLE_WORKFLOW_SCHEDULED_WAKES_PER_DAY}"
         )
+
+if core_counts.get("watchdog") != 24:
+    errors.append(
+        "watchdog scheduled rescue must remain hourly "
+        f"(24/day), got {core_counts.get('watchdog')}"
+    )
 
 core_total = sum(core_counts.values())
 if core_total > MAX_CORE_SCHEDULED_WAKES_PER_DAY:
