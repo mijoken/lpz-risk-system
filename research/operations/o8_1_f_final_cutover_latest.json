@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-10-07T08:58:18Z",
+  "generated_at_utc": "2026-10-07T10:07:29Z",
   "state": "WAIT_GITHUB_ONLY_EVIDENCE",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -177,11 +177,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "PASS",
-        "latest_success_created_at_utc": "2026-10-07T08:50:27Z",
-        "latest_success_run_id": 37596465209,
-        "latest_success_event": "schedule",
-        "latest_success_age_minutes": 7.8613964,
+        "state": "WAIT",
+        "latest_success_created_at_utc": "2026-09-21T20:14:36Z",
+        "latest_success_run_id": 35649836788,
+        "latest_success_event": "workflow_dispatch",
+        "latest_success_age_minutes": 22432.89207256667,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-10-07T08:56:55Z",
         "latest_success_run_id": 37597199633,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.3947297333333333,
+        "latest_success_age_minutes": 70.5754059,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -205,7 +205,7 @@
         "latest_success_created_at_utc": "2026-10-07T04:56:19Z",
         "latest_success_run_id": 37573854837,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 241.99472973333334,
+        "latest_success_age_minutes": 311.17540590000004,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -227,6 +227,7 @@
   },
   "blockers": [
     "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS",
+    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON",
     "PUBLIC_PRODUCTION_RUNTIME_FRESHNESS"
   ],
   "risk_engine_allowed": false,
