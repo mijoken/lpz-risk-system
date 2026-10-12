@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-10-12T09:29:59Z",
+  "generated_at_utc": "2026-10-12T10:36:09Z",
   "state": "WAIT_GITHUB_ONLY_EVIDENCE",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -181,7 +181,7 @@
         "latest_success_created_at_utc": "2026-10-12T09:01:19Z",
         "latest_success_run_id": 38227197447,
         "latest_success_event": "workflow_dispatch",
-        "latest_success_age_minutes": 28.675560933333333,
+        "latest_success_age_minutes": 94.84087246666667,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-10-12T09:28:31Z",
         "latest_success_run_id": 38230116484,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.4755609333333333,
+        "latest_success_age_minutes": 67.64087246666666,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -201,11 +201,11 @@
       },
       "public": {
         "name": "public_pages_production",
-        "state": "PASS",
+        "state": "WAIT",
         "latest_success_created_at_utc": "2026-10-12T05:32:54Z",
         "latest_success_run_id": 38208407399,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 237.0922276,
+        "latest_success_age_minutes": 303.2575391333333,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -226,7 +226,8 @@
     }
   },
   "blockers": [
-    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS"
+    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS",
+    "PUBLIC_PRODUCTION_RUNTIME_FRESHNESS"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
