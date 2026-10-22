@@ -88,33 +88,96 @@ jobs:
       - name: Download recent lightweight batch indexes
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p incoming/indexes
-          gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow prospective-feature-collector.yml \
-            --limit 30 \
-            --json databaseId,conclusion,status \
+
+          # Bounded history lookup. Never silently accept a truncated
+          # 180-minute history window.
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/prospective-feature-collector.yml/runs?branch=main&per_page=100" \
             > /tmp/o81-runs.json
+
           python - <<'PY' > /tmp/o81-run-ids.txt
           import json
-          rows=json.load(open('/tmp/o81-runs.json',encoding='utf-8'))
+          from datetime import datetime, timedelta, timezone
+
+          payload = json.load(open("/tmp/o81-runs.json", encoding="utf-8"))
+          rows = payload.get("workflow_runs")
+          total = payload.get("total_count")
+
+          if not isinstance(rows, list) or type(total) is not int:
+              raise SystemExit("INVALID_RUN_HISTORY")
+
+          if total < len(rows):
+              raise SystemExit("INCONSISTENT_RUN_HISTORY")
+
+          now = datetime.now(timezone.utc)
+          cutoff = now - timedelta(minutes=180)
+
+          def timestamp(row):
+              value = row.get("created_at")
+              if not isinstance(value, str):
+                  raise ValueError("MISSING_CREATED_AT")
+              result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+              if result.tzinfo is None:
+                  raise ValueError("NAIVE_CREATED_AT")
+              return result.astimezone(timezone.utc)
+
+          if total > len(rows):
+              if not rows or min(timestamp(r) for r in rows) >= cutoff:
+                  import sys
+                  print(
+                      "::warning::HISTORY_WINDOW_TRUNCATED; "
+                      "continuing with available indexes",
+                      file=sys.stderr,
+                  )
+
+          selected = []
           for row in rows:
-              if row.get('status') == 'completed' and row.get('conclusion') == 'success':
-                  print(row['databaseId'])
+              created = timestamp(row)
+              if created < cutoff:
+                  continue
+              if row.get("status") != "completed":
+                  continue
+              if row.get("conclusion") != "success":
+                  continue
+              run_id = row.get("id")
+              if type(run_id) is not int:
+                  raise SystemExit("INVALID_RUN_ID")
+              selected.append((created, run_id))
+
+          for _, run_id in sorted(selected, reverse=True):
+              print(run_id)
           PY
+
           downloaded=0
-          while read -r rid; do
+          failed=0
+          attempted=0
+
+          while IFS= read -r rid; do
             [ -z "$rid" ] && continue
+            attempted=$((attempted+1))
             mkdir -p "incoming/indexes/$rid"
+
             if gh run download "$rid" \
               --repo "$GITHUB_REPOSITORY" \
               --pattern "prospective-batch-index-*" \
               --dir "incoming/indexes/$rid" >/dev/null 2>&1; then
               downloaded=$((downloaded+1))
+            else
+              failed=$((failed+1))
             fi
           done < /tmp/o81-run-ids.txt
-          echo "Prior lightweight batch indexes downloaded: $downloaded"
 
+          echo "History window: 180 minutes"
+          echo "Runs selected: $attempted"
+          echo "Indexes downloaded: $downloaded"
+          echo "Download attempts failed: $failed"
+
+          if [ "$failed" -gt 0 ]; then
+            echo "::warning::Some prior batch indexes were unavailable."
+          fi
       - name: Build self-healing prospective batch
         shell: bash
         run: |

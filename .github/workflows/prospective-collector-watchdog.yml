@@ -53,106 +53,103 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow prospective-feature-collector.yml \
-            --limit 30 \
-            --json databaseId,createdAt,status,conclusion,event \
-            > /tmp/collector-runs.json
-
           python - <<'PY'
           import json
           import os
+          import subprocess
           from datetime import datetime, timezone
 
-          rows = json.load(
-              open("/tmp/collector-runs.json", encoding="utf-8")
-          )
-
+          STATUSES = ("queued", "in_progress", "waiting", "pending", "requested")
+          THRESHOLD = 25.0
+          repo = os.environ["GITHUB_REPOSITORY"]
+          workflow = "prospective-feature-collector.yml"
           now = datetime.now(timezone.utc)
 
-          active = [
-              row
-              for row in rows
-              if row.get("status") in {"queued", "in_progress"}
-          ]
+          def fetch(status=None):
+              url = f"/repos/{repo}/actions/workflows/{workflow}/runs?branch=main&per_page=100"
+              if status:
+                  url += f"&status={status}"
+              completed = subprocess.run(
+                  ["gh", "api", "-H", "Accept: application/vnd.github+json", url],
+                  capture_output=True, text=True, timeout=20, check=True,
+              )
+              return json.loads(completed.stdout)
 
-          successes = [
-              row
-              for row in rows
-              if row.get("status") == "completed"
-              and row.get("conclusion") == "success"
-          ]
+          def parse_time(value):
+              if not isinstance(value, str):
+                  raise ValueError("INVALID_TIMESTAMP")
+              dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+              if dt.tzinfo is None:
+                  raise ValueError("TIMEZONE_REQUIRED")
+              dt = dt.astimezone(timezone.utc)
+              if (dt - now).total_seconds() > 120:
+                  raise ValueError("FUTURE_TIMESTAMP")
+              return dt
 
-          def parse_utc(value):
-              return datetime.fromisoformat(
-                  str(value).replace("Z", "+00:00")
-              ).astimezone(timezone.utc)
-
-          threshold_minutes = 25.0
+          def validate(payload, label, complete=False):
+              if not isinstance(payload, dict):
+                  raise ValueError("INVALID_RESPONSE")
+              total = payload.get("total_count")
+              rows = payload.get("workflow_runs")
+              if type(total) is not int or total < 0 or not isinstance(rows, list):
+                  raise ValueError("INVALID_PAGE_SHAPE")
+              if total < len(rows) or (complete and total != len(rows)):
+                  raise ValueError("INCOMPLETE_OR_INCONSISTENT_PAGE")
+              if total > 0 and not rows:
+                  raise ValueError("EMPTY_NONZERO_PAGE")
+              for row in rows:
+                  if not isinstance(row, dict) or type(row.get("id")) is not int:
+                      raise ValueError("INVALID_RUN")
+                  if not isinstance(row.get("status"), str):
+                      raise ValueError("INVALID_STATUS")
+                  parse_time(row.get("created_at"))
+                  if label != "recent" and row["status"] != label:
+                      raise ValueError("STATUS_MISMATCH")
+              return rows
 
           dispatch = False
-          reason = ""
-          last_success_age_minutes = None
-
-          if active:
+          reason = "FAIL_CLOSED"
+          active_count = None
+          latest_age = None
+          latest_id = None
+          try:
+              recent = validate(fetch(), "recent")
+              active_ids = set()
+              for status in STATUSES:
+                  for row in validate(fetch(status), status, complete=True):
+                      active_ids.add(row["id"])
+              active_count = len(active_ids)
+              if active_ids:
+                  reason = "COLLECTOR_ALREADY_ACTIVE"
+              elif not recent:
+                  reason = "NO_RUN_HISTORY_MANUAL_REVIEW"
+              else:
+                  latest = max(recent, key=lambda row: parse_time(row["created_at"]))
+                  latest_id = latest["id"]
+                  latest_age = (now - parse_time(latest["created_at"])).total_seconds() / 60
+                  if latest_age < THRESHOLD:
+                      reason = "RECENT_COLLECTOR_START"
+                  else:
+                      dispatch = True
+                      reason = "NO_ACTIVE_RUN_AND_START_STALE"
+          except Exception as exc:
               dispatch = False
-              reason = "COLLECTOR_ALREADY_ACTIVE"
+              reason = "FAIL_CLOSED:" + type(exc).__name__ + ":" + str(exc)[:180]
 
-          elif not successes:
-              dispatch = True
-              reason = "NO_SUCCESSFUL_COLLECTOR_RUN_FOUND"
-
-          else:
-              latest = max(
-                  successes,
-                  key=lambda row: parse_utc(row["createdAt"]),
-              )
-
-              latest_time = parse_utc(latest["createdAt"])
-
-              last_success_age_minutes = (
-                  now - latest_time
-              ).total_seconds() / 60.0
-
-              if last_success_age_minutes > threshold_minutes:
-                  dispatch = True
-                  reason = "LAST_SUCCESS_STALE"
-              else:
-                  dispatch = False
-                  reason = "LAST_SUCCESS_FRESH"
-
-          output = os.environ["GITHUB_OUTPUT"]
-
-          with open(output, "a", encoding="utf-8") as f:
-              f.write(
-                  f"dispatch={'true' if dispatch else 'false'}\n"
-              )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"dispatch={'true' if dispatch else 'false'}\n")
               f.write(f"reason={reason}\n")
+              f.write(f"latest_start_age_minutes={latest_age:.2f}\n" if latest_age is not None else "latest_start_age_minutes=NA\n")
 
-              if last_success_age_minutes is None:
-                  f.write("last_success_age_minutes=NA\n")
-              else:
-                  f.write(
-                      "last_success_age_minutes="
-                      f"{last_success_age_minutes:.1f}\n"
-                  )
-
-          print(
-              json.dumps(
-                  {
-                      "dispatch": dispatch,
-                      "reason": reason,
-                      "active_run_count": len(active),
-                      "last_success_age_minutes":
-                          last_success_age_minutes,
-                      "threshold_minutes":
-                          threshold_minutes,
-                  },
-                  indent=2,
-              )
-          )
+          print(json.dumps({
+              "decision": "WOULD_DISPATCH" if dispatch else "NO_DISPATCH",
+              "reason": reason,
+              "active_run_count": active_count,
+              "latest_run_id": latest_id,
+              "latest_start_age_minutes": latest_age,
+              "threshold_minutes": THRESHOLD,
+              "risk_engine_allowed": False,
+          }, ensure_ascii=False))
           PY
 
       - name: Dispatch collector when stale
@@ -163,7 +160,7 @@ jobs:
 
           echo "Collector wake-up required."
           echo "Reason: ${{ steps.decision.outputs.reason }}"
-          echo "Last success age: ${{ steps.decision.outputs.last_success_age_minutes }} min"
+          echo "Latest start age: ${{ steps.decision.outputs.latest_start_age_minutes }} min"
 
           gh workflow run prospective-feature-collector.yml \
             --repo "$GITHUB_REPOSITORY" \
@@ -177,4 +174,4 @@ jobs:
         run: |
           echo "No collector dispatch required."
           echo "Reason: ${{ steps.decision.outputs.reason }}"
-          echo "Last success age: ${{ steps.decision.outputs.last_success_age_minutes }} min"
+          echo "Latest start age: ${{ steps.decision.outputs.latest_start_age_minutes }} min"
