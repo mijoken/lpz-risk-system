@@ -43,10 +43,10 @@ jobs:
           set -euo pipefail
 
           echo "Collector completed."
-          echo "Arming 50-minute GitHub-only continuity timer."
+          echo "Arming 20-minute GitHub-only continuity timer."
           echo "A newer collector completion will cancel and replace this timer."
 
-          sleep 3000
+          sleep 1200
 
       - name: Inspect collector liveness
         id: decision
@@ -60,7 +60,7 @@ jobs:
           from datetime import datetime, timezone
 
           STATUSES = ("queued", "in_progress", "waiting", "pending", "requested")
-          THRESHOLD = 25.0
+          THRESHOLD = 20.0
           repo = os.environ["GITHUB_REPOSITORY"]
           workflow = "prospective-feature-collector.yml"
           now = datetime.now(timezone.utc)
@@ -161,6 +161,78 @@ jobs:
           echo "Collector wake-up required."
           echo "Reason: ${{ steps.decision.outputs.reason }}"
           echo "Latest start age: ${{ steps.decision.outputs.latest_start_age_minutes }} min"
+
+          # Final fail-closed liveness recheck immediately before dispatch.
+          set +e
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from datetime import datetime, timezone
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          workflow = "prospective-feature-collector.yml"
+          statuses = ("queued", "in_progress", "waiting", "pending", "requested")
+
+          def fetch(status=None):
+              url = f"/repos/{repo}/actions/workflows/{workflow}/runs?branch=main&per_page=100"
+              if status:
+                  url += f"&status={status}"
+              result = subprocess.run(
+                  ["gh", "api", url],
+                  capture_output=True,
+                  text=True,
+                  check=True,
+                  timeout=20,
+              )
+              payload = json.loads(result.stdout)
+              rows = payload.get("workflow_runs")
+              total = payload.get("total_count")
+              if not isinstance(rows, list) or type(total) is not int:
+                  raise RuntimeError("INVALID_RUN_HISTORY")
+              if total < len(rows):
+                  raise RuntimeError("INCOMPLETE_RUN_HISTORY")
+              return rows
+
+          try:
+              if any(fetch(status) for status in statuses):
+                  print("SUPPRESS_DISPATCH_ACTIVE_COLLECTOR")
+                  sys.exit(20)
+
+              recent = fetch()
+              if not recent:
+                  raise RuntimeError("NO_RUN_HISTORY")
+
+              latest = max(
+                  datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+                  for row in recent
+              )
+              age = (datetime.now(timezone.utc) - latest).total_seconds() / 60
+
+              if age < 20:
+                  print("SUPPRESS_DISPATCH_RECENT_COLLECTOR")
+                  sys.exit(20)
+
+          except Exception as exc:
+              print("FAIL_CLOSED:", repr(exc))
+              sys.exit(1)
+
+          print("FINAL_RECHECK_DISPATCH_ALLOWED")
+          PY
+
+          recheck_status=$?
+          set -e
+
+          if [ "$recheck_status" -eq 20 ]; then
+            echo "Collector dispatch suppressed after final recheck."
+            exit 0
+          fi
+
+          if [ "$recheck_status" -ne 0 ]; then
+            echo "::error::Final liveness recheck failed."
+            exit 1
+          fi
 
           gh workflow run prospective-feature-collector.yml \
             --repo "$GITHUB_REPOSITORY" \

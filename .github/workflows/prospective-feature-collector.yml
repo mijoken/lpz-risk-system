@@ -126,12 +126,7 @@ jobs:
 
           if total > len(rows):
               if not rows or min(timestamp(r) for r in rows) >= cutoff:
-                  import sys
-                  print(
-                      "::warning::HISTORY_WINDOW_TRUNCATED; "
-                      "continuing with available indexes",
-                      file=sys.stderr,
-                  )
+                  raise SystemExit("HISTORY_WINDOW_TRUNCATED_RETRY_REQUIRED")
 
           selected = []
           for row in rows:
@@ -160,13 +155,29 @@ jobs:
             attempted=$((attempted+1))
             mkdir -p "incoming/indexes/$rid"
 
-            if gh run download "$rid" \
-              --repo "$GITHUB_REPOSITORY" \
-              --pattern "prospective-batch-index-*" \
-              --dir "incoming/indexes/$rid" >/dev/null 2>&1; then
+            success=0
+            for attempt in 1 2 3 4; do
+              rm -rf -- "incoming/indexes/$rid"
+              mkdir -p "incoming/indexes/$rid"
+              if gh run download "$rid" \
+                --repo "$GITHUB_REPOSITORY" \
+                --pattern "prospective-batch-index-*" \
+                --dir "incoming/indexes/$rid" >/dev/null 2>&1; then
+                success=1
+                break
+              fi
+              if [ "$attempt" -lt 4 ]; then
+                delay=$((5 * (2 ** (attempt - 1))))
+                echo "INDEX_DOWNLOAD_RETRY run=$rid attempt=$attempt delay=${delay}s"
+                sleep "$delay"
+              fi
+            done
+            if [ "$success" -eq 1 ]; then
               downloaded=$((downloaded+1))
             else
+              rm -rf -- "incoming/indexes/$rid"
               failed=$((failed+1))
+              echo "::error::INDEX_DOWNLOAD_EXHAUSTED run=$rid"
             fi
           done < /tmp/o81-run-ids.txt
 
@@ -176,7 +187,7 @@ jobs:
           echo "Download attempts failed: $failed"
 
           if [ "$failed" -gt 0 ]; then
-            echo "::warning::Some prior batch indexes were unavailable."
+            echo "::error::PRIOR_BATCH_INDEX_DOWNLOAD_FAILED"; exit 1
           fi
       - name: Build self-healing prospective batch
         shell: bash
