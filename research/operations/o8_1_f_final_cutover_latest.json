@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-10-26T15:20:47Z",
+  "generated_at_utc": "2026-10-26T16:03:32Z",
   "state": "WAIT_GITHUB_ONLY_EVIDENCE",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -181,7 +181,7 @@
         "latest_success_created_at_utc": "2026-10-26T14:32:02Z",
         "latest_success_run_id": 40340463503,
         "latest_success_event": "workflow_dispatch",
-        "latest_success_age_minutes": 48.75908868333333,
+        "latest_success_age_minutes": 91.51556538333332,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-10-26T15:18:51Z",
         "latest_success_run_id": 40348088889,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.9424220166666666,
+        "latest_success_age_minutes": 44.69889871666667,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -201,11 +201,11 @@
       },
       "public": {
         "name": "public_pages_production",
-        "state": "PASS",
+        "state": "WAIT",
         "latest_success_created_at_utc": "2026-10-26T11:23:14Z",
         "latest_success_run_id": 40314678508,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 237.55908868333333,
+        "latest_success_age_minutes": 280.31556538333336,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -226,7 +226,8 @@
     }
   },
   "blockers": [
-    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS"
+    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS",
+    "PUBLIC_PRODUCTION_RUNTIME_FRESHNESS"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
