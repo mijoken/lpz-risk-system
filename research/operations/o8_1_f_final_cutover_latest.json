@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-11-05T09:41:08Z",
+  "generated_at_utc": "2026-11-05T10:41:14Z",
   "state": "WAIT_GITHUB_ONLY_EVIDENCE",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -177,11 +177,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-11-05T07:19:53Z",
-        "latest_success_run_id": 41986465537,
-        "latest_success_event": "workflow_dispatch",
-        "latest_success_age_minutes": 141.2588329666667,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-11-05T10:26:02Z",
+        "latest_success_run_id": 42010659539,
+        "latest_success_event": "workflow_run",
+        "latest_success_age_minutes": 15.201684449999998,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-11-05T09:39:47Z",
         "latest_success_run_id": 42004215628,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.3588329666666668,
+        "latest_success_age_minutes": 61.45168445,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -201,11 +201,11 @@
       },
       "public": {
         "name": "public_pages_production",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-11-05T02:48:56Z",
-        "latest_success_run_id": 41957621312,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-11-05T10:24:28Z",
+        "latest_success_run_id": 42010443948,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 412.20883296666665,
+        "latest_success_age_minutes": 16.768351116666665,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -226,9 +226,7 @@
     }
   },
   "blockers": [
-    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON",
-    "PUBLIC_PRODUCTION_RUNTIME_FRESHNESS"
+    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
