@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-11-11T10:40:09Z",
+  "generated_at_utc": "2026-11-11T10:48:55Z",
   "state": "WAIT_GITHUB_ONLY_EVIDENCE",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -177,11 +177,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-11-11T08:20:25Z",
-        "latest_success_run_id": 42986243241,
-        "latest_success_event": "workflow_dispatch",
-        "latest_success_age_minutes": 139.73660205,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-11-11T10:43:39Z",
+        "latest_success_run_id": 43006020584,
+        "latest_success_event": "schedule",
+        "latest_success_age_minutes": 5.267374383333333,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-11-11T09:38:16Z",
         "latest_success_run_id": 42996853568,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 61.88660205,
+        "latest_success_age_minutes": 70.65070771666666,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -205,7 +205,7 @@
         "latest_success_created_at_utc": "2026-11-11T07:14:00Z",
         "latest_success_run_id": 42977984841,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 206.15326871666667,
+        "latest_success_age_minutes": 214.91737438333334,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -226,8 +226,7 @@
     }
   },
   "blockers": [
-    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON"
+    "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS"
   ],
   "risk_engine_allowed": false,
   "public_risk_release_allowed": false,
