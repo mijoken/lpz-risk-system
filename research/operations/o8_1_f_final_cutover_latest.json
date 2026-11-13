@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-11-13T09:47:56Z",
+  "generated_at_utc": "2026-11-13T10:48:25Z",
   "state": "WAIT_GITHUB_ONLY_EVIDENCE",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -177,11 +177,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-11-13T05:43:52Z",
-        "latest_success_run_id": 43373916545,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-11-13T10:26:42Z",
+        "latest_success_run_id": 43409101387,
         "latest_success_event": "workflow_dispatch",
-        "latest_success_age_minutes": 244.06778651666667,
+        "latest_success_age_minutes": 21.7228325,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-11-13T09:46:21Z",
         "latest_success_run_id": 43404094243,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.5844531833333333,
+        "latest_success_age_minutes": 62.0728325,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -205,7 +205,7 @@
         "latest_success_created_at_utc": "2026-11-13T05:18:56Z",
         "latest_success_run_id": 43371211772,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 269.00111985,
+        "latest_success_age_minutes": 329.4894991666667,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -227,7 +227,6 @@
   },
   "blockers": [
     "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON",
     "PUBLIC_PRODUCTION_RUNTIME_FRESHNESS"
   ],
   "risk_engine_allowed": false,
