@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "phase": "2L-O8.1-F-final-github-only-cutover-audit",
-  "generated_at_utc": "2026-11-23T10:58:22Z",
+  "generated_at_utc": "2026-11-23T12:10:50Z",
   "state": "WAIT_GITHUB_ONLY_EVIDENCE",
   "cutover_ready": false,
   "github_only_production_start_date": "2026-10-01",
@@ -177,11 +177,11 @@
     "runtime": {
       "collector": {
         "name": "prospective_self_healing_collector",
-        "state": "WAIT",
-        "latest_success_created_at_utc": "2026-11-23T03:53:46Z",
-        "latest_success_run_id": 45108620159,
+        "state": "PASS",
+        "latest_success_created_at_utc": "2026-11-23T11:34:21Z",
+        "latest_success_run_id": 45166400415,
         "latest_success_event": "workflow_dispatch",
-        "latest_success_age_minutes": 424.60726975,
+        "latest_success_age_minutes": 36.487419433333336,
         "freshness_limit_minutes": 120.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -193,7 +193,7 @@
         "latest_success_created_at_utc": "2026-11-23T10:56:30Z",
         "latest_success_run_id": 45160610988,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 1.8739364166666665,
+        "latest_success_age_minutes": 74.33741943333332,
         "freshness_limit_minutes": 2880.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -205,7 +205,7 @@
         "latest_success_created_at_utc": "2026-11-23T03:31:06Z",
         "latest_success_run_id": 45106448795,
         "latest_success_event": "schedule",
-        "latest_success_age_minutes": 447.27393641666663,
+        "latest_success_age_minutes": 519.7374194333333,
         "freshness_limit_minutes": 240.0,
         "latest_completed_conclusion": "success",
         "latest_failure_after_success": false,
@@ -227,7 +227,6 @@
   },
   "blockers": [
     "TWO_CONSECUTIVE_GITHUB_ONLY_CANONICAL_96_OF_96_DAYS",
-    "COLLECTOR_FRESHNESS_WITHIN_RECOVERY_HORIZON",
     "PUBLIC_PRODUCTION_RUNTIME_FRESHNESS"
   ],
   "risk_engine_allowed": false,
